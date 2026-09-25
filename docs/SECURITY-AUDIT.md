@@ -64,7 +64,7 @@ The UI looked finished, which hid the fact that the server was effectively open 
 | B8 | "Agent mode" displayed hard-coded fake reasoning steps. | `app/api/chat/route.ts:65` | Real deep mode: model-planned queries, fused retrieval, honest steps. |
 | B9 | One embedding request per chunk (10 in parallel, no retry); a cached rejected promise broke ingestion until restart. | `lib/embeddings.ts:22,29`, `lib/vectorStore.ts:12` | Batched `batchEmbedContents` (100/request), retries with backoff, dimension checks. |
 | B10 | Auth gate was a client-side modal over a page that had already loaded data. | `app/page.tsx:94-98` | Server-side session check before rendering. |
-| B11 | ~1 000 lines of dead code and two diverging login UIs; README pointed to a missing `.env.example` and `starter/`. | `components/ingestion-hub.tsx`, `file-upload-zone.tsx`, `lib/rag.ts`, `lib/sanitizeContent.ts`, `components/ui/*` | Single login form; components rewritten or reused; see Cleanup in ARCHITECTURE.md for the remaining obsolete files. |
+| B11 | ~1 000 lines of dead code and two diverging login UIs; README pointed to a missing `.env.example` and `starter/`. | `components/ingestion-hub.tsx`, `file-upload-zone.tsx`, `lib/rag.ts`, `lib/sanitizeContent.ts`, `components/ui/*` | Single login form; components rewritten or reused; the obsolete modules were deleted. |
 | B12 | `.npmrc` `legacy-peer-deps=true` hid dependency conflicts. | `.npmrc` | Removed; dependency tree resolves cleanly. |
 
 ## Follow-up review of the refactored code (September 2026)

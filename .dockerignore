@@ -15,7 +15,6 @@ npm-debug.log*
 # Secrets and local settings: configure the platform's environment instead.
 .env
 .env.*
-!.env.example
 *.pem
 
 # Generated from node_modules during the build.

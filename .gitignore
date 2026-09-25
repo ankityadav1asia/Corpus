@@ -47,3 +47,7 @@ next-env.d.ts
 # pdf.js library and worker, copied from node_modules by scripts/copy-pdf-worker.mjs
 /public/pdf.min.mjs
 /public/pdf.worker.min.mjs
+
+# local only: the AI agent guide and the environment template stay off GitHub
+CLAUDE.md
+.env.example

@@ -43,7 +43,7 @@ module.exports = {
       // Routes and pages stay thin: they reach data through services and repositories.
       files: ['app/**'],
       rules: {
-        'no-restricted-imports': ['error', { patterns: [{ group: ['@/server/db/*'], message: 'Go through a service or repository (see CLAUDE.md → Architecture rules).' }] }],
+        'no-restricted-imports': ['error', { patterns: [{ group: ['@/server/db/*'], message: 'Go through a service or repository (see docs/CODE-STANDARDS.md → Structure).' }] }],
       },
     },
     {

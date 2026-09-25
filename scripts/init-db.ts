@@ -9,7 +9,7 @@ import { runMigrations } from '@/server/db/migrate'
 
 async function main() {
   const url = process.env.POSTGRES_URL?.trim()
-  if (!url) throw new Error('POSTGRES_URL is not set. Copy .env.example to .env and fill it in.')
+  if (!url) throw new Error('POSTGRES_URL is not set. Add it to .env (see README → Quick start).')
   const db = createDb(url)
   try {
     const { applied, version } = await runMigrations(db, (message) => console.log(`✓ ${message}`))

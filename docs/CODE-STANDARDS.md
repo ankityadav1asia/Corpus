@@ -5,8 +5,7 @@ These are the rules every change follows:
 - `npm run lint` enforces most of them (ESLint, [.eslintrc.cjs](../.eslintrc.cjs); it fails on any
   warning).
 - `npm run typecheck` enforces the types (TypeScript strict mode).
-- The rest are checked in review. The architecture rules are in [CLAUDE.md](../CLAUDE.md) and
-  [ARCHITECTURE.md](ARCHITECTURE.md).
+- The rest are checked in review. The architecture is described in [ARCHITECTURE.md](ARCHITECTURE.md).
 
 ## Before every commit
 

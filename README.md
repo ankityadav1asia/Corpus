@@ -35,10 +35,12 @@ box), and either a Gemini API key or an OpenAI-compatible model server.
 
 ```bash
 npm install
-cp .env.example .env          # set POSTGRES_URL, AUTH_SECRET, GOOGLE_API_KEY (+ APP_URL for production)
+# create .env with POSTGRES_URL, AUTH_SECRET (openssl rand -hex 32) and GOOGLE_API_KEY (+ APP_URL for production)
 npm run db:migrate            # creates/upgrades the app schema; safe to re-run
 npm run dev                   # http://localhost:3000
 ```
+
+Every setting is declared and validated in [server/env.ts](server/env.ts); the Configuration section below lists the notable ones.
 
 On Windows PowerShell, if scripts are blocked (`npm.ps1 cannot be loaded`), use `npm.cmd run …`.
 
@@ -61,7 +63,7 @@ OPENAI_COMPATIBLE_EMBEDDING_MODEL=nomic-embed-text
 ```
 
 OCR uses Tesseract on the server by default (no API calls). Vision, transcription and speech can also
-point at open-source servers (e.g. Qwen2.5-VL, faster-whisper, Kokoro) — see `.env.example`.
+point at open-source servers (e.g. Qwen2.5-VL, faster-whisper, Kokoro) — see [server/env.ts](server/env.ts).
 Workspace settings → **AI models** shows what each capability uses; after changing the embedding model,
 an admin re-embeds the workspace there (until then, older passages are found by keyword search only).
 
@@ -146,7 +148,7 @@ must come from the same origin. Workspace-scoped routes need an `X-Workspace-Id`
 
 ## Configuration
 
-Everything is documented in [.env.example](.env.example). Notable settings:
+Every variable is declared and validated in [server/env.ts](server/env.ts). Notable settings:
 
 - `AUTH_SECRET` is mandatory (≥ 32 characters); there is no default. It signs sessions and derives the key that encrypts connector and chat-app credentials; rotate it with `AUTH_SECRET_PREVIOUS` and `npm run secrets:reseal` ([docs/SECURITY.md](docs/SECURITY.md)).
 - `TRUST_PROXY` = the number of reverse proxies in front of the app (1 on Render, Railway or Fly), so per-IP rate limits see real client addresses; `WEB_RUNS_JOBS=false` when a dedicated worker processes the job queue.
