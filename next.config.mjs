@@ -14,6 +14,8 @@ const securityHeaders = [
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // A second local instance (a demo on another port, screenshots) can build into its own folder.
+  distDir: process.env.NEXT_DIST_DIR || '.next',
   poweredByHeader: false,
   // PGlite is a devDependency used only for POSTGRES_URL=pglite:… local development (server/db/pglite.ts).
   // Tesseract (OCR) starts its own worker script and loads WebAssembly from node_modules at run time.

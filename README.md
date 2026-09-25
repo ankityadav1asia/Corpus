@@ -1,32 +1,345 @@
+<div align="center">
+
 # Corpus — team RAG workspaces (Next.js + Postgres/pgvector + open-source models)
 
-Collect files, scans, images, recordings, web pages, YouTube transcripts, notes and whole apps
-(Google Drive, Notion, GitHub, websites) into **notebooks**, ask questions answered only from those
-sources with numbered citations, turn them into audio overviews, mind maps, reports and images, and
-share everything with your team.
+**A team knowledge assistant: ask questions about your own documents and get answers with citations.**
 
-- **Workspaces & roles** — a private personal workspace for everyone, plus team workspaces with Admin / Editor / Viewer roles, per-notebook overrides, email invitations and an audit log
-- **Advanced retrieval** — hybrid search (pgvector + full-text, Reciprocal Rank Fusion), multi-query expansion, step-back prompting and HyDE in deep mode, then re-ranking (LLM grader or Cohere Rerank)
-- **Source guardrail** — when nothing relevant enough is found, the reply is exactly *“Insufficient context in knowledge base.”* instead of a guess
-- **Multimodal sources & OCR** — PDFs, text formats, images (vision description + OCR), scanned PDFs (Tesseract OCR, page by page), audio and video (timestamped transcripts); up to 50 MB per file, indexed in the background
-- **Connectors** — Google Drive files and folders, Notion pages and databases, GitHub repositories (docs), websites (sitemap or crawl, robots.txt respected); incremental, scheduled sync
-- **Audio overviews** — NotebookLM-style two-host conversations (deep dive, brief, critique, debate; 16 languages incl. Hindi and Hinglish) with a timed transcript
-- **Mind maps** — an interactive topic tree across your sources; click a topic to ask about it in chat
-- **Open-source models** — Gemma via the Gemini API, or any OpenAI-compatible server (Ollama, vLLM, LM Studio, LocalAI, Groq …) for chat, embeddings, vision, transcription and speech; re-embed a workspace after switching
-- **Fast answers** — helper calls (re-ranking, planning, judging) skip the model's thinking phase and can use a smaller model; each helper stage has a time limit; repeated questions reuse their embeddings
-- **Follow-up questions** — three suggested next questions under each answer, generated after it has been delivered
-- **Inline charts** — answers that compare numbers include a bar, line or pie chart drawn from the cited figures
-- **PDF viewer** — citations open the original PDF at the cited passage, highlighted
-- **Share links** — read-only public snapshots of a chat or report; view counts; revoke any time
-- **Slack & Microsoft Teams bots** — your team asks from chat; answers come from a chosen notebook, with sources
-- **Voice chat** — talk to your notebooks and hear the answers (spoken sentence by sentence while they stream)
-- **Studio** — reports (executive summary, comparison table, slide outline) and knowledge-grounded images, both traceable to their sources
-- **Chunk editor** — edit text (re-embedded automatically), labels and metadata; add or delete chunks; inspect vectors
-- **Quality** — faithfulness, answer relevance and context precision for live answers (LLM-as-judge), context recall from benchmarks, thumbs up/down feedback
-- Command palette, notifications, pinned conversations, light and dark themes; Google / GitHub / email-code sign-in, SSRF-safe fetching, rate limits, a background job queue in Postgres
+[![CI](https://github.com/ankityadav1asia/Corpus/actions/workflows/ci.yml/badge.svg)](https://github.com/ankityadav1asia/Corpus/actions/workflows/ci.yml)
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for the design and
-[docs/SECURITY-AUDIT.md](docs/SECURITY-AUDIT.md) for what was wrong with the previous version.
+[Video](#video-walkthrough) · [Screenshots](#screenshots) · [Features](#features) · [Architecture](#architecture) · [Methods](#methods-and-techniques) · [Tech stack](#tech-stack) · [Quick start](#quick-start) · [Deployment](#deployment)
+
+</div>
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/chat-dark.png" />
+  <img alt="An answer with numbered citations, the research steps, an inline chart, quality scores and follow-up questions" src="docs/images/chat-light.png" />
+</picture>
+
+Corpus collects files, scanned PDFs, images, recordings, web pages, YouTube videos, notes and whole apps
+(Google Drive, Notion, GitHub, websites) into **notebooks**. You ask questions in plain language;
+every answer comes only from those sources, with numbered citations you can open. The studio then
+turns the same sources into reports, mind maps, audio overviews and images, and a team shares it all
+with Admin, Editor and Viewer roles.
+
+## Video walkthrough
+
+<!--
+  YouTube: replace YOUR_VIDEO_ID in both places below with the part of your video's URL after
+  "watch?v=", remove this comment and the two comment markers around the thumbnail, and delete the
+  "coming soon" line.
+
+[![Watch the Corpus walkthrough on YouTube](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+-->
+
+🎬 *A video walkthrough of the project is coming soon.*
+
+## Screenshots
+
+All screenshots show demo data for a fictional company.
+
+| | |
+|:---:|:---:|
+| ![Sources drawer](docs/images/sources.png) | ![Connected apps](docs/images/apps.png) |
+| **Sources:** files, scans read with OCR and recordings being transcribed, all indexed in the background | **Connected apps:** Google Drive, Notion, GitHub and websites, kept in sync on a schedule |
+| ![Mind map](docs/images/mind-map.png) | ![Report](docs/images/report.png) |
+| **Mind maps:** a topic tree across your sources; click a topic to see where it comes from or ask about it | **Reports:** executive summaries, comparison tables and slide outlines with sources |
+| ![Usage analytics](docs/images/analytics.png) | ![Answer quality](docs/images/quality.png) |
+| **Analytics:** questions, latency, deep-mode use and questions the guardrail withheld | **Answer quality:** faithfulness, relevance and precision scored by an LLM judge, plus reader feedback |
+| ![Workspace settings](docs/images/settings.png) | ![Shared answer](docs/images/shared.png) |
+| **Workspace settings:** members and roles, retrieval and guardrail knobs, models, chat apps, public links, activity | **Share links:** a read-only snapshot of a chat or report that anyone with the link can open |
+| ![Command palette](docs/images/palette.png) | ![Sign in](docs/images/login.png) |
+| **Command palette:** jump to any view, chat, notebook or action with Ctrl/⌘ K | **Sign in:** Google, GitHub or a one-time email code |
+
+## Features
+
+**Ask and answer**
+- Answers only from your sources, with numbered citations that open the passage (and the original PDF at the cited spot, highlighted)
+- Deep mode: several rewrites of the question, a broader "step-back" question and a hypothetical answer, searched together
+- A relevance guardrail: when nothing relevant is found, the reply is exactly *"Insufficient context in knowledge base."* instead of a guess
+- Follow-up question suggestions, inline bar, line and pie charts, voice chat (speak and listen), chat history grouped by date, search, pin, rename, branch, export
+
+**Sources**
+- PDF and text formats, images (described by a vision model and read with OCR), scanned PDFs (OCR page by page), audio and video (timestamped transcripts), web pages, YouTube transcripts and notes; up to 50 MB per file
+- Connected apps: Google Drive files and folders, Notion pages and databases, GitHub documentation, whole websites (sitemap or crawl, robots.txt respected), synced on a schedule
+- Indexing runs in the background and resumes after interruptions; a chunk editor lets you correct text, labels and metadata
+
+**Studio**
+- Reports: executive summary, comparison table or slide outline across notebooks and documents
+- Mind maps: an interactive topic tree across your sources
+- Audio overviews: two-host conversations in 16 languages (including Hindi and Hinglish) with a timed transcript
+- Images grounded in your sources (infographics, diagrams, illustrations)
+
+**Teams**
+- A private personal workspace for everyone, plus team workspaces with Admin, Editor and Viewer roles and per-notebook overrides
+- Email invitations, an activity (audit) log, notifications, read-only share links
+- Slack and Microsoft Teams bots that answer from a chosen notebook, with sources
+
+**Quality and operations**
+- Every answer scored in the background (faithfulness, answer relevance, context precision); benchmarks with reference answers; thumbs up and down
+- Usage and latency analytics per person or workspace
+- Gemini by default, or Gemma and any OpenAI-compatible server (Ollama, vLLM, LM Studio, Groq and others) per capability; OCR runs locally with Tesseract
+
+## Architecture
+
+### System overview
+
+```mermaid
+flowchart LR
+  subgraph Clients
+    B["Browser app<br/>(Next.js, React 19)"]
+    CA["Slack / Microsoft Teams"]
+    PUB["Public share page<br/>/s/:token"]
+  end
+  subgraph Web["Web server (Next.js 15)"]
+    MW["Middleware<br/>session signature, CSP nonce"]
+    RT["API routes<br/>validate, authorise, call a service"]
+    SV["Services<br/>RAG, ingestion, studio, connectors, sharing"]
+    RP["Repositories<br/>parameterised, workspace-scoped SQL"]
+  end
+  WK["Worker<br/>background jobs"]
+  DB[("PostgreSQL + pgvector<br/>(Neon)")]
+  AI["Models<br/>Gemini, Gemma, OpenAI-compatible<br/>chat, embeddings, vision, speech"]
+  EXT["Google Drive, Notion, GitHub,<br/>websites, YouTube"]
+  B --> MW --> RT --> SV --> RP --> DB
+  CA -->|signed webhooks| RT
+  PUB --> RT
+  SV --> AI
+  SV -. queue jobs .-> DB
+  WK -->|claim jobs| DB
+  WK --> AI
+  WK --> EXT
+```
+
+### Answering a question
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant C as Chat API
+  participant Q as Query planner
+  participant R as Hybrid retrieval
+  participant K as Re-ranker
+  participant G as Guardrail
+  participant M as Chat model
+  participant J as Job queue
+  U->>C: question, notebook, mode
+  C->>C: check session, workspace role and rate limit
+  opt Deep mode
+    C->>Q: rewrites, step-back question, hypothetical answer (in parallel, 8 s limit)
+  end
+  C->>R: embed all queries in one request
+  R->>R: vector search and full-text search per query, fused with RRF
+  C->>K: score the candidates (LLM grader or Cohere), keep the top K
+  C->>G: is the best passage relevant enough?
+  alt Not enough context
+    G-->>U: "Insufficient context in knowledge base." (no model call)
+  else Relevant passages found
+    C-->>U: sources [1] to [K]
+    C->>M: prompt with the passages marked as data
+    M-->>U: streamed answer with [n] citations
+    C->>J: score the answer later (LLM judge)
+  end
+  U->>C: follow-up suggestions (separate request)
+```
+
+Progress reaches the browser as a stream of events (`start`, `status`, `sources`, `delta`, `done`), so the
+steps show while they run.
+
+### Adding a source
+
+```mermaid
+flowchart TD
+  IN["Upload, web page, YouTube, text<br/>or an item from a connected app"] --> KIND{"What is it?"}
+  KIND -->|"PDF or text format"| TXT["Extract the text"]
+  KIND -->|"Scanned PDF"| OCR["OCR page by page<br/>(Tesseract or a vision model)"]
+  KIND -->|"Image"| VIS["Vision description + OCR"]
+  KIND -->|"Audio or video"| TRN["Timestamped transcript"]
+  OCR --> TXT
+  VIS --> TXT
+  TRN --> TXT
+  TXT --> SPL["Split into overlapping passages"]
+  SPL --> EMB["Embed in batches<br/>(3072-dimension vectors, model recorded)"]
+  EMB --> STORE[("Passages: text + vector<br/>+ full-text index")]
+  STORE --> DONE["Document ready: notify the person who added it"]
+```
+
+Reading media and indexing are background jobs. Each one saves its progress (pages read, passages
+stored), so an interrupted job continues where it stopped.
+
+### Background jobs
+
+```mermaid
+flowchart LR
+  Q[("Job queue<br/>(table in Postgres)")] -->|"claimed with FOR UPDATE SKIP LOCKED"| W["Worker"]
+  W --> A["read_media, ingest_document"]
+  W --> B["generate_report, generate_mindmap"]
+  W --> C["generate_audio, generate_image"]
+  W --> D["sync_connector"]
+  W --> E["answer_bot_message"]
+  W --> F["evaluate_answer, run_benchmark"]
+  W --> G["reembed_workspace"]
+```
+
+- Any number of workers can run, and each job runs once.
+- Failures are retried with growing waits; failures a retry cannot fix end the job at once with a
+  clear message.
+- Long work continues across runs.
+
+### Studio
+
+```mermaid
+flowchart LR
+  SEL["Chosen notebooks<br/>or documents"] --> NOTES["Source notes<br/>(one summary per document)"]
+  NOTES --> REP["Report<br/>summary, comparison or slides"]
+  NOTES --> MAP["Mind map<br/>validated topic tree"]
+  NOTES --> SCRIPT["Two-host script"] --> VOICE["Speech, segment by segment"] --> MP3["MP3 + timed transcript"]
+  SEL --> BRIEF["Image brief from the<br/>most relevant passages"] --> IMG["Image model"] --> CHECK["Checked, stored image"]
+```
+
+### Connected apps
+
+```mermaid
+sequenceDiagram
+  participant S as Scheduler
+  participant J as Sync job
+  participant A as App API (Drive, Notion, GitHub, website)
+  participant I as Ingestion
+  S->>J: sources that are due become jobs
+  J->>A: list the items (bounded)
+  loop each item, from the saved position
+    J->>A: fetch it if its version changed
+    J->>I: queue it like an upload (OCR or transcription when needed)
+  end
+  J->>J: remove documents whose item disappeared
+  J-->>S: notify the member (added, updated, removed, failed)
+```
+
+A sync runs with the current rights of the member who added the source. Tokens are stored encrypted
+and never sent to the browser.
+
+### Sharing and chat apps
+
+```mermaid
+flowchart LR
+  subgraph Links["Share links"]
+    ED["Editor"] -->|"create"| SNAP["Snapshot + random token<br/>(stored hashed and encrypted)"]
+    ANY["Anyone with the link"] -->|"/s/:token"| SNAP
+  end
+  subgraph Bots["Slack and Teams"]
+    ASK["Mention or direct message"] -->|"signature or JWT checked"| HOOK["Webhook<br/>(answers at once)"]
+    HOOK --> JOB["answer_bot_message job"]
+    JOB -->|"answer from the chosen notebook"| ASK
+  end
+```
+
+### Sign-in and access control
+
+```mermaid
+flowchart TD
+  IN["Sign in: Google, GitHub or an email code"] --> SES["Server-side session<br/>+ signed httpOnly cookie"]
+  SES --> MW["Middleware: signature and expiry"]
+  MW --> H["Handler: session not revoked,<br/>workspace membership"]
+  H --> P{"Permission table<br/>Viewer, Editor, Admin<br/>+ notebook overrides"}
+  P -->|"allowed"| SQL["Parameterised SQL<br/>scoped to the workspace"]
+  P -->|"not allowed"| DENY["403, or 404 for non-members"]
+```
+
+### Data model
+
+```mermaid
+erDiagram
+  USERS ||--o{ WORKSPACE_MEMBERS : joins
+  WORKSPACES ||--o{ WORKSPACE_MEMBERS : has
+  WORKSPACES ||--o{ COLLECTIONS : "holds notebooks"
+  COLLECTIONS ||--o{ DOCUMENTS : contains
+  DOCUMENTS ||--o{ CHUNKS : "split into"
+  WORKSPACES ||--o{ CONVERSATIONS : has
+  CONVERSATIONS ||--o{ MESSAGES : has
+  MESSAGES ||--o| EVALUATIONS : "scored by"
+  WORKSPACES ||--o{ REPORTS : has
+  WORKSPACES ||--o{ MIND_MAPS : has
+  WORKSPACES ||--o{ AUDIO_OVERVIEWS : has
+  WORKSPACES ||--o{ IMAGES : has
+  COLLECTIONS ||--o{ CONNECTOR_SOURCES : "synced into"
+  USERS ||--o{ SESSIONS : "signed in"
+  WORKSPACES ||--o{ SHARE_LINKS : publishes
+  WORKSPACES ||--o{ JOBS : queues
+```
+
+Each passage (`chunks`) keeps its text, a 3072-dimension vector, the embedding model that produced
+it, a full-text index, labels and metadata in one row. Every query is scoped by workspace.
+
+### Deployment
+
+```mermaid
+flowchart LR
+  PUSH["git push"] --> GH["GitHub"]
+  GH --> CI["GitHub Actions<br/>typecheck, lint, 335 tests,<br/>build, audit, Docker image"]
+  CI -->|"checks pass"| RB["Render Blueprint"]
+  RB --> PRE["Pre-deploy: migrations"]
+  RB --> WEB["Web service (Docker)"]
+  RB --> WRK["Worker (Docker)"]
+  PRE --> NEON[("Neon PostgreSQL<br/>+ pgvector")]
+  WEB --> NEON
+  WRK --> NEON
+```
+
+More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+## Methods and techniques
+
+### Retrieval-augmented generation
+
+| Technique | What it does | Code |
+|---|---|---|
+| Hybrid search | Dense vector similarity (pgvector, cosine) combined with PostgreSQL full-text search (`websearch_to_tsquery`) | `server/rag/retrieval.ts` |
+| Reciprocal Rank Fusion | Merges the ranked results of every query and both search types into one list | `server/rag/retrieval.ts` |
+| Multi-query expansion | Three to five rewrites of the question (deep mode) | `server/rag/query-transform.ts` |
+| Step-back prompting | Also searches a broader question about the underlying concept | `server/rag/query-transform.ts` |
+| HyDE | Embeds a hypothetical answer to find passages written like answers | `server/rag/query-transform.ts` |
+| Re-ranking | An LLM grades the candidates (listwise, 0–10) or Cohere Rerank scores them; the top K reach the model | `server/rag/rerank.ts` |
+| Relevance guardrail | No answer, and no model call, when the best passage is below the workspace's threshold | `server/rag/guardrail.ts` |
+| Grounded generation | Passages are escaped and wrapped in delimiters as data (prompt-injection defence); answers cite `[n]` | `server/rag/prompt.ts` |
+| Streaming | NDJSON events from the server; the answer appears as it is written | `lib/stream-protocol.ts` |
+| Fast paths | Helper calls skip the model's thinking phase or use a smaller model; each optional stage has a deadline; repeated questions reuse their embeddings | `server/ai`, `server/rag/query-cache.ts` |
+| LLM-as-judge | Faithfulness, answer relevance and context precision for live answers; context recall against reference answers in benchmarks | `server/evaluation` |
+
+### Documents and media
+
+| Technique | Details |
+|---|---|
+| Text extraction | PDF text layer (pdf-parse), HTML (cheerio), Markdown, CSV, JSON; files identified by their bytes, not their names |
+| OCR | Tesseract.js (WebAssembly, English data bundled) page by page, or a vision model for handwriting and complex layouts |
+| Transcription | Timestamped transcripts of audio and video (Gemini, or an OpenAI-compatible Whisper server) |
+| Chunking | Recursive splitting with overlap |
+| Embeddings | `gemini-embedding-001` (3072 dimensions) or any OpenAI-compatible model; the model is stored with each passage, and a workspace can be re-embedded after switching |
+| Speech | Gemini text-to-speech (or an OpenAI-compatible server), encoded to MP3 in the app |
+
+### Engineering
+
+| Area | Method |
+|---|---|
+| Architecture | Layers: route → service → repository; one composition root; interfaces for the database, every model capability, connectors and email |
+| Access control | One role-permission table with per-notebook overrides; membership checked on every request; SQL scoped by workspace; another workspace's ids behave like missing ones |
+| Security | Server-side revocable sessions; per-request nonce Content-Security-Policy; AES-256-GCM encryption of stored credentials with key rotation; SSRF-safe fetching; rate limits stored in Postgres; signed webhooks; a production configuration check at start |
+| Background work | A job queue in Postgres (`FOR UPDATE SKIP LOCKED`), retries with backoff, idempotent and resumable jobs |
+| Testing | 335 tests with Node's test runner on PGlite (real PostgreSQL + pgvector in WebAssembly) and fake model providers; no network needed |
+| Quality gates | TypeScript strict mode, an ESLint policy (file size, complexity, layering, configuration access), CI on every push, Dependabot |
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, SWR, react-markdown, pdf.js |
+| Backend | Next.js route handlers, zod validation, NDJSON streaming |
+| Database | PostgreSQL with pgvector (Neon in production); PGlite for tests and local development |
+| AI models | Google Gemini (chat, embeddings, vision, transcription, speech, images), Gemma, OpenAI-compatible servers (Ollama, vLLM, LM Studio, Groq and others), Cohere Rerank |
+| Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript, lamejs (MP3) |
+| Integrations | Google Drive (OAuth with PKCE), Notion, GitHub, website crawler, Slack Events API, Microsoft Bot Framework |
+| Email | Resend or SMTP (nodemailer) for sign-in codes |
+| Operations | Docker, Render, GitHub Actions, Dependabot |
+| Testing | node:test, tsx, PGlite, fake model providers |
 
 ## Quick start
 
@@ -36,17 +349,15 @@ box), and either a Gemini API key or an OpenAI-compatible model server.
 ```bash
 npm install
 # create .env with POSTGRES_URL, AUTH_SECRET (openssl rand -hex 32) and GOOGLE_API_KEY (+ APP_URL for production)
-npm run db:migrate            # creates/upgrades the app schema; safe to re-run
+npm run db:migrate            # creates or upgrades the app schema; safe to re-run
 npm run dev                   # http://localhost:3000
 ```
 
-Every setting is declared and validated in [server/env.ts](server/env.ts); the Configuration section below lists the notable ones.
+Every setting is declared and validated in [server/env.ts](server/env.ts); [Configuration](#configuration) lists the notable ones.
 
-On Windows PowerShell, if scripts are blocked (`npm.ps1 cannot be loaded`), use `npm.cmd run …`.
-
-Without an email provider, `npm run dev` prints sign-in codes to the server console.
-To try the app without a database server, set `POSTGRES_URL=pglite:./.data/pglite` (in-process
-Postgres + pgvector, for local development only).
+- On Windows PowerShell, if scripts are blocked (`npm.ps1 cannot be loaded`), use `npm.cmd run …`.
+- Without an email provider, `npm run dev` prints sign-in codes to the server console.
+- To try the app without a database server, set `POSTGRES_URL=pglite:./.data/pglite` (Postgres + pgvector in the Node process, for local development only).
 
 ### Running on open-source models
 
@@ -62,54 +373,68 @@ OPENAI_COMPATIBLE_CHAT_MODEL=qwen3:8b
 OPENAI_COMPATIBLE_EMBEDDING_MODEL=nomic-embed-text
 ```
 
-OCR uses Tesseract on the server by default (no API calls). Vision, transcription and speech can also
-point at open-source servers (e.g. Qwen2.5-VL, faster-whisper, Kokoro) — see [server/env.ts](server/env.ts).
-Workspace settings → **AI models** shows what each capability uses; after changing the embedding model,
-an admin re-embeds the workspace there (until then, older passages are found by keyword search only).
+OCR uses Tesseract on the server by default, with no API calls. Vision, transcription and speech can
+also use open-source servers (for example Qwen2.5-VL, faster-whisper or Kokoro); see
+[server/env.ts](server/env.ts). Workspace settings → **AI models** shows what each capability uses.
+After changing the embedding model, an admin re-embeds the workspace there. Until then, older
+passages are found by keyword search only.
 
 ### Upgrading an existing database
 
-`npm run db:migrate` applies every pending migration in order (v1 → v14): workspaces and roles
-(moving each user's data into their personal workspace), chunk labels, jobs and evaluation, reports,
-background ingestion, images, feedback / notifications / audit, embedding-model tagging and media,
-audio overviews and mind maps, connectors, follow-ups / share links / original PDFs / chat apps,
-server-side sessions, and chat-app notebook scope. Take a backup (a Neon branch) first. From v13 on,
-sessions live in the database, so everyone signs in again once after upgrading. Data written by the
-very first version of the app can be imported with `npm run db:import-legacy -- --email you@example.com`.
+`npm run db:migrate` applies every pending migration in order (v1 → v14). Take a backup (a Neon
+branch) first. From v13 on, sessions live in the database, so everyone signs in again once after
+upgrading. Data written by the very first version of the app can be imported with
+`npm run db:import-legacy -- --email you@example.com`.
+
+## Deployment
+
+Production runs the same Docker image twice, as the web server and as the background worker, next
+to a Neon database. Migrations are applied before each release. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
+explains the recommended setup: Render, from [render.yaml](render.yaml), though any Docker host
+works. It also explains why this app is not a good fit for Vercel's serverless functions (4.5 MB
+request bodies, no long-running worker). Security operations (secrets, rotation, the production
+checklist) are in [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Scripts
 
 | Command | What it does |
 |---|---|
-| `npm run dev` / `build` / `start` | Next.js development server / production build / production server |
-| `npm test` | 335 tests (unit, Postgres-in-WASM integration, HTTP routes) — no network needed |
+| `npm run dev` / `build` / `start` | Development server / production build / production server |
+| `npm test` | 335 tests (unit, Postgres-in-WebAssembly integration, HTTP routes); no network needed |
 | `npm run typecheck` / `lint` | TypeScript, and ESLint with the code standards ([docs/CODE-STANDARDS.md](docs/CODE-STANDARDS.md)); lint fails on any warning |
 | `npm run db:migrate` | Apply pending schema migrations |
-| `npm run worker` | Process background jobs (indexing, OCR, transcription, audio, mind maps, syncs, reports, images, evaluations) in a loop; `-- --once` drains the queue |
+| `npm run worker` | Process background jobs in a loop; `-- --once` empties the queue once |
 | `npm run build:scripts` / `start:worker` | Bundle the worker, migration and re-seal scripts into `dist/scripts` / run the bundled worker (production images) |
 | `npm run secrets:reseal` | Re-encrypt stored credentials with a new `AUTH_SECRET` ([docs/SECURITY.md](docs/SECURITY.md)) |
 | `npm run db:import-legacy -- --email …` | Import data from the previous version |
 | `npm run seed -- --email …` | Add a sample document to that user's personal workspace |
 
-Background jobs also run right after the request that queued them and while the UI polls for their
-results; on serverless hosts, schedule `/api/jobs/run` with `Authorization: Bearer $CRON_SECRET`
-(this also starts scheduled connector syncs). Long work (OCR of a big scan, recording a long audio
-overview, syncing a large folder) continues across job runs.
+Background jobs also run right after the request that queued them, and while the UI polls for their
+results. On serverless hosts, schedule `/api/jobs/run` with `Authorization: Bearer $CRON_SECRET`;
+this also starts scheduled connector syncs.
 
-## Deployment
+## Project structure
 
-Production runs the same Docker image twice — the web server and the background worker — next to a
-Neon database, with migrations applied before each release. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-explains the recommended setup (Render, from [render.yaml](render.yaml); any Docker host works) and
-why this app is not a good fit for Vercel's serverless functions (4.5 MB request bodies, no
-long-running worker). Security operations — secrets, rotation, the production checklist — are in
-[docs/SECURITY.md](docs/SECURITY.md).
+```
+app/            pages and API routes (thin: validate, authorise, call a service)
+components/     the UI (workspace shell, sidebar, chat, sources, studio, settings)
+hooks/          data hooks (SWR), chat streaming, shared UI state
+lib/            code shared by browser and server: API contracts, constants, roles
+server/         server-only code: RAG pipeline, ingestion, studio, connectors, jobs,
+                repositories (all SQL), security, model adapters
+scripts/        migrations, worker, re-sealing, seed, legacy import
+tests/          335 tests on PGlite with fake model providers
+docs/           architecture, code standards, deployment, security
+```
 
 ## API
 
-All routes except health, sign-in and the cron endpoint require a session cookie; write requests
-must come from the same origin. Workspace-scoped routes need an `X-Workspace-Id` header
-(non-members get 404; missing roles get 403).
+<details>
+<summary>All routes</summary>
+
+All routes except health, sign-in and the cron endpoint require a session cookie, and write requests
+must come from the same origin. Workspace-scoped routes need an `X-Workspace-Id` header; non-members
+get 404, and missing roles get 403.
 
 | Route | Methods | Purpose |
 |---|---|---|
@@ -146,17 +471,42 @@ must come from the same origin. Workspace-scoped routes need an `X-Workspace-Id`
 | `/api/jobs/run` | GET, POST | Process queued jobs (Bearer `CRON_SECRET`; 404 when unset) |
 | `/api/health` | GET | Public liveness check |
 
+</details>
+
 ## Configuration
 
-Every variable is declared and validated in [server/env.ts](server/env.ts). Notable settings:
+Every variable is declared and validated in [server/env.ts](server/env.ts). The notable ones:
 
-- `AUTH_SECRET` is mandatory (≥ 32 characters); there is no default. It signs sessions and derives the key that encrypts connector and chat-app credentials; rotate it with `AUTH_SECRET_PREVIOUS` and `npm run secrets:reseal` ([docs/SECURITY.md](docs/SECURITY.md)).
-- `TRUST_PROXY` = the number of reverse proxies in front of the app (1 on Render, Railway or Fly), so per-IP rate limits see real client addresses; `WEB_RUNS_JOBS=false` when a dedicated worker processes the job queue.
-- `APP_URL` is required in production; OAuth redirect URIs are `<APP_URL>/api/auth/oauth/callback?provider=google|github` and, for the Google Drive connector, `<APP_URL>/api/connectors/google-drive/callback` (also enable the Drive API and the `drive.readonly` scope).
-- `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS` restrict who can sign in (invitations do not bypass them).
-- Models: `GEMINI_*_MODEL`, or `CHAT_PROVIDER` / `EMBEDDING_PROVIDER` / `VISION_PROVIDER` / `TRANSCRIPTION_PROVIDER` / `TTS_PROVIDER` = `openai-compatible` with `OPENAI_COMPATIBLE_*`; `OCR_ENGINE` (`tesseract` · `vision` · `none`) and `OCR_LANGUAGES`.
-- `RERANKER` (`auto` · `llm` · `cohere` · `none`) with `COHERE_API_KEY`; `CRON_SECRET` enables `/api/jobs/run`.
-- A production server or worker refuses to start without `AUTH_SECRET`, a Postgres `POSTGRES_URL` (not PGlite) and an https `APP_URL`; it logs a warning for missing optional features.
-- Retrieval, guardrail and evaluation settings are per workspace (Workspace settings in the app).
-- Slack: create an app with the bot scopes `app_mentions:read`, `chat:write`, `im:history`, connect it in Workspace settings → Chat apps with its bot token and signing secret, then paste the shown Request URL into Event Subscriptions (`app_mention`, `message.im`). Teams: create an Azure Bot, connect it with its App ID, client secret and tenant, and set the shown messaging endpoint.
-- Gemini free-tier quotas are small (and image generation needs billing); a daily-quota error fails jobs fast with a readable message instead of retrying all day.
+- **`AUTH_SECRET`** (required, at least 32 characters; there is no default)
+  - Signs sessions and derives the key that encrypts connector and chat-app credentials.
+  - Rotate it with `AUTH_SECRET_PREVIOUS` and `npm run secrets:reseal` ([docs/SECURITY.md](docs/SECURITY.md)).
+- **`APP_URL`** (required in production)
+  - OAuth redirect URI for sign-in: `<APP_URL>/api/auth/oauth/callback?provider=google|github`.
+  - Redirect URI for the Google Drive connector: `<APP_URL>/api/connectors/google-drive/callback`. Also enable the Drive API and the `drive.readonly` scope.
+- **Deployment**
+  - `TRUST_PROXY` is the number of reverse proxies in front of the app (1 on Render, Railway or Fly), so per-IP rate limits see real client addresses.
+  - `WEB_RUNS_JOBS=false` when a dedicated worker processes the job queue.
+  - A production server or worker refuses to start without `AUTH_SECRET`, a real Postgres `POSTGRES_URL` (not PGlite) and an https `APP_URL`. Missing optional features only produce a warning.
+- **Who can sign in:** `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`. Invitations do not bypass them.
+- **Models**
+  - Gemini: `GEMINI_*_MODEL`.
+  - Open-source: set `CHAT_PROVIDER`, `EMBEDDING_PROVIDER`, `VISION_PROVIDER`, `TRANSCRIPTION_PROVIDER` or `TTS_PROVIDER` to `openai-compatible` and fill in `OPENAI_COMPATIBLE_*`.
+  - OCR: `OCR_ENGINE` (`tesseract`, `vision` or `none`) and `OCR_LANGUAGES`.
+- **Re-ranking and jobs:** `RERANKER` (`auto`, `llm`, `cohere` or `none`) with `COHERE_API_KEY`. `CRON_SECRET` enables `/api/jobs/run`.
+- **Per workspace:** retrieval, guardrail and evaluation settings live in Workspace settings in the app.
+- **Chat apps**
+  - Slack: create an app with the bot scopes `app_mentions:read`, `chat:write` and `im:history`. Connect it in Workspace settings → Chat apps with its bot token and signing secret, then paste the Request URL it shows into Event Subscriptions (`app_mention`, `message.im`).
+  - Teams: create an Azure Bot, connect it with its App ID, client secret and tenant, then set the messaging endpoint it shows.
+- **Gemini free tier:** quotas are small, and image generation needs billing. A daily-quota error fails jobs quickly with a readable message instead of retrying all day.
+
+## Documentation
+
+- [Architecture](docs/ARCHITECTURE.md): layers, the RAG pipeline, jobs, data model, security model
+- [Code standards](docs/CODE-STANDARDS.md): the rules the linter enforces, and why
+- [Deployment](docs/DEPLOYMENT.md): Render step by step, any Docker host, why not Vercel
+- [Security](docs/SECURITY.md): secrets, key rotation, sessions, the production checklist
+- [Security audit](docs/SECURITY-AUDIT.md): what was wrong with the first version, and how it was fixed
+
+## Author
+
+Built by **Ankit Yadav** ([@ankityadav1asia](https://github.com/ankityadav1asia)).

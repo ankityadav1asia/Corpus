@@ -48,6 +48,7 @@ next-env.d.ts
 /public/pdf.min.mjs
 /public/pdf.worker.min.mjs
 
-# local only: the AI agent guide and the environment template stay off GitHub
+# local only: editor/agent settings, the AI agent guide and the environment template stay off GitHub
+.claude/
 CLAUDE.md
 .env.example
