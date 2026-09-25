@@ -1,0 +1,30 @@
+# Only what the build needs goes into the Docker build context (and never secrets or local data).
+.git
+.github
+.claude
+.kilo
+.vercel
+node_modules
+.next
+dist
+.data
+coverage
+*.tsbuildinfo
+npm-debug.log*
+
+# Secrets and local settings: configure the platform's environment instead.
+.env
+.env.*
+!.env.example
+*.pem
+
+# Generated from node_modules during the build.
+public/pdf.min.mjs
+public/pdf.worker.min.mjs
+
+# Not needed to build or run the app.
+docs
+tests
+Dockerfile
+.dockerignore
+render.yaml
