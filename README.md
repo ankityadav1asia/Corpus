@@ -1,4 +1,4 @@
-# Corpus — team RAG workspaces (Next.js + Postgres/pgvector + Gemini or open-source models)
+# Corpus — team RAG workspaces (Next.js + Postgres/pgvector + open-source models)
 
 Collect files, scans, images, recordings, web pages, YouTube transcripts, notes and whole apps
 (Google Drive, Notion, GitHub, websites) into **notebooks**, ask questions answered only from those
