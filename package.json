@@ -60,7 +60,7 @@
     "@electric-sql/pglite": "^0.5.8",
     "@electric-sql/pglite-pgvector": "^0.0.9",
     "@tailwindcss/typography": "^0.5.16",
-    "@types/node": "^22",
+    "@types/node": "^26",
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
