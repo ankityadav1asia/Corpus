@@ -83,103 +83,25 @@ All screenshots show demo data for a fictional company.
 
 ### System overview
 
-```mermaid
-flowchart LR
-  subgraph Clients
-    B["Browser app<br/>(Next.js, React 19)"]
-    CA["Slack / Microsoft Teams"]
-    PUB["Public share page<br/>/s/:token"]
-  end
-  subgraph Web["Web server (Next.js 15)"]
-    MW["Middleware<br/>session signature, CSP nonce"]
-    RT["API routes<br/>validate, authorise, call a service"]
-    SV["Services<br/>RAG, ingestion, studio, connectors, sharing"]
-    RP["Repositories<br/>parameterised, workspace-scoped SQL"]
-  end
-  WK["Worker<br/>background jobs"]
-  DB[("PostgreSQL + pgvector<br/>(Neon)")]
-  AI["Models<br/>Gemini, Gemma, OpenAI-compatible<br/>chat, embeddings, vision, speech"]
-  EXT["Google Drive, Notion, GitHub,<br/>websites, YouTube"]
-  B --> MW --> RT --> SV --> RP --> DB
-  CA -->|signed webhooks| RT
-  PUB --> RT
-  SV --> AI
-  SV -. queue jobs .-> DB
-  WK -->|claim jobs| DB
-  WK --> AI
-  WK --> EXT
-```
+![System overview: browser, Slack/Teams and shared pages reach the Next.js app on Vercel (middleware, API routes, services, repositories, background jobs), which uses PostgreSQL + pgvector on Neon, AI models and external sources](docs/images/diagrams/system.png)
 
 ### Answering a question
 
-```mermaid
-sequenceDiagram
-  autonumber
-  actor U as User
-  participant C as Chat API
-  participant Q as Query planner
-  participant R as Hybrid retrieval
-  participant K as Re-ranker
-  participant G as Guardrail
-  participant M as Chat model
-  participant J as Job queue
-  U->>C: question, notebook, mode
-  C->>C: check session, workspace role and rate limit
-  opt Deep mode
-    C->>Q: rewrites, step-back question, hypothetical answer (in parallel, 8 s limit)
-  end
-  C->>R: embed all queries in one request
-  R->>R: vector search and full-text search per query, fused with RRF
-  C->>K: score the candidates (LLM grader or Cohere), keep the top K
-  C->>G: is the best passage relevant enough?
-  alt Not enough context
-    G-->>U: "Insufficient context in knowledge base." (no model call)
-  else Relevant passages found
-    C-->>U: sources [1] to [K]
-    C->>M: prompt with the passages marked as data
-    M-->>U: streamed answer with [n] citations
-    C->>J: score the answer later (LLM judge)
-  end
-  U->>C: follow-up suggestions (separate request)
-```
+![Answering a question: checks, query planner, hybrid retrieval, re-ranker, guardrail, streamed answer with citations, answer quality scored later; weak context gets the fixed insufficient-context reply](docs/images/diagrams/answering.png)
 
 Progress reaches the browser as a stream of events (`start`, `status`, `sources`, `delta`, `done`), so the
 steps show while they run.
 
 ### Adding a source
 
-```mermaid
-flowchart TD
-  IN["Upload, web page, YouTube, text<br/>or an item from a connected app"] --> KIND{"What is it?"}
-  KIND -->|"PDF or text format"| TXT["Extract the text"]
-  KIND -->|"Scanned PDF"| OCR["OCR page by page<br/>(Tesseract or a vision model)"]
-  KIND -->|"Image"| VIS["Vision description + OCR"]
-  KIND -->|"Audio or video"| TRN["Timestamped transcript"]
-  OCR --> TXT
-  VIS --> TXT
-  TRN --> TXT
-  TXT --> SPL["Split into overlapping passages"]
-  SPL --> EMB["Embed in batches<br/>(3072-dimension vectors, model recorded)"]
-  EMB --> STORE[("Passages: text + vector<br/>+ full-text index")]
-  STORE --> DONE["Document ready: notify the person who added it"]
-```
+![Adding a source: PDFs, scans, images and recordings become plain text, then are split, embedded, stored and the author is notified](docs/images/diagrams/ingestion.png)
 
 Reading media and indexing are background jobs. Each one saves its progress (pages read, passages
 stored), so an interrupted job continues where it stopped.
 
 ### Background jobs
 
-```mermaid
-flowchart LR
-  Q[("Job queue<br/>(table in Postgres)")] -->|"claimed with FOR UPDATE SKIP LOCKED"| W["Worker"]
-  W --> A["read_media, ingest_document"]
-  W --> B["generate_report, generate_mindmap"]
-  W --> C["generate_audio, generate_image"]
-  W --> D["sync_connector"]
-  W --> E["answer_bot_message"]
-  W --> F["evaluate_answer, run_benchmark"]
-  W --> G["reembed_workspace"]
-```
+![Background jobs: a Postgres job queue feeds the job runner, which handles indexing, reports, mind maps, audio, images, connector syncs, chat-app answers, evaluation and re-embedding](docs/images/diagrams/jobs.png)
 
 - Any number of workers can run, and each job runs once.
 - Failures are retried with growing waits; failures a retry cannot fix end the job at once with a
@@ -188,99 +110,33 @@ flowchart LR
 
 ### Studio
 
-```mermaid
-flowchart LR
-  SEL["Chosen notebooks<br/>or documents"] --> NOTES["Source notes<br/>(one summary per document)"]
-  NOTES --> REP["Report<br/>summary, comparison or slides"]
-  NOTES --> MAP["Mind map<br/>validated topic tree"]
-  NOTES --> SCRIPT["Two-host script"] --> VOICE["Speech, segment by segment"] --> MP3["MP3 + timed transcript"]
-  SEL --> BRIEF["Image brief from the<br/>most relevant passages"] --> IMG["Image model"] --> CHECK["Checked, stored image"]
-```
+![Studio: source notes feed reports, mind maps and a two-host audio script; an image brief feeds the image model](docs/images/diagrams/studio.png)
 
 ### Connected apps
 
-```mermaid
-sequenceDiagram
-  participant S as Scheduler
-  participant J as Sync job
-  participant A as App API (Drive, Notion, GitHub, website)
-  participant I as Ingestion
-  S->>J: sources that are due become jobs
-  J->>A: list the items (bounded)
-  loop each item, from the saved position
-    J->>A: fetch it if its version changed
-    J->>I: queue it like an upload (OCR or transcription when needed)
-  end
-  J->>J: remove documents whose item disappeared
-  J-->>S: notify the member (added, updated, removed, failed)
-```
+![Connected apps: scheduled sync jobs fetch changed items from the app API with encrypted tokens, ingest them, clean up removed ones and notify the member](docs/images/diagrams/connectors.png)
 
 A sync runs with the current rights of the member who added the source. Tokens are stored encrypted
 and never sent to the browser.
 
 ### Sharing and chat apps
 
-```mermaid
-flowchart LR
-  subgraph Links["Share links"]
-    ED["Editor"] -->|"create"| SNAP["Snapshot + random token<br/>(stored hashed and encrypted)"]
-    ANY["Anyone with the link"] -->|"/s/:token"| SNAP
-  end
-  subgraph Bots["Slack and Teams"]
-    ASK["Mention or direct message"] -->|"signature or JWT checked"| HOOK["Webhook<br/>(answers at once)"]
-    HOOK --> JOB["answer_bot_message job"]
-    JOB -->|"answer from the chosen notebook"| ASK
-  end
-```
+![Sharing and chat apps: share links store a snapshot behind a random token; Slack and Teams webhooks are verified and answered by a background job](docs/images/diagrams/sharing.png)
 
 ### Sign-in and access control
 
-```mermaid
-flowchart TD
-  IN["Sign in: Google, GitHub or an email code"] --> SES["Server-side session<br/>+ signed httpOnly cookie"]
-  SES --> MW["Middleware: signature and expiry"]
-  MW --> H["Handler: session not revoked,<br/>workspace membership"]
-  H --> P{"Permission table<br/>Viewer, Editor, Admin<br/>+ notebook overrides"}
-  P -->|"allowed"| SQL["Parameterised SQL<br/>scoped to the workspace"]
-  P -->|"not allowed"| DENY["403, or 404 for non-members"]
-```
+![Sign-in and access control: sign-in, server-side session, middleware, handler and permission table, then workspace-scoped SQL or a refusal](docs/images/diagrams/access.png)
 
 ### Data model
 
-```mermaid
-erDiagram
-  USERS ||--o{ WORKSPACE_MEMBERS : joins
-  WORKSPACES ||--o{ WORKSPACE_MEMBERS : has
-  WORKSPACES ||--o{ COLLECTIONS : "holds notebooks"
-  COLLECTIONS ||--o{ DOCUMENTS : contains
-  DOCUMENTS ||--o{ CHUNKS : "split into"
-  WORKSPACES ||--o{ CONVERSATIONS : has
-  CONVERSATIONS ||--o{ MESSAGES : has
-  MESSAGES ||--o| EVALUATIONS : "scored by"
-  WORKSPACES ||--o{ REPORTS : has
-  WORKSPACES ||--o{ MIND_MAPS : has
-  WORKSPACES ||--o{ AUDIO_OVERVIEWS : has
-  WORKSPACES ||--o{ IMAGES : has
-  COLLECTIONS ||--o{ CONNECTOR_SOURCES : "synced into"
-  USERS ||--o{ SESSIONS : "signed in"
-  WORKSPACES ||--o{ SHARE_LINKS : publishes
-  WORKSPACES ||--o{ JOBS : queues
-```
+![Data model: users, sessions, workspaces and members, notebooks, documents and chunks, conversations, messages and evaluations, share links, jobs, connector sources and studio outputs](docs/images/diagrams/data-model.png)
 
 Each passage (`chunks`) keeps its text, a 3072-dimension vector, the embedding model that produced
 it, a full-text index, labels and metadata in one row. Every query is scoped by workspace.
 
 ### Deployment
 
-```mermaid
-flowchart LR
-  PUSH["git push to main"] --> GH["GitHub"]
-  GH --> VB["Vercel build<br/>migrations, then next build"]
-  VB --> VF["Vercel Functions, cle1<br/>pages, API, streaming answers,<br/>jobs after responses"]
-  CRON["Vercel Cron"] -->|"/api/jobs/run"| VF
-  GH --> CI["GitHub Actions<br/>typecheck, lint, 349 tests,<br/>build, audit"]
-  VF --> NEON[("Neon PostgreSQL<br/>+ pgvector, us-east-2")]
-```
+![Deployment: git push to GitHub triggers GitHub Actions and the Vercel build; Vercel Functions in cle1 use Neon Postgres and the AI models, and Vercel Cron runs the job runner](docs/images/diagrams/deployment.png)
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
