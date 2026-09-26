@@ -105,35 +105,6 @@ change it and keep everyone signed in:
 If the secret **leaked**, set only the new `AUTH_SECRET`, redeploy and run the re-seal script. Every
 session ends; apps and bots whose credentials cannot be opened any more must be reconnected.
 
-## Without Vercel
-
-Vercel is the supported deployment. For a machine of your own, the [Dockerfile](../Dockerfile) builds one image for three commands:
-
-| Process | Command |
-|---|---|
-| Web server | the default command (`next start` on `$PORT`) |
-| Worker | `node --conditions=react-server dist/scripts/worker.cjs` |
-| Migrations | `node --conditions=react-server dist/scripts/init-db.cjs` (before each release) |
-
-```bash
-docker build -t corpus .
-docker run --rm --env-file .env.production corpus node --conditions=react-server dist/scripts/init-db.cjs
-docker run -d --name corpus-web    --env-file .env.production -p 3000:3000 corpus
-docker run -d --name corpus-worker --env-file .env.production corpus node --conditions=react-server dist/scripts/worker.cjs
-```
-
-- `.env.production` needs `POSTGRES_URL`, `AUTH_SECRET`, `APP_URL` (https) and the model key, plus
-  `TRUST_PROXY` (the number of reverse proxies in front, usually 1) and `WEB_RUNS_JOBS=false` when
-  the worker runs.
-- Put a TLS-terminating reverse proxy in front (Caddy, nginx, a cloud load balancer). The app sends
-  HSTS and expects https.
-- The image runs as the unprivileged `node` user. Its application files are read-only to that user,
-  and it contains no source code, dev dependencies or `.env` files (see `.dockerignore`).
-- Health check: `GET /api/health` (200 when the database answers, 503 otherwise).
-
-[render.yaml](../render.yaml) deploys the same two processes on Render as a Blueprint (web service
-and background worker in Ohio, migrations as the pre-deploy step).
-
 ## Operating it
 
 - **Logs.** Every process logs one JSON object per line: `level`, `msg`, `requestId`, `jobId`, and

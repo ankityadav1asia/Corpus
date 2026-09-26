@@ -57,12 +57,11 @@ hooks/                      client: SWR data hooks (workspace-keyed), useRagChat
 components/                 UI: workspace/ (shell, header, content, URL state, commands), app-sidebar/ (rail, history,
                             notebook picker), chat, sources drawer, connectors-panel/, studio (reports, images, audio,
                             mind maps), chunk editor, analytics & quality, workspace-settings/, notifications, command palette
-scripts/                    init-db (migrate), worker, reseal-secrets, import-legacy, seed; build-scripts bundles the first three;
+scripts/                    init-db (migrate), worker, reseal-secrets, import-legacy, seed;
                             vercel-build (migrations on production builds, then next build)
 tests/                      node:test suites (unit, PGlite integration, HTTP route tests)
 vercel.json                 Vercel: region cle1 (next to Neon), Fluid compute, build command, daily cron — docs/DEPLOYMENT.md
-Dockerfile, render.yaml     container image (web + worker) and a Render Blueprint, for hosting outside Vercel
-.github/                    CI (typecheck, lint, tests, build, audit, Docker) and Dependabot
+.github/                    CI (typecheck, lint, tests, build, audit) and Dependabot
 ```
 
 ## Layers

@@ -15,7 +15,7 @@ npx prettier --write <changed files>     # no semicolons, single quotes, 180-col
 ```
 
 CI ([.github/workflows/ci.yml](../.github/workflows/ci.yml)) runs the same checks. It also builds the
-app and the scripts, audits production dependencies, and builds the Docker image.
+app and audits production dependencies.
 
 ## Enforced by ESLint
 

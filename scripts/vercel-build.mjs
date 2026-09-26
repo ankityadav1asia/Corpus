@@ -1,8 +1,8 @@
 /**
  * Vercel's build command (vercel.json → buildCommand, `npm run vercel-build`).
  *
- * Production deployments first apply pending database migrations (idempotent and locked, like
- * Render's pre-deploy step), so new code never runs against an older schema. Migrations are
+ * Production deployments first apply pending database migrations (idempotent and locked), so new
+ * code never runs against an older schema. Migrations are
  * additive: the deployment still serving traffic keeps working on the newer schema. A failed
  * migration fails the build, and nothing is deployed.
  *
