@@ -24,6 +24,13 @@ export const LIMITS = {
   fileBytes: 50 * 1024 * 1024,
   /** Per request: one maximum-size file plus multipart overhead. The UI uploads files one at a time. */
   uploadBytes: 51 * 1024 * 1024,
+  /**
+   * Larger files go up in parts of this size (POST /api/learn/uploads), because serverless hosts cap
+   * request bodies (Vercel at 4.5 MB). The UI sends smaller files in one request.
+   */
+  uploadPartBytes: 4 * 1024 * 1024,
+  /** Uploads in parts that one person may have open in a workspace at the same time. */
+  openUploads: 5,
   filesPerUpload: 10,
   urlChars: 2_048,
   explorerSearchChars: 200,

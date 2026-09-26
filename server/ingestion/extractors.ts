@@ -70,7 +70,8 @@ export type UploadContent =
       pages: Array<{ page: number; text: string }>
     }
 
-function checkFile(name: string, size: number): string {
+/** Name and size rules for an uploaded file, also checked before an upload in parts sends any byte. Returns the extension. */
+export function checkUploadFile(name: string, size: number): string {
   if (size === 0) throw Errors.unprocessable(`"${name}" is empty.`)
   if (size > LIMITS.fileBytes) throw Errors.payloadTooLarge(`"${name}" is larger than ${LIMITS.fileBytes / (1024 * 1024)} MB.`)
   const extension = fileExtension(name)
@@ -85,7 +86,7 @@ function checkFile(name: string, size: number): string {
  */
 export async function readUpload(file: File): Promise<UploadContent> {
   const name = file.name || 'upload'
-  const extension = checkFile(name, file.size)
+  const extension = checkUploadFile(name, file.size)
   const bytes = new Uint8Array(await file.arrayBuffer())
   const title = truncateTitle(name)
   const source = truncateTitle(name, 500)

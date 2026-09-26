@@ -57,9 +57,11 @@ hooks/                      client: SWR data hooks (workspace-keyed), useRagChat
 components/                 UI: workspace/ (shell, header, content, URL state, commands), app-sidebar/ (rail, history,
                             notebook picker), chat, sources drawer, connectors-panel/, studio (reports, images, audio,
                             mind maps), chunk editor, analytics & quality, workspace-settings/, notifications, command palette
-scripts/                    init-db (migrate), worker, reseal-secrets, import-legacy, seed; build-scripts bundles the first three
+scripts/                    init-db (migrate), worker, reseal-secrets, import-legacy, seed; build-scripts bundles the first three;
+                            vercel-build (migrations on production builds, then next build)
 tests/                      node:test suites (unit, PGlite integration, HTTP route tests)
-Dockerfile, render.yaml     production image (web + worker) and the Render Blueprint — docs/DEPLOYMENT.md
+vercel.json                 Vercel: region cle1 (next to Neon), Fluid compute, build command, daily cron — docs/DEPLOYMENT.md
+Dockerfile, render.yaml     container image (web + worker) and a Render Blueprint, for hosting outside Vercel
 .github/                    CI (typecheck, lint, tests, build, audit, Docker) and Dependabot
 ```
 
@@ -187,7 +189,8 @@ Heavy work runs outside the request in a durable queue (`app.jobs`):
 - Retries back off 10 s → 20 s → 40 s…; when Gemini returns 429 with a `RetryInfo` delay, the job waits at least that long, and the adapter stops burning quota on immediate retries. A **daily** quota error, invalid input or a `PermanentJobError` fails the job at once with a readable message instead of retrying. Waiting items show why (“AI service busy — retrying in ~40s”).
 - Jobs return `'more'` when their time budget runs out; a follow-up job continues from the stored progress (chunks, OCR pages, audio segments, sync state).
 - Duplicate work is refused while the same job is active (`hasActive`), e.g. a second “Sync now”.
-- **Who runs jobs:** after each response that queued work (Next.js `after()`), the endpoints the UI polls while waiting (sources, conversation, reports, images, audio, mind maps, connectors, benchmark runs), `npm run worker` (a polling loop), and `/api/jobs/run` for a scheduler (Bearer `CRON_SECRET`). Each pass also queues connector syncs that are due. One runner per server instance at a time. With a dedicated worker, `WEB_RUNS_JOBS=false` keeps OCR, transcription and audio out of the web process.
+- **Who runs jobs:** after each response that queued work (Next.js `after()`), the endpoints the UI polls while waiting (sources, conversation, reports, images, audio, mind maps, connectors, benchmark runs), `npm run worker` (a polling loop), and `/api/jobs/run` for a scheduler (Bearer `CRON_SECRET`; Vercel Cron calls it, see `vercel.json`). Each pass also queues connector syncs that are due. One runner per server instance at a time. With a dedicated worker, `WEB_RUNS_JOBS=false` keeps OCR, transcription and audio out of the web process.
+- A runner claims only the job types its version knows, so during a rollout an older worker leaves new types to newer code.
 
 ## Speed
 
@@ -301,6 +304,16 @@ replaces the older copy only once the new one is ready. Limits: 1 M characters a
 document, 50 MB per file (the UI uploads files one at a time), 30 ingests / 10 min / user. Only Editors
 (of that notebook) can ingest.
 
+Files larger than 4 MB are uploaded **in parts**, because serverless hosts cap request bodies (Vercel at
+4.5 MB). `POST /api/learn/uploads` checks the name, size and the caller's rights before any byte is sent;
+each `PUT …/parts/:n` stores an exact-size part (in 2 MB pieces, `upload_session_parts`; sending a part
+again replaces it); `POST …/complete` checks that every byte arrived, removes the session (so a second
+completion finds nothing) and ingests the file exactly like a one-request upload
+(`server/ingestion/uploads.ts`). Only the uploader can add to, complete or cancel an upload; at most five
+are open per person, and unfinished ones expire after an hour and are purged. Stored files are read back
+eight parts per query and streamed to the browser (`server/http/binary.ts`), so neither a database
+response nor an HTTP response has to hold a whole 50 MB file.
+
 ### Multimodal sources and OCR
 
 `readUpload` (`server/ingestion/extractors.ts`) checks each file by its bytes (magic numbers, not the
@@ -376,11 +389,44 @@ erDiagram
   workspaces ||--o{ audit_events : ""
   users ||--o{ notifications : ""
   users ||--o{ sessions : "signed in"
+  collections ||--o{ upload_sessions : "uploads in parts"
+  upload_sessions ||--o{ upload_session_parts : "2 MB pieces"
   workspaces ||--o{ query_logs : ""
-  chunks { uuid id; uuid workspace_id; uuid collection_id; text content; vector_3072 embedding; text embedding_model; tsvector tsv; text_arr labels; jsonb metadata }
-  documents { uuid id; text source_type; text status; text progress; text media_kind; uuid connector_source_id; text external_id; text external_version }
-  workspaces { uuid id; text name; uuid personal_user_id; jsonb settings }
-  jobs { uuid id; text type; jsonb payload; text status; int attempts; timestamptz run_after }
+  chunks {
+    uuid id
+    uuid workspace_id
+    uuid collection_id
+    text content
+    vector_3072 embedding
+    text embedding_model
+    tsvector tsv
+    text_arr labels
+    jsonb metadata
+  }
+  documents {
+    uuid id
+    text source_type
+    text status
+    text progress
+    text media_kind
+    uuid connector_source_id
+    text external_id
+    text external_version
+  }
+  workspaces {
+    uuid id
+    text name
+    uuid personal_user_id
+    jsonb settings
+  }
+  jobs {
+    uuid id
+    text type
+    jsonb payload
+    text status
+    int attempts
+    timestamptz run_after
+  }
 ```
 
 Also `document_media_parts`, `otp_codes`, `rate_limits` and `schema_migrations`. Everything lives in
@@ -402,6 +448,7 @@ the `app` schema. Migrations are versioned and append-only (`server/db/migration
 | v12 | follow-up questions on messages, share links, original files (PDFs), chat-app integrations |
 | v13 | server-side sessions (`app.sessions`): sign-out revokes the token, "sign out of all devices" |
 | v14 | chat-app integrations remember whether they answer from all notebooks (`all_notebooks`) |
+| v15 | uploads in parts (`upload_sessions`, `upload_session_parts`) |
 
 Search is **exact** (sequential scan filtered by workspace / notebook), correct and fast for corpora
 of tens of thousands of chunks. gemini-embedding-001 returns 3 072 dimensions, above pgvector's
@@ -417,7 +464,7 @@ step-back and HyDE on, guardrail on (relevance ≥ 0.35, similarity ≥ 0.45), e
 | Concern | Control |
 |---|---|
 | Authentication | HMAC-SHA256 session cookie (httpOnly, SameSite=Lax, Secure in prod) naming a server-side session. Middleware checks the signature and expiry; every handler also checks that the session was not revoked (sign-out, "sign out of all devices"; cached ≤ 30 s). No fallback secret. |
-| Keys | `AUTH_SECRET` signs sessions and encrypts stored credentials; during a rotation `AUTH_SECRET_PREVIOUS` is still accepted and `npm run secrets:reseal` re-encrypts everything with the new key (docs/SECURITY.md). |
+| Keys | `AUTH_SECRET` signs sessions and encrypts stored credentials; during a rotation `AUTH_SECRET_PREVIOUS` is still accepted and `npm run secrets:reseal` re-encrypts everything with the new key (docs/DEPLOYMENT.md). |
 | Authorisation | Membership resolved per request from `X-Workspace-Id` (non-members: 404); one permission table with notebook overrides; every query scoped by `workspace_id`; conversations also by author. |
 | Sign-in | Google (OIDC, `email_verified`), GitHub (verified primary email), email OTP (CSPRNG, HMAC-stored, 5 attempts, single use, one message for every failure, a daily cap per address). Allowlist applies before invitations are accepted. Redirects after sign-in are same-origin paths only. |
 | CSRF | SameSite=Lax cookies + `Origin` check on every non-GET request. |
@@ -456,7 +503,8 @@ OCR tests run real Tesseract on generated scans):
 - `tests/features-units.test.ts` — thinking-off settings, embedding cache, follow-up parsing, chart validation and scales, speech text, PDF passage matching, Slack signatures / events / mrkdwn, Teams parsing and service URLs, public paths
 - `tests/collab-http.test.ts` — fast path in standard and deep mode, follow-ups, share links (snapshot, revoke, delete, roles), original PDFs, Slack and Teams end to end with signed requests and a local RSA key
 - `tests/security.test.ts` — session revocation and "sign out of all devices", `AUTH_SECRET` rotation with re-sealing, the CSP nonce, middleware redirects
-- `tests/config-check.test.ts` — the production startup check, `TRUST_PROXY` hops, `WEB_RUNS_JOBS`
+- `tests/config-check.test.ts` — the production startup check, `TRUST_PROXY` hops, `WEB_RUNS_JOBS`, Vercel's own address as `APP_URL`, the cron warning
+- `tests/uploads-http.test.ts` — uploads in parts: any order and retries, byte-exact reassembly, checks before the first byte, exact part sizes, owner-only access, expiry, the open-upload limit, cancelling
 - `tests/session.test.ts`, `tests/ssrf.test.ts`, `tests/units.test.ts`, `tests/auth-and-legacy.test.ts` — session tokens, SSRF, text handling, OTP, legacy import
 
 ## Operations
@@ -469,10 +517,9 @@ npm run db:import-legacy -- --email you@example.com  # copy data from the previo
 npm run seed -- --email you@example.com              # optional sample document
 ```
 
-Production runs as two containers from one image — the web server and `npm run worker` — with
-migrations applied before each release (docs/DEPLOYMENT.md: Render, or any Docker host). On
-serverless hosts, schedule `GET /api/jobs/run` with `Authorization: Bearer $CRON_SECRET` so queued
-work also progresses when nobody is using the app. Rotating `AUTH_SECRET`: docs/SECURITY.md.
+Production runs on Vercel (docs/DEPLOYMENT.md): production builds apply the migrations, jobs run after
+responses, and Vercel Cron calls `GET /api/jobs/run` with `Authorization: Bearer $CRON_SECRET` so queued
+work also progresses when nobody is using the app. Rotating `AUTH_SECRET`: docs/DEPLOYMENT.md.
 
 **Local development without a database server:** `POSTGRES_URL=pglite:./.data/pglite` runs Postgres +
 pgvector in-process (the engine the tests use). Run `npm run db:migrate` with the same value first.
@@ -482,7 +529,8 @@ One process at a time can open the directory; not for production.
 
 - Revoking a session takes effect within 30 s on each server instance: handlers cache the check briefly, and middleware checks only the signature.
 - Admins add members by email without the member accepting first, and the response tells whether an account exists; an invitation-acceptance flow would close both.
-- Uploads are still received in one request (≤ 50 MB); a very large file would be better uploaded straight to object storage. Media and generated audio/images are stored in Postgres (bounded sizes).
+- Uploaded files, media and generated audio/images are stored in Postgres (≤ 50 MB per file, in 2 MB parts). Much larger files would be better uploaded straight to object storage.
+- On Vercel's Hobby plan the cron runs once a day: long jobs (big scans, audio overviews) move while someone uses the app, and otherwise wait for the cron or a worker.
 - Gemini free-tier quotas are small: re-ranking, evaluation and deep mode each add model calls, and image generation needs billing. Evaluation can be sampled or disabled per workspace, the Cohere re-ranker avoids model calls for re-ranking, and open-source models avoid quotas entirely. Gemma models have their own quota but take no audio input.
 - Tesseract OCR is CPU-heavy (a few seconds per page); long scans progress over several job runs. Handwriting is better read with `OCR_ENGINE=vision`.
 - A connector sync covers at most 200 items per source (websites: 100 pages); Notion sub-pages must be added separately; GitHub imports documentation files, not code.

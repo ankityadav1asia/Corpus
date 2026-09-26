@@ -7,7 +7,8 @@ import { queueDocument } from '@/server/ingestion/ingest-service'
 import { prepareIngest } from '@/server/ingestion/prepare'
 import { processJobsAfterResponse } from '@/server/jobs/trigger'
 
-export const maxDuration = 60
+// Fetching and extracting, then queued work runs after the response (Next.js after).
+export const maxDuration = 300
 
 export const POST = workspaceRoute(async ({ req, access }) => {
   const input = await readJson(req, ingestUrlSchema)

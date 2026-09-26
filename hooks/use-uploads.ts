@@ -2,8 +2,8 @@
 
 import { useCallback, useRef, useState } from 'react'
 
-import { WORKSPACE_HEADER, getActiveWorkspaceId, notifySessionExpired } from '@/lib/api-client'
-import type { ApiErrorBody, DocumentSummary, UploadResult } from '@/lib/contracts'
+import type { DocumentSummary } from '@/lib/contracts'
+import { uploadFile } from '@/lib/upload-client'
 
 export interface UploadItem {
   id: string
@@ -18,37 +18,10 @@ export interface UploadItem {
 
 let counter = 0
 
-/** Sends one file per request (XMLHttpRequest, because fetch cannot report upload progress). */
-function send(file: File, collectionId: string, onProgress: (fraction: number) => void): Promise<UploadResult['results'][number]> {
-  return new Promise((resolve) => {
-    const form = new FormData()
-    form.set('collectionId', collectionId)
-    form.append('files', file)
-    const xhr = new XMLHttpRequest()
-    xhr.open('POST', '/api/learn/upload')
-    xhr.withCredentials = true
-    const workspace = getActiveWorkspaceId()
-    if (workspace) xhr.setRequestHeader(WORKSPACE_HEADER, workspace)
-    xhr.upload.onprogress = (event) => {
-      if (event.lengthComputable) onProgress(event.loaded / event.total)
-    }
-    xhr.onerror = () => resolve({ filename: file.name, status: 'error', error: 'The upload was interrupted. Check your connection and try again.' })
-    xhr.onload = () => {
-      if (xhr.status === 401) notifySessionExpired()
-      try {
-        const body = JSON.parse(xhr.responseText) as Partial<UploadResult & ApiErrorBody>
-        const result = body.results?.[0]
-        if (result) return resolve(result)
-        resolve({ filename: file.name, status: 'error', error: body.error?.message ?? 'Upload failed.' })
-      } catch {
-        resolve({ filename: file.name, status: 'error', error: xhr.status === 413 ? 'The file is too large.' : 'Upload failed.' })
-      }
-    }
-    xhr.send(form)
-  })
-}
-
-/** Upload queue: files go up one at a time with live progress; indexing then continues on the server. */
+/**
+ * Upload queue: files go up one at a time with live progress (large files in parts, see
+ * lib/upload-client.ts); indexing then continues on the server.
+ */
 export function useUploads(onQueued: (document: DocumentSummary) => void) {
   const [items, setItems] = useState<UploadItem[]>([])
   const queue = useRef<Array<{ id: string; file: File; collectionId: string }>>([])
@@ -72,7 +45,7 @@ export function useUploads(onQueued: (document: DocumentSummary) => void) {
         for (let next = queue.current.shift(); next; next = queue.current.shift()) {
           const { id, file } = next
           patch(id, { status: 'uploading' })
-          const result = await send(file, next.collectionId, (progress) => patch(id, { progress }))
+          const result = await uploadFile(file, next.collectionId, (progress) => patch(id, { progress }))
           if (result.status === 'queued' && result.document) {
             patch(id, { status: 'queued', progress: 1, document: result.document })
             onQueued(result.document)

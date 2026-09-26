@@ -10,6 +10,7 @@
     "dev": "next dev",
     "prebuild": "node scripts/copy-pdf-worker.mjs",
     "build": "next build",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "start": "next start",
     "lint": "eslint . --ext .js,.cjs,.mjs,.ts,.tsx --max-warnings=0",
     "typecheck": "tsc --noEmit",
@@ -20,6 +21,7 @@
     "seed": "tsx scripts/seed.ts",
     "worker": "node --conditions=react-server --import tsx scripts/worker.ts",
     "build:scripts": "node scripts/build-scripts.mjs",
+    "diagrams": "node scripts/diagrams/render.mjs",
     "start:worker": "node --conditions=react-server dist/scripts/worker.cjs",
     "fmt": "prettier --write . --ignore-unknown",
     "secrets:reseal": "node --conditions=react-server --import tsx scripts/reseal-secrets.ts"

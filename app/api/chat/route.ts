@@ -7,7 +7,9 @@ import { prepareChat, runChat } from '@/server/rag/chat-service'
 import { RATE_LIMITS, enforceRateLimit } from '@/server/security/rate-limit'
 import { getServices } from '@/server/services'
 
-export const maxDuration = 60
+// The answer streams first, then queued work runs after the response (Next.js after). 300 s is the
+// most Vercel allows on the Hobby plan.
+export const maxDuration = 300
 
 /**
  * The client sends only the new question. History, access and conversation ids are resolved on

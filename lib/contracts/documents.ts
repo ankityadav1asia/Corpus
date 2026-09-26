@@ -17,6 +17,21 @@ export const ingestUrlSchema = z.object({
   url: requiredText(LIMITS.urlChars),
 })
 
+/** Starts an upload in parts. Size and type limits are enforced by the service (413 / 415 / 422). */
+export const startUploadSchema = z.object({
+  collectionId: id,
+  fileName: requiredText(500),
+  byteSize: z.number().int().nonnegative(),
+})
+
+export const uploadPartParamsSchema = z.object({
+  id,
+  index: z
+    .string()
+    .regex(/^\d{1,5}$/, 'Part numbers are whole numbers from 0.')
+    .transform(Number),
+})
+
 export const documentsQuerySchema = z.object({ collectionId: id.optional() })
 
 export const clearCollectionQuerySchema = z.object({ collectionId: id })
@@ -144,4 +159,16 @@ export interface QueuedIngest {
 
 export interface UploadResult {
   results: Array<{ filename: string; status: 'queued' | 'error'; document?: DocumentSummary; error?: string }>
+}
+
+export type UploadFileResult = UploadResult['results'][number]
+
+/** An upload in parts: PUT parts 0 … parts-1 to /api/learn/uploads/:uploadId/parts/:index, then complete it. */
+export interface UploadStarted {
+  uploadId: string
+  /** Bytes in every part except the last, which holds the rest. */
+  partBytes: number
+  parts: number
+  /** Parts of an upload that is not completed by then are discarded. */
+  expiresAt: string
 }

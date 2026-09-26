@@ -39,6 +39,8 @@ async function main() {
       lastPurge = Date.now()
       const purged = await services.repos.jobs.purgeFinished(7).catch(() => 0)
       if (purged) console.log(`Removed ${purged} finished job(s) older than 7 days.`)
+      const abandoned = await services.repos.uploads.purgeExpired().catch(() => 0)
+      if (abandoned) console.log(`Removed ${abandoned} unfinished upload(s).`)
     }
     const result = await runJobs(context, { maxJobs: 10, timeBudgetMs: 120_000, shouldStop: () => stopping })
     totals.processed += result.processed

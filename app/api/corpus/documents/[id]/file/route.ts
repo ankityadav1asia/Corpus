@@ -1,5 +1,6 @@
 import { idSchema } from '@/lib/contracts'
 import { requireCollectionPermission } from '@/server/auth/access'
+import { fileResponse } from '@/server/http/binary'
 import { parseWith } from '@/server/http/body'
 import { Errors } from '@/server/http/errors'
 import { workspaceRoute } from '@/server/http/route'
@@ -15,14 +16,11 @@ export const GET = workspaceRoute<{ id: string }>(async ({ params, access }) => 
   const info = await repos.media.fileInfo(access.workspaceId, id)
   if (!info) throw Errors.notFound('Original file')
   const bytes = await repos.media.fileBytes(access.workspaceId, id)
-  return new Response(new Uint8Array(bytes), {
-    headers: {
-      // Only PDFs are kept; served as a download-safe binary the viewer reads with pdf.js.
-      'Content-Type': info.mimeType === 'application/pdf' ? 'application/pdf' : 'application/octet-stream',
-      'Content-Length': String(bytes.byteLength),
-      'Content-Disposition': `attachment; filename="${encodeURIComponent(info.fileName).replace(/%20/g, ' ')}"`,
-      'Cache-Control': 'private, max-age=300',
-      'X-Content-Type-Options': 'nosniff',
-    },
+  return fileResponse(bytes, {
+    // Only PDFs are kept; served as a download-safe binary the viewer reads with pdf.js.
+    'Content-Type': info.mimeType === 'application/pdf' ? 'application/pdf' : 'application/octet-stream',
+    'Content-Disposition': `attachment; filename="${encodeURIComponent(info.fileName).replace(/%20/g, ' ')}"`,
+    'Cache-Control': 'private, max-age=300',
+    'X-Content-Type-Options': 'nosniff',
   })
 })

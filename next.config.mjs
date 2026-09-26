@@ -29,9 +29,22 @@ const nextConfig = {
     '@electric-sql/pglite',
     '@electric-sql/pglite-pgvector',
   ],
-  // Files loaded by path at run time, which the bundler cannot see: OCR worker, engine and English data.
+  // Files loaded by path at run time, which file tracing cannot see, so a serverless bundle (Vercel)
+  // would miss them: the OCR worker, engine and English data; pdf.js's worker, which it imports by file
+  // name in Node; and the native canvas it renders scanned pages with (the installed platform's build).
   outputFileTracingIncludes: {
-    '/api/**/*': ['./node_modules/tesseract.js/src/**/*', './node_modules/tesseract.js-core/**/*', './node_modules/@tesseract.js-data/eng/4.0.0_best_int/**/*'],
+    '/api/**/*': [
+      './node_modules/tesseract.js/src/**/*',
+      './node_modules/tesseract.js-core/**/*',
+      './node_modules/@tesseract.js-data/eng/4.0.0_best_int/**/*',
+      './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
+      './node_modules/@napi-rs/canvas/**/*',
+      './node_modules/@napi-rs/canvas-*/**/*',
+    ],
+  },
+  // PGlite is for local development and tests only (a production server refuses it): keep it out of deployed bundles.
+  outputFileTracingExcludes: {
+    '*': ['./node_modules/@electric-sql/**/*'],
   },
   experimental: {
     // With middleware present, Next.js buffers request bodies and silently truncates anything over

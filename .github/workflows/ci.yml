@@ -1,6 +1,6 @@
 # Every push and pull request: the same checks as `npm run typecheck && npm run lint && npm test`,
-# a production build, a dependency audit, and a Docker build. Render deploys only after these pass
-# (render.yaml → autoDeployTrigger: checksPass).
+# a production build, a dependency audit, and a Docker build. Vercel builds and deploys `main` on its
+# own (vercel.json).
 name: CI
 
 on:

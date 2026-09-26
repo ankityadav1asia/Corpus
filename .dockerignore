@@ -27,3 +27,4 @@ tests
 Dockerfile
 .dockerignore
 render.yaml
+vercel.json
