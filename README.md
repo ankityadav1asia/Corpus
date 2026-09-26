@@ -4,6 +4,13 @@
 
 **A team knowledge assistant: ask questions about your own documents and get answers with citations.**
 
+Corpus turns files, scanned PDFs, images, recordings, web pages, YouTube videos and connected apps into
+searchable notebooks. Every answer comes only from those sources, with numbered citations, and the
+studio turns them into reports, mind maps, audio overviews and images for the whole team.
+
+### 🔗 Live demo: [corpusragagent.vercel.app](https://corpusragagent.vercel.app)
+
+[![Live on Vercel](https://img.shields.io/badge/live-corpusragagent.vercel.app-000000?logo=vercel)](https://corpusragagent.vercel.app)
 [![CI](https://github.com/ankityadav1asia/Corpus/actions/workflows/ci.yml/badge.svg)](https://github.com/ankityadav1asia/Corpus/actions/workflows/ci.yml)
 
 [Video](#video-walkthrough) · [Screenshots](#screenshots) · [Features](#features) · [Architecture](#architecture) · [Methods](#methods-and-techniques) · [Tech stack](#tech-stack) · [Quick start](#quick-start) · [Deployment](#deployment)
@@ -14,12 +21,6 @@
   <source media="(prefers-color-scheme: dark)" srcset="docs/images/chat-dark.png" />
   <img alt="An answer with numbered citations, the research steps, an inline chart, quality scores and follow-up questions" src="docs/images/chat-light.png" />
 </picture>
-
-Corpus collects files, scanned PDFs, images, recordings, web pages, YouTube videos, notes and whole apps
-(Google Drive, Notion, GitHub, websites) into **notebooks**. You ask questions in plain language;
-every answer comes only from those sources, with numbered citations you can open. The studio then
-turns the same sources into reports, mind maps, audio overviews and images, and a team shares it all
-with Admin, Editor and Viewer roles.
 
 ## Video walkthrough
 
