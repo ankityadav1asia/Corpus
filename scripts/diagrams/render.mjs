@@ -70,7 +70,7 @@ async function connect(profile) {
 
 async function render(send, diagram, dir) {
   const file = path.join(dir, `${diagram.name}.html`)
-  writeFileSync(file, pageHtml(diagram))
+  writeFileSync(file, diagram.html ? diagram.html() : pageHtml(diagram))
   await send('Page.navigate', { url: pathToFileURL(file).href })
   const evaluate = async (expression) => (await send('Runtime.evaluate', { expression, returnByValue: true }))?.result?.value
   for (let i = 0; i < 100 && !(await evaluate('window.__ready === true')); i++) await sleep(100)

@@ -40,7 +40,7 @@ jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`
 2. **Generate the secrets:** `openssl rand -hex 24` for `CRON_SECRET`, and `openssl rand -hex 32` for
    `AUTH_SECRET` on a new database. A database that already has data needs the `AUTH_SECRET` that
    encrypted its stored credentials (connector and chat-app tokens); change it only by rotating
-   ([SECURITY.md](SECURITY.md)).
+   ([below](#rotating-auth_secret)).
 3. **Pick a sign-in method.** At least one is needed:
    - Google OAuth or GitHub OAuth (register the redirect URIs after the first deploy, when you know the domain);
    - email codes through Resend, or SMTP / Gmail.
@@ -87,6 +87,24 @@ Every push to `main` deploys to production. Pull requests get preview deployment
 migrate the database: if you give the Preview environment variables, point `POSTGRES_URL` at a Neon
 branch (the Neon integration for Vercel can create one per preview), never at the production database.
 
+## Rotating AUTH_SECRET
+
+`AUTH_SECRET` signs sessions and encrypts stored credentials (connector and chat-app tokens). To
+change it and keep everyone signed in:
+
+1. Generate a new secret: `openssl rand -hex 32`.
+2. On Vercel (Settings → Environment Variables) set `AUTH_SECRET_PREVIOUS` to the current secret and
+   `AUTH_SECRET` to the new one, then redeploy. Existing sessions and credentials are still accepted
+   through the previous secret.
+3. Re-encrypt what is stored: from a checkout, with `POSTGRES_URL`, `AUTH_SECRET` and
+   `AUTH_SECRET_PREVIOUS` set to the production values in your terminal session only, run
+   `npm run secrets:reseal`. It reports how many values it re-sealed and lists any it could not read.
+4. After 7 days (the session lifetime), remove `AUTH_SECRET_PREVIOUS` and redeploy. The server logs a
+   reminder while it is set.
+
+If the secret **leaked**, set only the new `AUTH_SECRET`, redeploy and run the re-seal script. Every
+session ends; apps and bots whose credentials cannot be opened any more must be reconnected.
+
 ## Without Vercel
 
 Vercel is the supported deployment. For a machine of your own, the [Dockerfile](../Dockerfile) builds one image for three commands:
@@ -127,8 +145,7 @@ and background worker in Ohio, migrations as the pre-deploy step).
   additive, so older code keeps working on the newer schema.
 - **Backups.** Neon keeps point-in-time history (the retention depends on your plan). Branch before
   risky changes.
-- **Secrets.** Rotating `AUTH_SECRET`, the production checklist and incident steps are in
-  [SECURITY.md](SECURITY.md).
+- **Secrets.** See [Rotating AUTH_SECRET](#rotating-auth_secret).
 - **Costs to watch.** Gemini usage: re-ranking, deep mode, evaluation and audio overviews each add
   model calls. Evaluation sampling is a per-workspace setting. On Vercel, background jobs add function
   time.

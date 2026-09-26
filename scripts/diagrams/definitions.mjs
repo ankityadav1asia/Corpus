@@ -2,41 +2,8 @@
  * The README architecture diagrams. Each card sits on a grid cell (col, row); arrows are drawn
  * between cards, or to a group frame ("group:<id>"). Icons are lucide names (plus vercel, gemini).
  */
+import { overviewHtml } from './overview.mjs'
 import { TONES } from './page.mjs'
-
-const system = {
-  name: 'system',
-  columns: [220, 230, 230, 230],
-  nodes: [
-    { id: 'browser', col: 1, row: 1, tone: 'client', icon: 'monitor', title: 'Browser app', lines: ['Next.js, React 19'] },
-    { id: 'chat', col: 1, row: 2, tone: 'client', icon: 'slack', title: 'Slack / Teams', lines: ['signed webhooks'] },
-    { id: 'public', col: 1, row: 3, tone: 'client', icon: 'share-2', title: 'Shared page', lines: ['/s/:token, read-only'] },
-    { id: 'mw', col: 2, row: 1, tone: 'web', icon: 'shield', title: 'Middleware', lines: ['session signature, CSP nonce'] },
-    { id: 'routes', col: 2, row: 2, tone: 'web', icon: 'route', title: 'API routes', lines: ['validate, authorise, call a service'] },
-    { id: 'jobs', col: 2, row: 3, tone: 'jobs', icon: 'timer', title: 'Background jobs', lines: ['after responses and on Vercel Cron'] },
-    { id: 'services', col: 3, row: 1, tone: 'web', icon: 'layers', title: 'Services', lines: ['RAG, ingestion, studio, connectors, sharing'] },
-    { id: 'repos', col: 3, row: 2, tone: 'web', icon: 'table', title: 'Repositories', lines: ['parameterised SQL, scoped by workspace'] },
-    { id: 'ai', col: 4, row: 1, tone: 'ai', icon: 'gemini', title: 'AI models', lines: ['Gemini, Gemma, OpenAI-compatible', 'chat, embeddings, vision, speech'] },
-    { id: 'db', col: 4, row: 2, tone: 'data', icon: 'database', title: 'PostgreSQL + pgvector', lines: ['Neon, us-east-2'] },
-    { id: 'ext', col: 4, row: 3, tone: 'external', icon: 'globe', title: 'Sources', lines: ['Google Drive, Notion, GitHub, websites, YouTube'] },
-  ],
-  groups: [
-    { id: 'clients', label: 'Clients', color: TONES.client, members: ['browser', 'chat', 'public'] },
-    { id: 'app', label: 'Next.js 15 on Vercel', color: TONES.web, members: ['mw', 'routes', 'jobs', 'services', 'repos'] },
-  ],
-  edges: [
-    { from: 'browser', to: 'mw' },
-    { from: 'mw', to: 'routes' },
-    { from: 'chat', to: 'routes' },
-    { from: 'public', to: 'routes' },
-    { from: 'routes', to: 'services', fromSide: 'right', toSide: 'left' },
-    { from: 'services', to: 'repos' },
-    { from: 'repos', to: 'db' },
-    { from: 'services', to: 'ai' },
-    { from: 'jobs', to: 'db', label: 'claim jobs' },
-    { from: 'jobs', to: 'ext' },
-  ],
-}
 
 const answering = {
   name: 'answering',
@@ -305,4 +272,4 @@ const deployment = {
   ],
 }
 
-export const DIAGRAMS = [system, answering, ingestion, jobs, studio, connectors, sharing, access, dataModel, deployment]
+export const DIAGRAMS = [{ name: 'architecture', html: overviewHtml }, answering, ingestion, jobs, studio, connectors, sharing, access, dataModel, deployment]

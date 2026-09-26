@@ -25,10 +25,10 @@ export const TONES = {
   build: '#0f172a',
 }
 
-const escapeHtml = (text) => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
+export const escapeHtml = (text) => String(text).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;')
 
 /** A lucide icon as inline SVG, read from the installed lucide-react package. */
-function icon(name) {
+export function icon(name) {
   const custom = CUSTOM_ICONS[name]
   const body =
     custom ??

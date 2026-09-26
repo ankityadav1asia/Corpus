@@ -119,7 +119,7 @@ export function getCoreEnv(): CoreEnv {
 /**
  * Key material for signing and sealing: the current AUTH_SECRET first (used to sign and encrypt),
  * then AUTH_SECRET_PREVIOUS during a rotation (still accepted to verify and decrypt). See
- * docs/SECURITY.md → "Rotating AUTH_SECRET".
+ * docs/DEPLOYMENT.md → "Rotating AUTH_SECRET".
  */
 export function getSecretKeys(): SecretKeys {
   const current = getCoreEnv().AUTH_SECRET

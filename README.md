@@ -83,7 +83,7 @@ All screenshots show demo data for a fictional company.
 
 ### System overview
 
-![System overview: browser, Slack/Teams and shared pages reach the Next.js app on Vercel (middleware, API routes, services, repositories, background jobs), which uses PostgreSQL + pgvector on Neon, AI models and external sources](docs/images/diagrams/system.png)
+![Corpus architecture: clients (browser, Slack, Teams, shared links) reach the Next.js 15 app on Vercel (edge middleware, pages, API routes, services and background jobs), which uses Neon PostgreSQL with pgvector, Gemini or open-source models, and external sources](docs/images/diagrams/architecture.png)
 
 ### Answering a question
 
@@ -249,8 +249,7 @@ and schedules the job runner on Vercel Cron. The code works within Vercel's limi
 - stored files (PDFs, recordings, images) are streamed back;
 - background jobs run after responses and on the cron, and continue where they stopped.
 
-[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) walks through every step, including the Hobby plan's limits (non-commercial use, one cron run a day). Security operations (secrets, rotation,
-the production checklist) are in [docs/SECURITY.md](docs/SECURITY.md).
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) walks through every step, including the Hobby plan's limits (non-commercial use, one cron run a day) and rotating `AUTH_SECRET`.
 
 ## Scripts
 
@@ -262,7 +261,7 @@ the production checklist) are in [docs/SECURITY.md](docs/SECURITY.md).
 | `npm run db:migrate` | Apply pending schema migrations |
 | `npm run worker` | Process background jobs in a loop; `-- --once` empties the queue once |
 | `npm run build:scripts` / `start:worker` | Bundle the worker, migration and re-seal scripts into `dist/scripts` / run the bundled worker (production images) |
-| `npm run secrets:reseal` | Re-encrypt stored credentials with a new `AUTH_SECRET` ([docs/SECURITY.md](docs/SECURITY.md)) |
+| `npm run secrets:reseal` | Re-encrypt stored credentials with a new `AUTH_SECRET` ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#rotating-auth_secret)) |
 | `npm run db:import-legacy -- --email …` | Import data from the previous version |
 | `npm run seed -- --email …` | Add a sample document to that user's personal workspace |
 
@@ -337,7 +336,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
 
 - **`AUTH_SECRET`** (required, at least 32 characters; there is no default)
   - Signs sessions and derives the key that encrypts connector and chat-app credentials.
-  - Rotate it with `AUTH_SECRET_PREVIOUS` and `npm run secrets:reseal` ([docs/SECURITY.md](docs/SECURITY.md)).
+  - Rotate it with `AUTH_SECRET_PREVIOUS` and `npm run secrets:reseal` ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#rotating-auth_secret)).
 - **`APP_URL`** (required in production; on Vercel the production domain is used when it is unset)
   - OAuth redirect URI for sign-in: `<APP_URL>/api/auth/oauth/callback?provider=google|github`.
   - Redirect URI for the Google Drive connector: `<APP_URL>/api/connectors/google-drive/callback`. Also enable the Drive API and the `drive.readonly` scope.
@@ -362,7 +361,6 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
 - [Architecture](docs/ARCHITECTURE.md): layers, the RAG pipeline, jobs, data model, security model
 - [Code standards](docs/CODE-STANDARDS.md): the rules the linter enforces, and why
 - [Deployment](docs/DEPLOYMENT.md): Vercel step by step
-- [Security](docs/SECURITY.md): secrets, key rotation, sessions, the production checklist
 - [Security audit](docs/SECURITY-AUDIT.md): what was wrong with the first version, and how it was fixed
 
 ## Author

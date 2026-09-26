@@ -464,7 +464,7 @@ step-back and HyDE on, guardrail on (relevance ≥ 0.35, similarity ≥ 0.45), e
 | Concern | Control |
 |---|---|
 | Authentication | HMAC-SHA256 session cookie (httpOnly, SameSite=Lax, Secure in prod) naming a server-side session. Middleware checks the signature and expiry; every handler also checks that the session was not revoked (sign-out, "sign out of all devices"; cached ≤ 30 s). No fallback secret. |
-| Keys | `AUTH_SECRET` signs sessions and encrypts stored credentials; during a rotation `AUTH_SECRET_PREVIOUS` is still accepted and `npm run secrets:reseal` re-encrypts everything with the new key (docs/SECURITY.md). |
+| Keys | `AUTH_SECRET` signs sessions and encrypts stored credentials; during a rotation `AUTH_SECRET_PREVIOUS` is still accepted and `npm run secrets:reseal` re-encrypts everything with the new key (docs/DEPLOYMENT.md). |
 | Authorisation | Membership resolved per request from `X-Workspace-Id` (non-members: 404); one permission table with notebook overrides; every query scoped by `workspace_id`; conversations also by author. |
 | Sign-in | Google (OIDC, `email_verified`), GitHub (verified primary email), email OTP (CSPRNG, HMAC-stored, 5 attempts, single use, one message for every failure, a daily cap per address). Allowlist applies before invitations are accepted. Redirects after sign-in are same-origin paths only. |
 | CSRF | SameSite=Lax cookies + `Origin` check on every non-GET request. |
@@ -519,7 +519,7 @@ npm run seed -- --email you@example.com              # optional sample document
 
 Production runs on Vercel (docs/DEPLOYMENT.md): production builds apply the migrations, jobs run after
 responses, and Vercel Cron calls `GET /api/jobs/run` with `Authorization: Bearer $CRON_SECRET` so queued
-work also progresses when nobody is using the app. Rotating `AUTH_SECRET`: docs/SECURITY.md.
+work also progresses when nobody is using the app. Rotating `AUTH_SECRET`: docs/DEPLOYMENT.md.
 
 **Local development without a database server:** `POSTGRES_URL=pglite:./.data/pglite` runs Postgres +
 pgvector in-process (the engine the tests use). Run `npm run db:migrate` with the same value first.

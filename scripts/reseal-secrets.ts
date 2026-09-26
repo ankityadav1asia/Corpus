@@ -2,7 +2,7 @@
  * Re-encrypts stored credentials and share tokens with the current AUTH_SECRET after a rotation.
  * Set AUTH_SECRET to the new secret and AUTH_SECRET_PREVIOUS to the old one, then run:
  *   npm run secrets:reseal
- * See docs/SECURITY.md → "Rotating AUTH_SECRET".
+ * See docs/DEPLOYMENT.md → "Rotating AUTH_SECRET".
  */
 import 'dotenv/config'
 
