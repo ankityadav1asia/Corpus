@@ -36,13 +36,11 @@ Rotating on a schedule, or because someone who knew it left, keeps everyone sign
    - `AUTH_SECRET_PREVIOUS` = the current secret;
    - `AUTH_SECRET` = the new one.
 
-   On Vercel: Settings → Environment Variables. On Kubernetes: update the `corpus-env` Secret, then
-   restart the deployments (`kubectl -n corpus rollout restart deployment`).
+   On Vercel: Settings → Environment Variables.
 3. Deploy. New sessions and encrypted values use the new secret. Existing sessions and stored
    credentials are still accepted through the previous one.
 4. Re-encrypt what is stored: run `npm run secrets:reseal`. In a production container, run
-   `node --conditions=react-server dist/scripts/reseal-secrets.cjs`; on Kubernetes:
-   `kubectl -n corpus exec deploy/corpus-worker -- node --conditions=react-server dist/scripts/reseal-secrets.cjs`.
+   `node --conditions=react-server dist/scripts/reseal-secrets.cjs`.
    Vercel has no shell: run `npm run secrets:reseal` from a checkout, with `POSTGRES_URL`, `AUTH_SECRET`
    and `AUTH_SECRET_PREVIOUS` set to the production values in your terminal session only.
    It reports how many values it re-sealed and lists any it could not read.
@@ -81,7 +79,7 @@ The server refuses to start, and says why, when any of these is wrong:
 Also check:
 
 - [ ] `TRUST_PROXY` = the number of reverse proxies in front of the app (automatic on Vercel; 1 behind
-      one proxy such as a Kubernetes ingress; 2 with a CDN in front). Without it, per-IP limits treat
+      one reverse proxy; 2 with a CDN in front). Without it, per-IP limits treat
       every caller as one. Setting it higher than the real number of proxies lets clients pick their
       own address.
 - [ ] Sign-in is limited as intended: `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS` for a company

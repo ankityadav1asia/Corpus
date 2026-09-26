@@ -45,7 +45,7 @@ export function checkConfig(): ConfigReport {
     if (!appUrl) errors.push('APP_URL is required in production (the public https origin, e.g. https://corpus.example.com).')
     else if (!appUrl.startsWith('https://')) errors.push('APP_URL must start with https:// in production (secure cookies, OAuth and chat-app webhooks need it).')
     if (trustedProxyHops() === 0)
-      warnings.push('TRUST_PROXY is not set: behind a proxy, per-IP rate limits cannot tell callers apart (set TRUST_PROXY=1 behind one proxy, e.g. a Kubernetes ingress).')
+      warnings.push('TRUST_PROXY is not set: behind a proxy, per-IP rate limits cannot tell callers apart (set TRUST_PROXY=1 behind one reverse proxy).')
     if (isVercel() && webRunsJobs() && !getCronSecret())
       warnings.push('CRON_SECRET is not set: Vercel Cron cannot call /api/jobs/run, so queued work only moves while someone uses the app.')
   }

@@ -1,15 +1,13 @@
 # Deployment
 
 Corpus deploys to **Vercel**, which runs the pages, the API, streaming answers and the background
-jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`, Ohio). When the
-background work outgrows serverless functions, the same code runs as a **worker on Kubernetes**.
-The whole app can also run on Kubernetes, or on any Docker host.
+jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`, Ohio).
 
-| Piece | On Vercel | On Kubernetes (optional) |
-|---|---|---|
-| Web app and API | Vercel Functions (Node.js, Fluid compute), region `cle1` | Deployment `corpus-web` + Ingress |
-| Background jobs | after each response, while someone waits, and on Vercel Cron | Deployment `corpus-worker` |
-| Migrations | the production build (`scripts/vercel-build.mjs`) | Job `corpus-migrate` |
+| Piece | On Vercel |
+|---|---|
+| Web app and API | Vercel Functions (Node.js, Fluid compute), region `cle1` |
+| Background jobs | after each response, while someone waits, and on Vercel Cron |
+| Migrations | the production build (`scripts/vercel-build.mjs`) |
 
 ## How the app fits Vercel's limits
 
@@ -31,8 +29,8 @@ The whole app can also run on Kubernetes, or on any Docker host.
   until then.
 - **Pro** allows commercial use, cron every minute (change the schedule in `vercel.json` to
   `*/5 * * * *` or `* * * * *`), and functions of up to 800 s.
-- Background jobs count as function usage. For many scanned PDFs, long recordings or audio
-  overviews, add the [Kubernetes worker](#worker-on-kubernetes-next-to-vercel).
+- Background jobs count as function usage: many scanned PDFs, long recordings or audio overviews
+  use more of the plan's function time.
 
 ## Before the first deploy
 
@@ -71,7 +69,7 @@ The whole app can also run on Kubernetes, or on any Docker host.
    - `NODE_ENV`: Vercel sets it. Setting it to `production` for the build would skip the dev
      dependencies the build needs.
    - `TRUST_PROXY`: Vercel is detected.
-   - `WEB_RUNS_JOBS`: only `false` once a worker runs elsewhere.
+   - `WEB_RUNS_JOBS`: on Vercel the functions run the jobs.
 3. **Deploy.** A production build first applies pending migrations (idempotent and locked), then runs
    `next build`. If a migration fails, the build fails and the running version keeps serving. To
    migrate by hand instead, set `SKIP_MIGRATIONS=1` and run `npm run db:migrate` before each release.
@@ -89,75 +87,9 @@ Every push to `main` deploys to production. Pull requests get preview deployment
 migrate the database: if you give the Preview environment variables, point `POSTGRES_URL` at a Neon
 branch (the Neon integration for Vercel can create one per preview), never at the production database.
 
-## Kubernetes
+## Without Vercel
 
-### The image
-
-CI builds the Docker image on every push. To publish it to the GitHub Container Registry, set the
-repository variable `PUBLISH_IMAGE` to `true` (Settings → Secrets and variables → Actions →
-Variables). Each push to `main` then publishes `ghcr.io/ankityadav1asia/corpus:main` and
-`:sha-<commit>` once the checks pass; **Actions → CI → Run workflow** publishes on demand.
-
-Check the package's visibility (GitHub → your profile → Packages → corpus). A public package needs
-nothing more. For a private one, give the cluster a pull secret and add
-`imagePullSecrets: [{ name: ghcr }]` to the pod specs:
-
-```bash
-kubectl -n corpus create secret docker-registry ghcr --docker-server=ghcr.io \
-  --docker-username=<github user> --docker-password=<token with read:packages>
-```
-
-The settings go into one Secret, from a local file that git ignores (`.env.production`, the same
-variables as on Vercel; `APP_URL` is required here):
-
-```bash
-kubectl apply -f deploy/kubernetes/worker/namespace.yaml
-kubectl -n corpus create secret generic corpus-env --from-env-file=.env.production
-```
-
-### Worker on Kubernetes, next to Vercel
-
-The web app stays on Vercel; OCR, transcription, audio overviews and the other jobs move to the cluster.
-
-```bash
-kubectl apply -k deploy/kubernetes/worker
-kubectl -n corpus logs deploy/corpus-worker -f     # "✓ 1 job(s) done, 0 failed" once work arrives
-```
-
-Then set `WEB_RUNS_JOBS=false` on Vercel and redeploy. Vercel Cron keeps calling `/api/jobs/run`,
-which is harmless next to the worker (each job is claimed once); remove `CRON_SECRET` to stop it.
-
-After each release, restart the worker so it pulls the new image:
-`kubectl -n corpus rollout restart deployment/corpus-worker`. A worker that is still on the older
-version leaves job types it does not know in the queue, for the new one to pick up.
-
-The worker runs as the image's unprivileged `node` user with a read-only root filesystem, drops all
-capabilities, and has about two minutes to finish its current job when it is stopped.
-
-### The whole app on Kubernetes
-
-1. Edit [deploy/kubernetes/full/ingress.yaml](../deploy/kubernetes/full/ingress.yaml): your domain,
-   the ingress class and the TLS issuer. It is written for ingress-nginx and cert-manager, and allows
-   52 MB request bodies (ingress-nginx allows 1 MB by default).
-2. Put `APP_URL=https://<your domain>` into `.env.production` and create the Secret as above.
-3. Apply the migrations, then the app:
-   ```bash
-   kubectl apply -f deploy/kubernetes/migrate-job.yaml
-   kubectl -n corpus wait --for=condition=complete job/corpus-migrate --timeout=300s
-   kubectl apply -k deploy/kubernetes/full
-   ```
-4. The web pods are ready once `/api/health` answers. The web Deployment sets `TRUST_PROXY=1` (the
-   ingress controller) and `WEB_RUNS_JOBS=false` (the worker does the jobs).
-
-Each release: publish the image, run the migration Job again (delete the finished one first:
-`kubectl -n corpus delete job corpus-migrate`), then
-`kubectl -n corpus rollout restart deployment/corpus-web deployment/corpus-worker`.
-To pin a release instead of following `main`:
-`cd deploy/kubernetes/full && kustomize edit set image corpus=ghcr.io/ankityadav1asia/corpus:sha-<commit>`.
-
-## Other hosts
-
-The [Dockerfile](../Dockerfile) builds one image for three commands:
+Vercel is the supported deployment. For a machine of your own, the [Dockerfile](../Dockerfile) builds one image for three commands:
 
 | Process | Command |
 |---|---|
@@ -187,10 +119,10 @@ and background worker in Ohio, migrations as the pre-deploy step).
 ## Operating it
 
 - **Logs.** Every process logs one JSON object per line: `level`, `msg`, `requestId`, `jobId`, and
-  never secrets. A failed request shows a request id that matches the log line. On Vercel: the
-  project's Logs; on Kubernetes: `kubectl -n corpus logs`.
-- **Scaling.** Vercel scales the functions by itself. Workers can run several replicas, because jobs
-  are claimed with `FOR UPDATE SKIP LOCKED`. Model quotas are usually the limit before CPU is.
+  never secrets. A failed request shows a request id that matches the log line (Vercel: the
+  project's Logs).
+- **Scaling.** Vercel scales the functions by itself; jobs are claimed with `FOR UPDATE SKIP LOCKED`,
+  so parallel runs never do the same job twice. Model quotas are usually the limit before CPU is.
 - **Rollbacks.** Vercel's Instant Rollback serves an earlier deployment again. Migrations are
   additive, so older code keeps working on the newer schema.
 - **Backups.** Neon keeps point-in-time history (the retention depends on your plan). Branch before
@@ -199,4 +131,4 @@ and background worker in Ohio, migrations as the pre-deploy step).
   [SECURITY.md](SECURITY.md).
 - **Costs to watch.** Gemini usage: re-ranking, deep mode, evaluation and audio overviews each add
   model calls. Evaluation sampling is a per-workspace setting. On Vercel, background jobs add function
-  time; the worker moves that work to the cluster.
+  time.

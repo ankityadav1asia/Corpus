@@ -61,8 +61,7 @@ scripts/                    init-db (migrate), worker, reseal-secrets, import-le
                             vercel-build (migrations on production builds, then next build)
 tests/                      node:test suites (unit, PGlite integration, HTTP route tests)
 vercel.json                 Vercel: region cle1 (next to Neon), Fluid compute, build command, daily cron — docs/DEPLOYMENT.md
-deploy/kubernetes/          the worker next to Vercel, or the whole app (web, worker, ingress, migration Job)
-Dockerfile, render.yaml     production image (web + worker) for Kubernetes and Docker hosts; a Render Blueprint
+Dockerfile, render.yaml     container image (web + worker) and a Render Blueprint, for hosting outside Vercel
 .github/                    CI (typecheck, lint, tests, build, audit, Docker) and Dependabot
 ```
 
@@ -520,9 +519,7 @@ npm run seed -- --email you@example.com              # optional sample document
 
 Production runs on Vercel (docs/DEPLOYMENT.md): production builds apply the migrations, jobs run after
 responses, and Vercel Cron calls `GET /api/jobs/run` with `Authorization: Bearer $CRON_SECRET` so queued
-work also progresses when nobody is using the app. The same image runs the worker on Kubernetes
-(`deploy/kubernetes/`), or the web server and the worker on any container host. Rotating
-`AUTH_SECRET`: docs/SECURITY.md.
+work also progresses when nobody is using the app. Rotating `AUTH_SECRET`: docs/SECURITY.md.
 
 **Local development without a database server:** `POSTGRES_URL=pglite:./.data/pglite` runs Postgres +
 pgvector in-process (the engine the tests use). Run `npm run db:migrate` with the same value first.

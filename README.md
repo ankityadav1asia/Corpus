@@ -278,11 +278,8 @@ flowchart LR
   GH --> VB["Vercel build<br/>migrations, then next build"]
   VB --> VF["Vercel Functions, cle1<br/>pages, API, streaming answers,<br/>jobs after responses"]
   CRON["Vercel Cron"] -->|"/api/jobs/run"| VF
-  GH --> CI["GitHub Actions<br/>typecheck, lint, 349 tests,<br/>build, audit, Docker image"]
-  CI -.->|"PUBLISH_IMAGE"| IMG["ghcr.io image"]
-  IMG -.-> K8S["Kubernetes worker<br/>(optional)"]
+  GH --> CI["GitHub Actions<br/>typecheck, lint, 349 tests,<br/>build, audit"]
   VF --> NEON[("Neon PostgreSQL<br/>+ pgvector, us-east-2")]
-  K8S -.-> NEON
 ```
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -338,7 +335,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript, lamejs (MP3) |
 | Integrations | Google Drive (OAuth with PKCE), Notion, GitHub, website crawler, Slack Events API, Microsoft Bot Framework |
 | Email | Resend or SMTP (nodemailer) for sign-in codes |
-| Operations | Vercel (functions, cron), Kubernetes (optional worker), Docker, GitHub Actions, Dependabot |
+| Operations | Vercel (functions, cron), GitHub Actions, Dependabot |
 | Testing | node:test, tsx, PGlite, fake model providers |
 
 ## Quick start
@@ -396,10 +393,7 @@ and schedules the job runner on Vercel Cron. The code works within Vercel's limi
 - stored files (PDFs, recordings, images) are streamed back;
 - background jobs run after responses and on the cron, and continue where they stopped.
 
-When the background work grows (many scans, long recordings, audio overviews), the same code runs as
-a worker on Kubernetes ([deploy/kubernetes](deploy/kubernetes)). The whole app can run there too, or
-on any Docker host. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) walks through every step, including the
-Hobby plan's limits (non-commercial use, one cron run a day). Security operations (secrets, rotation,
+[docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) walks through every step, including the Hobby plan's limits (non-commercial use, one cron run a day). Security operations (secrets, rotation,
 the production checklist) are in [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Scripts
@@ -430,7 +424,6 @@ lib/            code shared by browser and server: API contracts, constants, rol
 server/         server-only code: RAG pipeline, ingestion, studio, connectors, jobs,
                 repositories (all SQL), security, model adapters
 scripts/        migrations, worker, re-sealing, seed, legacy import, the Vercel build
-deploy/         Kubernetes manifests: the worker, or the whole app
 tests/          349 tests on PGlite with fake model providers
 docs/           architecture, code standards, deployment, security
 ```
@@ -493,7 +486,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
   - OAuth redirect URI for sign-in: `<APP_URL>/api/auth/oauth/callback?provider=google|github`.
   - Redirect URI for the Google Drive connector: `<APP_URL>/api/connectors/google-drive/callback`. Also enable the Drive API and the `drive.readonly` scope.
 - **Deployment**
-  - `TRUST_PROXY` is the number of reverse proxies in front of the app (automatic on Vercel; 1 behind one proxy such as a Kubernetes ingress), so per-IP rate limits see real client addresses.
+  - `TRUST_PROXY` is the number of reverse proxies in front of the app (automatic on Vercel; 1 behind one reverse proxy), so per-IP rate limits see real client addresses.
   - `WEB_RUNS_JOBS=false` when a dedicated worker processes the job queue.
   - A production server or worker refuses to start without `AUTH_SECRET`, a real Postgres `POSTGRES_URL` (not PGlite) and an https `APP_URL`. Missing optional features only produce a warning.
 - **Who can sign in:** `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`. Invitations do not bypass them.
@@ -512,7 +505,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
 
 - [Architecture](docs/ARCHITECTURE.md): layers, the RAG pipeline, jobs, data model, security model
 - [Code standards](docs/CODE-STANDARDS.md): the rules the linter enforces, and why
-- [Deployment](docs/DEPLOYMENT.md): Vercel step by step, the Kubernetes worker, the whole app on Kubernetes or any Docker host
+- [Deployment](docs/DEPLOYMENT.md): Vercel step by step
 - [Security](docs/SECURITY.md): secrets, key rotation, sessions, the production checklist
 - [Security audit](docs/SECURITY-AUDIT.md): what was wrong with the first version, and how it was fixed
 

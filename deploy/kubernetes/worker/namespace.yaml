@@ -1,8 +1,0 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: corpus
-  labels:
-    app.kubernetes.io/name: corpus
-    # Pods must run as non-root, without privilege escalation and with a seccomp profile.
-    pod-security.kubernetes.io/enforce: restricted

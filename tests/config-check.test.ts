@@ -137,7 +137,7 @@ describe('on Vercel', () => {
     setEnv({ ...VERCEL_PRODUCTION, CRON_SECRET: undefined })
     assert.match(checkConfig().warnings.join('\n'), /CRON_SECRET is not set/)
     setEnv({ ...VERCEL_PRODUCTION, CRON_SECRET: undefined, WEB_RUNS_JOBS: 'false' })
-    assert.deepEqual(checkConfig().warnings, [], 'a separate worker (e.g. on Kubernetes) drains it')
+    assert.deepEqual(checkConfig().warnings, [], 'a separate worker drains it')
   })
 })
 

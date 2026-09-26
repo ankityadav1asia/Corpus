@@ -28,4 +28,3 @@ Dockerfile
 .dockerignore
 render.yaml
 vercel.json
-deploy
