@@ -7,6 +7,8 @@ export interface SessionUser {
   id: string
   email: string
   name: string | null
+  /** A demo visitor: read-only access to the demo workspace (POST /api/auth/demo). */
+  guest?: boolean
 }
 
 export const otpSendSchema = z.object({ email })

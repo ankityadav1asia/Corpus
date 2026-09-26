@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import { LoginForm } from '@/components/login-form'
 import { safeRedirectPath } from '@/lib/safe-redirect'
 import { getUserFromCookies } from '@/server/auth/current-user'
-import { getCoreEnv, getFeatureFlags, isProduction } from '@/server/env'
+import { getCoreEnv, getDemoConfig, getFeatureFlags, isProduction } from '@/server/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -35,6 +35,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
         errorCode={errorCode}
         configError={configError}
         providers={{ google: features.google, github: features.github, email: features.emailOtp || !isProduction() }}
+        demo={getDemoConfig() !== null}
       />
     </main>
   )

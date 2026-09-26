@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { AppSidebar } from '@/components/app-sidebar'
 import { SessionExpiredModal } from '@/components/auth-modal'
 import { CommandPalette } from '@/components/command-palette'
+import { DemoBanner } from '@/components/demo-banner'
 import { DropOverlay } from '@/components/drop-overlay'
 import { acceptFiles } from '@/components/file-upload-zone'
 import type { IngestionTab } from '@/components/ingestion-hub'
@@ -348,6 +349,7 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
           onOpenSources={() => openSources()}
         />
 
+        {user.guest && <DemoBanner />}
         <SetupBanners schemaReady={features.schema} aiReady={features.ai} />
 
         <WorkspaceContent
@@ -368,7 +370,7 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
           onFocusConsumed={() => setFocus(null)}
           imageDraft={imageDraft}
           onImageDraftConsumed={() => setImageDraft(null)}
-          onboarding={<OnboardingChecklist steps={onboarding} />}
+          onboarding={user.guest ? null : <OnboardingChecklist steps={onboarding} />}
           onSend={(text) => void chat.send(text, { collectionId: scope?.id ?? null, mode })}
           onBranch={(messageId) => void conversationActions.branch(messageId)}
           onFeedback={conversationActions.rate}

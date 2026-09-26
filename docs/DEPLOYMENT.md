@@ -87,6 +87,29 @@ Every push to `main` deploys to production. Pull requests get preview deployment
 migrate the database: if you give the Preview environment variables, point `POSTGRES_URL` at a Neon
 branch (the Neon integration for Vercel can create one per preview), never at the production database.
 
+## Public demo (for recruiters and visitors)
+
+`/demo` introduces the project and has an **Enter the live demo** button; the sign-in page links to
+it. A visitor gets a guest account for a day, as a read-only member of one team workspace: they can
+ask questions, open citations and browse what the studio made, but cannot upload, run studio jobs,
+share, change settings or create workspaces. Their chats are private and removed with the account.
+
+1. In the app, create a team workspace (for example "Corpus demo") and fill it as an admin: add a
+   few public documents, and make a report, a mind map and an audio overview for visitors to open.
+   In **Workspace settings → Retrieval & answer quality**, turning off "Re-rank passages" and
+   "Background evaluation" makes each question cost fewer model calls.
+2. Copy its ID from **Workspace settings → General** and set `DEMO_WORKSPACE_ID` on Vercel. Only a
+   team workspace works; a personal one is refused.
+3. Optional: `DEMO_DAILY_QUESTIONS` (default 50) caps the questions all visitors together may ask
+   per day. Each address may also start 10 demo sessions and ask 15 questions per hour, and at
+   most 500 guest sessions start per day.
+4. Redeploy. `/demo` and the sign-in page now offer the demo; without `DEMO_WORKSPACE_ID` the page
+   says the demo is closed.
+
+Guest accounts do not pass `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`: the demo is a separate,
+opt-in door. On the Gemini free tier a few questions can use up the daily quota; a billed key or an
+open-source model (`CHAT_PROVIDER=openai-compatible`) keeps the demo answering.
+
 ## Rotating AUTH_SECRET
 
 `AUTH_SECRET` signs sessions and encrypts stored credentials (connector and chat-app tokens). To

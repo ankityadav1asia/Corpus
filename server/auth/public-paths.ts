@@ -6,6 +6,9 @@
  */
 const PUBLIC_PATHS = new Set([
   '/login',
+  // The public demo: the page introducing it, and the endpoint that starts a guest session.
+  '/demo',
+  '/api/auth/demo',
   '/api/health',
   '/api/auth',
   '/api/auth/otp/send',
@@ -18,11 +21,17 @@ const PUBLIC_PATHS = new Set([
 ])
 
 /**
- * Prefixes whose routes authenticate without a session: shared pages (a secret token in the path),
- * and chat-app webhooks (Slack request signatures, Bot Framework JWTs — checked in the handler).
+ * Prefixes whose routes authenticate without a session: the demo page's images (public/demo), shared
+ * pages (a secret token in the path), and chat-app webhooks (Slack request signatures, Bot Framework
+ * JWTs — checked in the handler).
  * Each segment after the prefix must be a single path component, so `/s/../api/…` never matches.
  */
-const PUBLIC_PREFIXES = [/^\/s\/[A-Za-z0-9_-]+$/, /^\/api\/public\/shares\/[A-Za-z0-9_-]+$/, /^\/api\/integrations\/(slack|teams)\/[0-9a-f-]{36}\/(events|messages)$/]
+const PUBLIC_PREFIXES = [
+  /^\/demo\/[a-z0-9-]+\.webp$/,
+  /^\/s\/[A-Za-z0-9_-]+$/,
+  /^\/api\/public\/shares\/[A-Za-z0-9_-]+$/,
+  /^\/api\/integrations\/(slack|teams)\/[0-9a-f-]{36}\/(events|messages)$/,
+]
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((pattern) => pattern.test(pathname))

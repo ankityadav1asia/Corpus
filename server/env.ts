@@ -41,6 +41,10 @@ const envSchema = z.object({
   COHERE_API_KEY: optionalString,
   COHERE_RERANK_MODEL: optionalString,
   CRON_SECRET: optionalString,
+  /** A team workspace that demo visitors can look around in (read-only); unset = no demo. */
+  DEMO_WORKSPACE_ID: optionalString,
+  /** Questions all demo visitors together may ask per day (protects the model quota). */
+  DEMO_DAILY_QUESTIONS: optionalString,
   /** false when a dedicated worker (npm run worker) processes the job queue; see webRunsJobs. */
   WEB_RUNS_JOBS: optionalString,
   /** Number of trusted reverse proxies that append to X-Forwarded-For (1 or true for one). */
@@ -444,6 +448,22 @@ export function trustedProxyHops(): number {
 export function webRunsJobs(): boolean {
   const value = raw().WEB_RUNS_JOBS?.toLowerCase()
   return value !== 'false' && value !== '0' && value !== 'off'
+}
+
+export interface DemoConfig {
+  workspaceId: string
+  dailyQuestions: number
+}
+
+const DEFAULT_DEMO_DAILY_QUESTIONS = 50
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+/** The public demo, or null when DEMO_WORKSPACE_ID is unset or not a workspace id. */
+export function getDemoConfig(): DemoConfig | null {
+  const env = raw()
+  if (!env.DEMO_WORKSPACE_ID || !UUID.test(env.DEMO_WORKSPACE_ID)) return null
+  const daily = Number.parseInt(env.DEMO_DAILY_QUESTIONS ?? '', 10)
+  return { workspaceId: env.DEMO_WORKSPACE_ID.toLowerCase(), dailyQuestions: Number.isFinite(daily) && daily > 0 ? daily : DEFAULT_DEMO_DAILY_QUESTIONS }
 }
 
 /** Shared secret for the /api/jobs/run endpoint (e.g. a scheduled cron). Disabled when unset. */

@@ -477,6 +477,7 @@ step-back and HyDE on, guardrail on (relevance ≥ 0.35, similarity ≥ 0.45), e
 | Prompt injection | Untrusted text is wrapped and escaped in every prompt (`<source>`, `<passage>`, `<document>`, judge sections); the re-ranker and judge are told passages are data; the renderer never loads images or raw HTML. |
 | Background endpoints | `/api/jobs/run` is disabled without `CRON_SECRET` (404) and compares the bearer token in constant time. |
 | Abuse / cost | Postgres-backed rate limits (chat, ingest, chunk edits, reports, benchmarks, images, audio, mind maps, connector syncs, feedback, invitations, OTP, shared pages); client IPs only from `TRUST_PROXY` hops of `X-Forwarded-For`; size, page, chunk and item caps; evaluation sampling. |
+| Public demo | Opt-in (`DEMO_WORKSPACE_ID`, a team workspace only). Guests are accounts on the reserved `demo.invalid` domain, Viewers of that workspace and held to a read-only policy in `requireWorkspacePermission` / `requireCollectionPermission` (`guestCan`: view and search only); no personal workspace, no workspace creation, no follow-up model calls; starts and questions limited per IP and per day; removed with their chats after 24 hours (`server/auth/demo.ts`). |
 | Errors | Unknown errors return a generic 500 with a request id; background job failures are shown as generic messages. |
 | Configuration | A production server or worker refuses to start without `AUTH_SECRET`, a real Postgres and an https `APP_URL` (`server/config-check.ts`). |
 
@@ -504,6 +505,7 @@ OCR tests run real Tesseract on generated scans):
 - `tests/collab-http.test.ts` — fast path in standard and deep mode, follow-ups, share links (snapshot, revoke, delete, roles), original PDFs, Slack and Teams end to end with signed requests and a local RSA key
 - `tests/security.test.ts` — session revocation and "sign out of all devices", `AUTH_SECRET` rotation with re-sealing, the CSP nonce, middleware redirects
 - `tests/config-check.test.ts` — the production startup check, `TRUST_PROXY` hops, `WEB_RUNS_JOBS`, Vercel's own address as `APP_URL`, the cron warning
+- `tests/demo-http.test.ts` — the public demo: team workspace only, guest read-only policy, member list, question limits, purge after a day, public paths
 - `tests/uploads-http.test.ts` — uploads in parts: any order and retries, byte-exact reassembly, checks before the first byte, exact part sizes, owner-only access, expiry, the open-upload limit, cancelling
 - `tests/session.test.ts`, `tests/ssrf.test.ts`, `tests/units.test.ts`, `tests/auth-and-legacy.test.ts` — session tokens, SSRF, text handling, OTP, legacy import
 

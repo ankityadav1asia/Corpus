@@ -1,5 +1,7 @@
 import { chatRequestSchema } from '@/lib/contracts'
 import { readJson } from '@/server/http/body'
+import { enforceDemoQuestionLimits } from '@/server/auth/demo'
+import { clientIp } from '@/server/http/client-ip'
 import { workspaceRoute } from '@/server/http/route'
 import { ndjsonResponse } from '@/server/http/stream'
 import { processJobsAfterResponse } from '@/server/jobs/trigger'
@@ -20,6 +22,7 @@ export const POST = workspaceRoute(async ({ req, access }) => {
   const input = await readJson(req, chatRequestSchema, 16 * 1024)
   const services = getServices()
   await enforceRateLimit(services.repos, `chat:user:${access.userId}`, RATE_LIMITS.chat)
+  if (access.isGuest) await enforceDemoQuestionLimits(services.repos, clientIp(req))
 
   const deps = { repos: services.repos, ai: services.ai(), reranker: services.reranker() }
   const prepared = await prepareChat(deps, {

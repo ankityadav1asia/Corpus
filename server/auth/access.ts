@@ -1,6 +1,6 @@
 import type { Role } from '@/lib/constants'
 import type { Collection } from '@/lib/contracts'
-import { can, effectiveCollectionRole, permissionMessage, type Permission } from '@/server/auth/permissions'
+import { GUEST_DENIED_MESSAGE, can, effectiveCollectionRole, guestCan, permissionMessage, type Permission } from '@/server/auth/permissions'
 import { Errors } from '@/server/http/errors'
 import type { Repositories } from '@/server/repositories'
 import type { CollectionRecord } from '@/server/repositories/collections'
@@ -11,13 +11,25 @@ export interface WorkspaceAccess {
   workspaceId: string
   role: Role
   isPersonal: boolean
+  /** A demo visitor (server/auth/demo.ts): may only look around and ask questions. */
+  isGuest?: true
 }
 
 /** Non-members get 404 (not 403) so workspace ids cannot be probed. */
-export async function resolveWorkspaceAccess(repos: Pick<Repositories, 'workspaces'>, userId: string, workspaceId: string): Promise<WorkspaceAccess> {
+export async function resolveWorkspaceAccess(
+  repos: Pick<Repositories, 'workspaces'>,
+  userId: string,
+  workspaceId: string,
+  options: { guest?: boolean } = {},
+): Promise<WorkspaceAccess> {
   const membership = await repos.workspaces.membership(workspaceId, userId)
   if (!membership) throw Errors.notFound('Workspace')
-  return { userId, workspaceId, role: membership.role, isPersonal: membership.isPersonal }
+  return { userId, workspaceId, role: membership.role, isPersonal: membership.isPersonal, ...(options.guest ? { isGuest: true as const } : {}) }
+}
+
+/** Demo visitors are held to the read-only guest policy whatever their role says. */
+function requireGuestAllowed(access: WorkspaceAccess, permission: Permission) {
+  if (access.isGuest && !guestCan(permission)) throw Errors.forbidden(GUEST_DENIED_MESSAGE)
 }
 
 export function requirePermission(role: Role | null | undefined, permission: Permission) {
@@ -25,6 +37,7 @@ export function requirePermission(role: Role | null | undefined, permission: Per
 }
 
 export function requireWorkspacePermission(access: WorkspaceAccess, permission: Permission) {
+  requireGuestAllowed(access, permission)
   requirePermission(access.role, permission)
 }
 
@@ -64,6 +77,7 @@ export async function requireCollectionPermission(
   collectionId: string,
   permission: Permission,
 ): Promise<CollectionAccess> {
+  requireGuestAllowed(access, permission)
   const result = await collectionAccess(repos, access, collectionId)
   requirePermission(result.role, permission)
   return result

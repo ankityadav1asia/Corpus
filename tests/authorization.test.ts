@@ -5,8 +5,16 @@ import { NextRequest } from 'next/server'
 
 import { ROLES, type Role } from '@/lib/constants'
 import type { SessionUser } from '@/lib/contracts'
-import { collectionAccess, requireCollectionPermission, requirePermission, resolveWorkspaceAccess, withMyRole, type WorkspaceAccess } from '@/server/auth/access'
-import { PERMISSIONS, can, effectiveCollectionRole, hasRole, permissionMessage, type Permission } from '@/server/auth/permissions'
+import {
+  collectionAccess,
+  requireCollectionPermission,
+  requirePermission,
+  requireWorkspacePermission,
+  resolveWorkspaceAccess,
+  withMyRole,
+  type WorkspaceAccess,
+} from '@/server/auth/access'
+import { PERMISSIONS, can, effectiveCollectionRole, guestCan, hasRole, permissionMessage, type Permission } from '@/server/auth/permissions'
 import { SESSION_COOKIE, createSessionToken } from '@/server/auth/session'
 import { resetEnvCache } from '@/server/env'
 import { AppError } from '@/server/http/errors'
@@ -103,6 +111,23 @@ describe('access resolution', () => {
   it('resolves members and hides the workspace from everyone else (404)', async () => {
     assert.deepEqual(await resolveWorkspaceAccess(repos, member.id, WORKSPACE), { userId: member.id, workspaceId: WORKSPACE, role: 'editor', isPersonal: false })
     await assert.rejects(resolveWorkspaceAccess(repos, outsider.id, WORKSPACE), isStatus(404))
+  })
+
+  it('holds demo visitors to the read-only guest policy, whatever their role allows', async () => {
+    const viewers = fakeRepos({ [member.id]: { role: 'viewer' } })
+    const guest = await resolveWorkspaceAccess(viewers, member.id, WORKSPACE, { guest: true })
+    assert.equal(guest.isGuest, true)
+    const allowed = (Object.keys(PERMISSIONS) as Permission[]).filter((permission) => guestCan(permission))
+    assert.deepEqual(allowed, ['workspace.view', 'collection.view', 'collection.search'])
+    for (const permission of ['reports.create', 'images.create', 'audio.create', 'mindmaps.create'] as const) {
+      assert.doesNotThrow(() => requireWorkspacePermission({ ...guest, isGuest: undefined }, permission), 'viewers may create studio items')
+      assert.throws(
+        () => requireWorkspacePermission(guest, permission),
+        (error: unknown) => error instanceof AppError && error.status === 403 && /read-only demo/.test(error.message),
+      )
+    }
+    assert.doesNotThrow(() => requireWorkspacePermission(guest, 'workspace.view'))
+    await assert.rejects(requireCollectionPermission(viewers, guest, NOTEBOOK, 'collection.ingest'), isStatus(403))
   })
 
   it('checks permissions with a 403 that says what is missing', () => {

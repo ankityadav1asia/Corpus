@@ -1,6 +1,7 @@
 'use client'
 
-import { AlertCircle, ArrowRight, CheckCircle2, Github, Loader2, Mail, ShieldCheck } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, Github, Loader2, Mail, PlayCircle, ShieldCheck } from 'lucide-react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 
@@ -33,6 +34,8 @@ export interface LoginFormProps {
   errorCode: string | null
   configError: string | null
   providers: { google: boolean; github: boolean; email: boolean }
+  /** A public demo is open: offer it to visitors without an account. */
+  demo?: boolean
 }
 
 function GoogleIcon() {
@@ -47,7 +50,7 @@ function GoogleIcon() {
 }
 
 /** The single sign-in UI (the old app had two diverging copies: a page and a modal). */
-export function LoginForm({ next, errorCode, configError, providers }: LoginFormProps) {
+export function LoginForm({ next, errorCode, configError, providers, demo = false }: LoginFormProps) {
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
@@ -214,6 +217,21 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
         ))}
 
       {!anyOAuth && !providers.email && <p className="text-center text-sm text-muted-foreground">No sign-in method is configured on this server.</p>}
+
+      {demo && (
+        <Link
+          href="/demo"
+          className="mt-6 flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/10 px-4 py-3 text-sm transition-colors hover:border-primary/60 hover:bg-primary/15"
+        >
+          <span className="flex items-center gap-2">
+            <PlayCircle className="size-4 text-primary" />
+            <span>
+              <span className="font-medium">Just looking?</span> <span className="text-muted-foreground">Try the live demo, no account needed.</span>
+            </span>
+          </span>
+          <ArrowRight className="size-4 shrink-0 text-primary" />
+        </Link>
+      )}
     </div>
   )
 }

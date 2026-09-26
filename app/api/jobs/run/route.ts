@@ -1,5 +1,6 @@
 import type { NextRequest } from 'next/server'
 
+import { purgeGuests } from '@/server/auth/demo'
 import { getCronSecret } from '@/server/env'
 import { Errors } from '@/server/http/errors'
 import { json, publicRoute } from '@/server/http/route'
@@ -29,6 +30,7 @@ async function handle(req: NextRequest) {
   const result = await runJobs(jobContextFrom(services), { maxJobs: 50, timeBudgetMs: TIME_BUDGET_MS })
   await services.repos.jobs.purgeFinished(7).catch(() => 0)
   await services.repos.uploads.purgeExpired().catch(() => 0)
+  await purgeGuests(services.repos).catch(() => 0)
   return json(result)
 }
 

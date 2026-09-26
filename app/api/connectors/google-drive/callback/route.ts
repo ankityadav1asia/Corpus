@@ -34,7 +34,7 @@ export const GET = authedRoute(async ({ req, user }) => {
       userId: user.id,
       secret: getSecretKeys(),
     })
-    const access = await resolveWorkspaceAccess(services.repos, user.id, grant.workspaceId)
+    const access = await resolveWorkspaceAccess(services.repos, user.id, grant.workspaceId, { guest: user.guest })
     requireWorkspacePermission(access, 'connectors.use')
     const connection = await services.repos.connectors.saveConnection({
       workspaceId: grant.workspaceId,
