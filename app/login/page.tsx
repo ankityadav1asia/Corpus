@@ -2,6 +2,7 @@ import { PlayCircle } from 'lucide-react'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import { AuthorCard } from '@/components/author-card'
 import { LoginForm } from '@/components/login-form'
 import { safeRedirectPath } from '@/lib/safe-redirect'
 import { getUserFromCookies } from '@/server/auth/current-user'
@@ -43,6 +44,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
           <span className="hidden text-muted-foreground sm:inline">· no account needed</span>
         </Link>
       )}
+      <AuthorCard className="absolute right-4 top-4 sm:right-6 sm:top-6" />
       <LoginForm
         next={next}
         errorCode={errorCode}

@@ -2,6 +2,7 @@ import { BookOpenCheck, Brain, FileSearch, Github, Layers, Lock, type LucideIcon
 import type { Metadata } from 'next'
 import Link from 'next/link'
 
+import { AuthorCard } from '@/components/author-card'
 import { DemoEnterButton } from '@/components/demo-enter-button'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -171,10 +172,13 @@ export default async function DemoPage() {
           <Brain className="size-4 text-primary" />
           Built by Ankit Yadav
         </span>
-        <a href={REPOSITORY} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-foreground">
-          <Github className="size-4" />
-          ankityadav1asia/Corpus
-        </a>
+        <div className="flex flex-wrap items-center justify-center gap-4">
+          <a href={REPOSITORY} target="_blank" rel="noreferrer" className="flex items-center gap-2 hover:text-foreground">
+            <Github className="size-4" />
+            ankityadav1asia/Corpus
+          </a>
+          <AuthorCard />
+        </div>
       </footer>
     </main>
   )
