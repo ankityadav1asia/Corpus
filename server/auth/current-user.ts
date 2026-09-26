@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import type { NextRequest, NextResponse } from 'next/server'
 
 import type { SessionUser } from '@/lib/contracts'
+import { isGuestEmail } from '@/server/auth/guest'
 import { SESSION_COOKIE, SESSION_TTL_SECONDS, readSessionToken, type SessionClaims } from '@/server/auth/session'
 import { getSecretKeys, shouldUseSecureCookies } from '@/server/env'
 import { getServices } from '@/server/services'
@@ -43,7 +44,7 @@ async function readClaims(token: string | undefined): Promise<SessionClaims | nu
 async function toUser(token: string | undefined): Promise<SessionUser | null> {
   const claims = await readClaims(token)
   if (!claims || !(await isSessionActive(claims))) return null
-  return { id: claims.sub, email: claims.email, name: claims.name }
+  return { id: claims.sub, email: claims.email, name: claims.name, ...(isGuestEmail(claims.email) ? { guest: true } : {}) }
 }
 
 /** For server components (uses the request-scoped cookie store). */

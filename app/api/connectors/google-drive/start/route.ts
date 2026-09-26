@@ -12,7 +12,7 @@ import { getServices } from '@/server/services'
 /** Starts connecting a Google Drive to workspace `?w=` (Editor). A top-level navigation, not fetch. */
 export const GET = authedRoute(async ({ req, user }) => {
   const workspaceId = parseWith(idSchema, req.nextUrl.searchParams.get('w'))
-  const access = await resolveWorkspaceAccess(getServices().repos, user.id, workspaceId)
+  const access = await resolveWorkspaceAccess(getServices().repos, user.id, workspaceId, { guest: user.guest })
   requireWorkspacePermission(access, 'connectors.use')
   const { authorizationUrl, stateCookie } = await withConnectorErrors(() => beginDriveAuthorization(req.url, workspaceId, user.id, getSecretKeys()))
   const res = NextResponse.redirect(authorizationUrl)

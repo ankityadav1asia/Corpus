@@ -77,7 +77,7 @@ export function workspaceRoute<P extends Params = Params>(handler: (args: Worksp
   return authedRoute<P>(async (args) => {
     const workspaceId = requestedWorkspaceId(args.req)
     if (!workspaceId) throw Errors.badRequest('Select a workspace first (missing or invalid X-Workspace-Id header).')
-    const access = await resolveWorkspaceAccess(getServices().repos, args.user.id, workspaceId)
+    const access = await resolveWorkspaceAccess(getServices().repos, args.user.id, workspaceId, { guest: args.user.guest })
     return handler({ ...args, access })
   })
 }
@@ -88,7 +88,7 @@ export function workspaceRoute<P extends Params = Params>(handler: (args: Worksp
  */
 export function workspaceParamRoute<P extends Params & { id: string } = { id: string }>(handler: (args: WorkspaceArgs<P>) => Promise<Response>) {
   return authedRoute<P>(async (args) => {
-    const access = await resolveWorkspaceAccess(getServices().repos, args.user.id, parseWith(idSchema, args.params.id))
+    const access = await resolveWorkspaceAccess(getServices().repos, args.user.id, parseWith(idSchema, args.params.id), { guest: args.user.guest })
     return handler({ ...args, access })
   })
 }

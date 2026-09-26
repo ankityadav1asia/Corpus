@@ -7,6 +7,7 @@
  */
 import 'dotenv/config'
 
+import { purgeGuests } from '@/server/auth/demo'
 import { assertConfig } from '@/server/config-check'
 import { runJobs } from '@/server/jobs/runner'
 import { jobContextFrom } from '@/server/jobs/trigger'
@@ -41,6 +42,8 @@ async function main() {
       if (purged) console.log(`Removed ${purged} finished job(s) older than 7 days.`)
       const abandoned = await services.repos.uploads.purgeExpired().catch(() => 0)
       if (abandoned) console.log(`Removed ${abandoned} unfinished upload(s).`)
+      const guests = await purgeGuests(services.repos).catch(() => 0)
+      if (guests) console.log(`Removed ${guests} demo visitor(s) older than a day.`)
     }
     const result = await runJobs(context, { maxJobs: 10, timeBudgetMs: 120_000, shouldStop: () => stopping })
     totals.processed += result.processed

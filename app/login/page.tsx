@@ -1,9 +1,11 @@
+import { PlayCircle } from 'lucide-react'
+import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
 import { LoginForm } from '@/components/login-form'
 import { safeRedirectPath } from '@/lib/safe-redirect'
 import { getUserFromCookies } from '@/server/auth/current-user'
-import { getCoreEnv, getFeatureFlags, isProduction } from '@/server/env'
+import { getCoreEnv, getDemoConfig, getFeatureFlags, isProduction } from '@/server/env'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,13 +30,25 @@ export default async function LoginPage({ searchParams }: { searchParams: Search
   if (!configError && (await getUserFromCookies())) redirect(next)
 
   const features = getFeatureFlags()
+  const oauth = features.google || features.github
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
+    <main className="relative flex min-h-screen items-center justify-center px-4 py-20">
+      {getDemoConfig() && (
+        <Link
+          href="/demo"
+          className="absolute left-4 top-4 flex items-center gap-2 rounded-full border border-primary/40 bg-primary/10 px-4 py-2 text-sm font-medium text-foreground shadow-lg transition-colors hover:border-primary/70 hover:bg-primary/20 sm:left-6 sm:top-6"
+        >
+          <PlayCircle className="size-4 text-primary" />
+          Try the live demo
+          <span className="hidden text-muted-foreground sm:inline">· no account needed</span>
+        </Link>
+      )}
       <LoginForm
         next={next}
         errorCode={errorCode}
         configError={configError}
-        providers={{ google: features.google, github: features.github, email: features.emailOtp || !isProduction() }}
+        // Google / GitHub sign-in only; email codes remain a fallback where neither is configured (local development).
+        providers={{ google: features.google, github: features.github, email: !oauth && (features.emailOtp || !isProduction()) }}
       />
     </main>
   )

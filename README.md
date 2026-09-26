@@ -350,6 +350,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
   - Open-source: set `CHAT_PROVIDER`, `EMBEDDING_PROVIDER`, `VISION_PROVIDER`, `TRANSCRIPTION_PROVIDER` or `TTS_PROVIDER` to `openai-compatible` and fill in `OPENAI_COMPATIBLE_*`.
   - OCR: `OCR_ENGINE` (`tesseract`, `vision` or `none`) and `OCR_LANGUAGES`.
 - **Re-ranking and jobs:** `RERANKER` (`auto`, `llm`, `cohere` or `none`) with `COHERE_API_KEY`. `CRON_SECRET` enables `/api/jobs/run` (Vercel Cron sends it).
+- **Public demo:** `DEMO_WORKSPACE_ID` opens one team workspace, read-only, to visitors of `/demo` (guest accounts that last a day); `DEMO_DAILY_QUESTIONS` caps their questions per day ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#public-demo-for-recruiters-and-visitors)).
 - **Per workspace:** retrieval, guardrail and evaluation settings live in Workspace settings in the app.
 - **Chat apps**
   - Slack: create an app with the bot scopes `app_mentions:read`, `chat:write` and `im:history`. Connect it in Workspace settings → Chat apps with its bot token and signing secret, then paste the Request URL it shows into Event Subscriptions (`app_mention`, `message.im`).

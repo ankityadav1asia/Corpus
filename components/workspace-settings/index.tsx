@@ -42,6 +42,15 @@ function GeneralSection({ workspaceId, savedName, isAdmin, onRenamed }: { worksp
     setName(savedName)
   }, [savedName])
 
+  async function copyId() {
+    try {
+      await navigator.clipboard.writeText(workspaceId)
+      toast({ description: 'Workspace ID copied.' })
+    } catch {
+      toast({ description: 'Could not copy; select the ID instead.' })
+    }
+  }
+
   function rename(event: FormEvent) {
     event.preventDefault()
     if (!name.trim()) return
@@ -65,6 +74,16 @@ function GeneralSection({ workspaceId, savedName, isAdmin, onRenamed }: { worksp
           </Button>
         )}
       </form>
+      {isAdmin && (
+        <p className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          Workspace ID
+          <code className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] text-foreground">{workspaceId}</code>
+          <button type="button" className="text-primary hover:underline" onClick={() => void copyId()}>
+            Copy
+          </button>
+          <span className="w-full">Set it as DEMO_WORKSPACE_ID to open a team workspace as the public, read-only demo.</span>
+        </p>
+      )}
     </Section>
   )
 }

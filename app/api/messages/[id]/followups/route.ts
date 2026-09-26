@@ -24,6 +24,8 @@ export const POST = workspaceRoute<{ id: string }>(async ({ req, params, access 
     throw Errors.notFound('Answer')
   }
   if (source.followups) return json({ followups: source.followups })
+  // Demo visitors spend the model quota on answers only.
+  if (access.isGuest) return json({ followups: [] })
   if (!source.question || source.citations.length === 0 || source.answer.trim() === INSUFFICIENT_CONTEXT_MESSAGE) return json({ followups: [] })
 
   await enforceRateLimit(repos, `followups:user:${access.userId}`, RATE_LIMITS.followups)

@@ -127,6 +127,12 @@ export function workspacesRepository(db: Db) {
     },
 
     /** Personal workspaces cannot be deleted. Cascades to every notebook, document and conversation. */
+    /** Whether the id names a team workspace (not someone's personal one). */
+    async isTeam(workspaceId: string): Promise<boolean> {
+      const rows = await db.query(`SELECT 1 FROM app.workspaces WHERE id = $1 AND personal_user_id IS NULL`, [workspaceId])
+      return rows.length > 0
+    },
+
     async delete(workspaceId: string): Promise<boolean> {
       const rows = await db.query(`DELETE FROM app.workspaces WHERE id = $1 AND personal_user_id IS NULL RETURNING id`, [workspaceId])
       return rows.length > 0

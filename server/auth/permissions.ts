@@ -73,6 +73,15 @@ const MESSAGES: Record<Permission, string> = {
   'integrations.manage': 'Only workspace admins can connect Slack or Microsoft Teams.',
 }
 
+/** Demo visitors look around and ask questions; nothing else (no uploads, studio jobs, links or settings). */
+const GUEST_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>(['workspace.view', 'collection.view', 'collection.search'])
+
+export function guestCan(permission: Permission): boolean {
+  return GUEST_PERMISSIONS.has(permission)
+}
+
+export const GUEST_DENIED_MESSAGE = 'This is a read-only demo. Sign in with your own account to do this.'
+
 export function permissionMessage(permission: Permission): string {
   return MESSAGES[permission]
 }

@@ -1,5 +1,6 @@
 import type { SessionUser } from '@/lib/contracts'
 import type { Db } from '@/server/db/client'
+import { escapeLike } from '@/server/repositories/sql'
 
 interface UserRow extends Record<string, unknown> {
   id: string
@@ -22,6 +23,15 @@ export function usersRepository(db: Db) {
       )
       if (!row) throw new Error('User upsert returned no row')
       return { user: { id: row.id, email: row.email, name: row.name }, created: Boolean(row.created) }
+    },
+
+    /** Removes accounts on `domain` (demo visitors) created more than `olderThanHours` ago, with everything they own. */
+    async deleteByDomainOlderThan(domain: string, olderThanHours: number): Promise<number> {
+      const rows = await db.query(`DELETE FROM app.users WHERE email LIKE $1 ESCAPE '\\' AND created_at < now() - make_interval(hours => $2::int) RETURNING id`, [
+        `%@${escapeLike(domain)}`,
+        olderThanHours,
+      ])
+      return rows.length
     },
 
     async findById(id: string): Promise<SessionUser | null> {

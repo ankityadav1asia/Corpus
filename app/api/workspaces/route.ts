@@ -1,5 +1,6 @@
 import { workspaceCreateSchema } from '@/lib/contracts'
 import { recordAudit } from '@/server/activity'
+import { GUEST_DENIED_MESSAGE } from '@/server/auth/permissions'
 import { readJson } from '@/server/http/body'
 import { Errors } from '@/server/http/errors'
 import { authedRoute, json } from '@/server/http/route'
@@ -7,15 +8,16 @@ import { getServices } from '@/server/services'
 
 const MAX_WORKSPACES_CREATED = 20
 
-/** Workspaces the caller belongs to, personal workspace first. */
+/** Workspaces the caller belongs to, personal workspace first. Demo visitors have no personal workspace. */
 export const GET = authedRoute(async ({ user }) => {
   const { repos } = getServices()
-  await repos.workspaces.ensurePersonal(user.id)
+  if (!user.guest) await repos.workspaces.ensurePersonal(user.id)
   return json({ workspaces: await repos.workspaces.listForUser(user.id) })
 })
 
 /** Creates a team workspace; the creator becomes its admin. */
 export const POST = authedRoute(async ({ req, user }) => {
+  if (user.guest) throw Errors.forbidden(GUEST_DENIED_MESSAGE)
   const { name } = await readJson(req, workspaceCreateSchema)
   const { repos } = getServices()
   const mine = await repos.workspaces.listForUser(user.id)
