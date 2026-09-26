@@ -425,7 +425,7 @@ const MAX_PROXY_HOPS = 5
 
 /**
  * How many trusted reverse proxies append to X-Forwarded-For; 0 means the header is ignored.
- * TRUST_PROXY=1 (or true) behind one proxy (Render, Railway, Fly), 2 with a CDN in front of it;
+ * TRUST_PROXY=1 (or true) behind one reverse proxy, 2 with a CDN in front of it;
  * Vercel counts as 1. A number higher than the real chain lets clients choose their address.
  */
 export function trustedProxyHops(): number {

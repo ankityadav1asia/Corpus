@@ -20,9 +20,7 @@
     "db:import-legacy": "tsx scripts/import-legacy.ts",
     "seed": "tsx scripts/seed.ts",
     "worker": "node --conditions=react-server --import tsx scripts/worker.ts",
-    "build:scripts": "node scripts/build-scripts.mjs",
     "diagrams": "node scripts/diagrams/render.mjs",
-    "start:worker": "node --conditions=react-server dist/scripts/worker.cjs",
     "fmt": "prettier --write . --ignore-unknown",
     "secrets:reseal": "node --conditions=react-server --import tsx scripts/reseal-secrets.ts"
   },
@@ -66,7 +64,6 @@
     "@types/nodemailer": "^8.0.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",
-    "esbuild": "^0.28.2",
     "eslint": "^8.57.1",
     "eslint-config-next": "15.5.26",
     "postcss": "^8.5.6",

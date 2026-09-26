@@ -260,7 +260,6 @@ and schedules the job runner on Vercel Cron. The code works within Vercel's limi
 | `npm run typecheck` / `lint` | TypeScript, and ESLint with the code standards ([docs/CODE-STANDARDS.md](docs/CODE-STANDARDS.md)); lint fails on any warning |
 | `npm run db:migrate` | Apply pending schema migrations |
 | `npm run worker` | Process background jobs in a loop; `-- --once` empties the queue once |
-| `npm run build:scripts` / `start:worker` | Bundle the worker, migration and re-seal scripts into `dist/scripts` / run the bundled worker (production images) |
 | `npm run secrets:reseal` | Re-encrypt stored credentials with a new `AUTH_SECRET` ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#rotating-auth_secret)) |
 | `npm run db:import-legacy -- --email …` | Import data from the previous version |
 | `npm run seed -- --email …` | Add a sample document to that user's personal workspace |
