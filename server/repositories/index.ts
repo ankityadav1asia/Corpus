@@ -20,6 +20,7 @@ import { reportsRepository } from '@/server/repositories/reports'
 import { sealedValuesRepository } from '@/server/repositories/sealed'
 import { sessionsRepository } from '@/server/repositories/sessions'
 import { sharesRepository } from '@/server/repositories/shares'
+import { uploadsRepository } from '@/server/repositories/uploads'
 import { usersRepository } from '@/server/repositories/users'
 import { workspacesRepository } from '@/server/repositories/workspaces'
 
@@ -32,6 +33,7 @@ export function createRepositories(db: Db) {
     documents: documentsRepository(db),
     chunks: chunksRepository(db),
     media: mediaRepository(db),
+    uploads: uploadsRepository(db),
     conversations: conversationsRepository(db),
     analytics: analyticsRepository(db),
     evaluations: evaluationsRepository(db),

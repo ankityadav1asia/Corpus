@@ -59,7 +59,7 @@ All screenshots show demo data for a fictional company.
 - Follow-up question suggestions, inline bar, line and pie charts, voice chat (speak and listen), chat history grouped by date, search, pin, rename, branch, export
 
 **Sources**
-- PDF and text formats, images (described by a vision model and read with OCR), scanned PDFs (OCR page by page), audio and video (timestamped transcripts), web pages, YouTube transcripts and notes; up to 50 MB per file
+- PDF and text formats, images (described by a vision model and read with OCR), scanned PDFs (OCR page by page), audio and video (timestamped transcripts), web pages, YouTube transcripts and notes; up to 50 MB per file (larger files go up in parts)
 - Connected apps: Google Drive files and folders, Notion pages and databases, GitHub documentation, whole websites (sitemap or crawl, robots.txt respected), synced on a schedule
 - Indexing runs in the background and resumes after interruptions; a chunk editor lets you correct text, labels and metadata
 
@@ -274,15 +274,15 @@ it, a full-text index, labels and metadata in one row. Every query is scoped by 
 
 ```mermaid
 flowchart LR
-  PUSH["git push"] --> GH["GitHub"]
-  GH --> CI["GitHub Actions<br/>typecheck, lint, 335 tests,<br/>build, audit, Docker image"]
-  CI -->|"checks pass"| RB["Render Blueprint"]
-  RB --> PRE["Pre-deploy: migrations"]
-  RB --> WEB["Web service (Docker)"]
-  RB --> WRK["Worker (Docker)"]
-  PRE --> NEON[("Neon PostgreSQL<br/>+ pgvector")]
-  WEB --> NEON
-  WRK --> NEON
+  PUSH["git push to main"] --> GH["GitHub"]
+  GH --> VB["Vercel build<br/>migrations, then next build"]
+  VB --> VF["Vercel Functions, cle1<br/>pages, API, streaming answers,<br/>jobs after responses"]
+  CRON["Vercel Cron"] -->|"/api/jobs/run"| VF
+  GH --> CI["GitHub Actions<br/>typecheck, lint, 349 tests,<br/>build, audit, Docker image"]
+  CI -.->|"PUBLISH_IMAGE"| IMG["ghcr.io image"]
+  IMG -.-> K8S["Kubernetes worker<br/>(optional)"]
+  VF --> NEON[("Neon PostgreSQL<br/>+ pgvector, us-east-2")]
+  K8S -.-> NEON
 ```
 
 More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
@@ -324,7 +324,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Access control | One role-permission table with per-notebook overrides; membership checked on every request; SQL scoped by workspace; another workspace's ids behave like missing ones |
 | Security | Server-side revocable sessions; per-request nonce Content-Security-Policy; AES-256-GCM encryption of stored credentials with key rotation; SSRF-safe fetching; rate limits stored in Postgres; signed webhooks; a production configuration check at start |
 | Background work | A job queue in Postgres (`FOR UPDATE SKIP LOCKED`), retries with backoff, idempotent and resumable jobs |
-| Testing | 335 tests with Node's test runner on PGlite (real PostgreSQL + pgvector in WebAssembly) and fake model providers; no network needed |
+| Testing | 349 tests with Node's test runner on PGlite (real PostgreSQL + pgvector in WebAssembly) and fake model providers; no network needed |
 | Quality gates | TypeScript strict mode, an ESLint policy (file size, complexity, layering, configuration access), CI on every push, Dependabot |
 
 ## Tech stack
@@ -338,7 +338,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript, lamejs (MP3) |
 | Integrations | Google Drive (OAuth with PKCE), Notion, GitHub, website crawler, Slack Events API, Microsoft Bot Framework |
 | Email | Resend or SMTP (nodemailer) for sign-in codes |
-| Operations | Docker, Render, GitHub Actions, Dependabot |
+| Operations | Vercel (functions, cron), Kubernetes (optional worker), Docker, GitHub Actions, Dependabot |
 | Testing | node:test, tsx, PGlite, fake model providers |
 
 ## Quick start
@@ -381,26 +381,33 @@ passages are found by keyword search only.
 
 ### Upgrading an existing database
 
-`npm run db:migrate` applies every pending migration in order (v1 → v14). Take a backup (a Neon
-branch) first. From v13 on, sessions live in the database, so everyone signs in again once after
+`npm run db:migrate` applies every pending migration in order (v1 → v15); on Vercel, production
+builds run it. Take a backup (a Neon branch) first. From v13 on, sessions live in the database, so everyone signs in again once after
 upgrading. Data written by the very first version of the app can be imported with
 `npm run db:import-legacy -- --email you@example.com`.
 
 ## Deployment
 
-Production runs the same Docker image twice, as the web server and as the background worker, next
-to a Neon database. Migrations are applied before each release. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)
-explains the recommended setup: Render, from [render.yaml](render.yaml), though any Docker host
-works. It also explains why this app is not a good fit for Vercel's serverless functions (4.5 MB
-request bodies, no long-running worker). Security operations (secrets, rotation, the production
-checklist) are in [docs/SECURITY.md](docs/SECURITY.md).
+Corpus runs on **Vercel**, with the database on **Neon**. [vercel.json](vercel.json) places the
+functions next to the database (`cle1`, AWS us-east-2), migrates the schema during production builds
+and schedules the job runner on Vercel Cron. The code works within Vercel's limits:
+
+- files larger than 4 MB are uploaded in parts;
+- stored files (PDFs, recordings, images) are streamed back;
+- background jobs run after responses and on the cron, and continue where they stopped.
+
+When the background work grows (many scans, long recordings, audio overviews), the same code runs as
+a worker on Kubernetes ([deploy/kubernetes](deploy/kubernetes)). The whole app can run there too, or
+on any Docker host. [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) walks through every step, including the
+Hobby plan's limits (non-commercial use, one cron run a day). Security operations (secrets, rotation,
+the production checklist) are in [docs/SECURITY.md](docs/SECURITY.md).
 
 ## Scripts
 
 | Command | What it does |
 |---|---|
 | `npm run dev` / `build` / `start` | Development server / production build / production server |
-| `npm test` | 335 tests (unit, Postgres-in-WebAssembly integration, HTTP routes); no network needed |
+| `npm test` | 349 tests (unit, Postgres-in-WebAssembly integration, HTTP routes); no network needed |
 | `npm run typecheck` / `lint` | TypeScript, and ESLint with the code standards ([docs/CODE-STANDARDS.md](docs/CODE-STANDARDS.md)); lint fails on any warning |
 | `npm run db:migrate` | Apply pending schema migrations |
 | `npm run worker` | Process background jobs in a loop; `-- --once` empties the queue once |
@@ -410,8 +417,8 @@ checklist) are in [docs/SECURITY.md](docs/SECURITY.md).
 | `npm run seed -- --email …` | Add a sample document to that user's personal workspace |
 
 Background jobs also run right after the request that queued them, and while the UI polls for their
-results. On serverless hosts, schedule `/api/jobs/run` with `Authorization: Bearer $CRON_SECRET`;
-this also starts scheduled connector syncs.
+results. On Vercel, Vercel Cron calls `/api/jobs/run`; elsewhere, run the worker or schedule
+`/api/jobs/run` with `Authorization: Bearer $CRON_SECRET`. Each run also starts scheduled connector syncs.
 
 ## Project structure
 
@@ -422,8 +429,9 @@ hooks/          data hooks (SWR), chat streaming, shared UI state
 lib/            code shared by browser and server: API contracts, constants, roles
 server/         server-only code: RAG pipeline, ingestion, studio, connectors, jobs,
                 repositories (all SQL), security, model adapters
-scripts/        migrations, worker, re-sealing, seed, legacy import
-tests/          335 tests on PGlite with fake model providers
+scripts/        migrations, worker, re-sealing, seed, legacy import, the Vercel build
+deploy/         Kubernetes manifests: the worker, or the whole app
+tests/          349 tests on PGlite with fake model providers
 docs/           architecture, code standards, deployment, security
 ```
 
@@ -449,6 +457,7 @@ get 404, and missing roles get 403.
 | `/api/corpus`, `/api/corpus/documents/:id`, `…/chunks`, `…/retry` | GET, POST, DELETE | Documents (with indexing progress); append a chunk; retry a failed source |
 | `/api/corpus/chunks`, `/api/corpus/chunks/:id` | GET, PATCH, DELETE | Chunk editor (filters: notebook, document, label, text) |
 | `/api/learn`, `/api/learn/upload`, `/api/learn/url`, `/api/learn/youtube` | POST | Add text, files (documents, images, audio, video, scans), a web page, a YouTube transcript |
+| `/api/learn/uploads`, `…/:id/parts/:n`, `…/:id/complete`, `…/:id` | POST, PUT, POST, DELETE | Upload a file larger than 4 MB in parts: start, send each part, complete, or cancel |
 | `/api/connectors` | GET | Available apps, your connections and the workspace's synced sources |
 | `/api/connectors/connections`, `…/:id`, `…/:id/browse` | POST, DELETE, GET | Connect Notion / GitHub with a token; browse or search an account |
 | `/api/connectors/google-drive/start`, `…/callback` | GET | Google Drive OAuth (read-only) |
@@ -480,11 +489,11 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
 - **`AUTH_SECRET`** (required, at least 32 characters; there is no default)
   - Signs sessions and derives the key that encrypts connector and chat-app credentials.
   - Rotate it with `AUTH_SECRET_PREVIOUS` and `npm run secrets:reseal` ([docs/SECURITY.md](docs/SECURITY.md)).
-- **`APP_URL`** (required in production)
+- **`APP_URL`** (required in production; on Vercel the production domain is used when it is unset)
   - OAuth redirect URI for sign-in: `<APP_URL>/api/auth/oauth/callback?provider=google|github`.
   - Redirect URI for the Google Drive connector: `<APP_URL>/api/connectors/google-drive/callback`. Also enable the Drive API and the `drive.readonly` scope.
 - **Deployment**
-  - `TRUST_PROXY` is the number of reverse proxies in front of the app (1 on Render, Railway or Fly), so per-IP rate limits see real client addresses.
+  - `TRUST_PROXY` is the number of reverse proxies in front of the app (automatic on Vercel; 1 behind one proxy such as a Kubernetes ingress), so per-IP rate limits see real client addresses.
   - `WEB_RUNS_JOBS=false` when a dedicated worker processes the job queue.
   - A production server or worker refuses to start without `AUTH_SECRET`, a real Postgres `POSTGRES_URL` (not PGlite) and an https `APP_URL`. Missing optional features only produce a warning.
 - **Who can sign in:** `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`. Invitations do not bypass them.
@@ -492,7 +501,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
   - Gemini: `GEMINI_*_MODEL`.
   - Open-source: set `CHAT_PROVIDER`, `EMBEDDING_PROVIDER`, `VISION_PROVIDER`, `TRANSCRIPTION_PROVIDER` or `TTS_PROVIDER` to `openai-compatible` and fill in `OPENAI_COMPATIBLE_*`.
   - OCR: `OCR_ENGINE` (`tesseract`, `vision` or `none`) and `OCR_LANGUAGES`.
-- **Re-ranking and jobs:** `RERANKER` (`auto`, `llm`, `cohere` or `none`) with `COHERE_API_KEY`. `CRON_SECRET` enables `/api/jobs/run`.
+- **Re-ranking and jobs:** `RERANKER` (`auto`, `llm`, `cohere` or `none`) with `COHERE_API_KEY`. `CRON_SECRET` enables `/api/jobs/run` (Vercel Cron sends it).
 - **Per workspace:** retrieval, guardrail and evaluation settings live in Workspace settings in the app.
 - **Chat apps**
   - Slack: create an app with the bot scopes `app_mentions:read`, `chat:write` and `im:history`. Connect it in Workspace settings → Chat apps with its bot token and signing secret, then paste the Request URL it shows into Event Subscriptions (`app_mention`, `message.im`).
@@ -503,7 +512,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
 
 - [Architecture](docs/ARCHITECTURE.md): layers, the RAG pipeline, jobs, data model, security model
 - [Code standards](docs/CODE-STANDARDS.md): the rules the linter enforces, and why
-- [Deployment](docs/DEPLOYMENT.md): Render step by step, any Docker host, why not Vercel
+- [Deployment](docs/DEPLOYMENT.md): Vercel step by step, the Kubernetes worker, the whole app on Kubernetes or any Docker host
 - [Security](docs/SECURITY.md): secrets, key rotation, sessions, the production checklist
 - [Security audit](docs/SECURITY-AUDIT.md): what was wrong with the first version, and how it was fixed
 

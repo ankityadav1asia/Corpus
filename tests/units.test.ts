@@ -5,12 +5,14 @@ import type { ConversationSummary } from '@/lib/contracts'
 import { groupConversations } from '@/lib/history'
 import { safeRedirectPath } from '@/lib/safe-redirect'
 import { decodeEvents, encodeEvent, type ChatStreamEvent } from '@/lib/stream-protocol'
+import { fileResponse, rangedFileResponse } from '@/server/http/binary'
 import { parseYouTubeVideoId } from '@/server/ingestion/extractors'
 import { decodeHtmlEntities, delimitedToText, htmlToDocument, normalizeExtractedText, parseDelimited } from '@/server/ingestion/text'
 import { buildContextBlock, deriveTitle, escapeSourceText, normalizeTurns } from '@/server/rag/prompt'
 import { fuseRankedLists } from '@/server/rag/retrieval'
 import { splitText } from '@/server/rag/text-splitter'
 import type { SearchHit } from '@/server/repositories/documents'
+import { readPartsInBatches } from '@/server/repositories/sql'
 
 describe('text splitter', () => {
   it('respects chunk size, keeps overlap and loses no words', () => {
@@ -229,5 +231,62 @@ describe('chat history groups', () => {
       groups.map((group) => [group.label, group.items.length]),
       [['Today', 2]],
     )
+  })
+})
+
+describe('stored files over HTTP', () => {
+  const bytes = new Uint8Array(600 * 1024).map((_, i) => i % 251)
+
+  it('streams whole files in pieces, so no response body is buffered', async () => {
+    const res = fileResponse(bytes, { 'Content-Type': 'application/pdf' })
+    assert.equal(res.status, 200)
+    assert.equal(res.headers.get('content-length'), String(bytes.byteLength))
+    assert.equal(res.headers.get('accept-ranges'), null)
+    const pieces: number[] = []
+    const reader = res.body!.getReader()
+    const received: Uint8Array[] = []
+    for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+      pieces.push(chunk.value.byteLength)
+      received.push(chunk.value)
+    }
+    assert.deepEqual(pieces, [256 * 1024, 256 * 1024, 88 * 1024])
+    assert.ok(Buffer.concat(received).equals(Buffer.from(bytes)))
+  })
+
+  it('answers byte ranges for players that seek', async () => {
+    const whole = rangedFileResponse(bytes, { 'Content-Type': 'audio/mpeg' }, null)
+    assert.equal(whole.status, 200)
+    assert.equal(whole.headers.get('accept-ranges'), 'bytes')
+    assert.equal((await whole.arrayBuffer()).byteLength, bytes.byteLength)
+
+    const part = rangedFileResponse(bytes, { 'Content-Type': 'audio/mpeg' }, 'bytes=300000-300009')
+    assert.equal(part.status, 206)
+    assert.equal(part.headers.get('content-range'), `bytes 300000-300009/${bytes.byteLength}`)
+    assert.equal(part.headers.get('content-length'), '10')
+    assert.deepEqual([...new Uint8Array(await part.arrayBuffer())], [...bytes.subarray(300000, 300010)])
+
+    const outside = rangedFileResponse(bytes, {}, `bytes=${bytes.byteLength}-`)
+    assert.equal(outside.status, 416)
+    assert.equal(outside.headers.get('content-range'), `bytes */${bytes.byteLength}`)
+  })
+
+  it('reads stored parts a few at a time and in order', async () => {
+    const stored = Array.from({ length: 19 }, (_, part) => ({ data: Buffer.from([part]).toString('base64') }))
+    const calls: Array<[number, number]> = []
+    const bytesOf = (rows: typeof stored) =>
+      readPartsInBatches(async (offset, limit) => {
+        calls.push([offset, limit])
+        return rows.slice(offset, offset + limit)
+      })
+    assert.deepEqual([...(await bytesOf(stored))], [...Array(19).keys()])
+    assert.deepEqual(calls, [
+      [0, 8],
+      [8, 8],
+      [16, 8],
+    ])
+    calls.length = 0
+    assert.equal((await bytesOf(stored.slice(0, 16))).byteLength, 16)
+    assert.equal(calls.length, 3, 'a full last batch needs one more (empty) read')
+    assert.equal((await bytesOf([])).byteLength, 0)
   })
 })

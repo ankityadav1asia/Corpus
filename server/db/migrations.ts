@@ -649,6 +649,36 @@ export const MIGRATIONS: Migration[] = [
       `UPDATE app.integrations SET all_notebooks = (collection_id IS NULL)`,
     ],
   },
+  {
+    version: 15,
+    name: 'upload_sessions',
+    statements: [
+      // Files larger than one request body (serverless hosts cap bodies, Vercel at 4.5 MB) arrive in
+      // parts. The parts wait here until the upload is completed and becomes a document; uploads that
+      // are never completed expire and are purged.
+      `CREATE TABLE app.upload_sessions (
+        id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+        workspace_id uuid NOT NULL REFERENCES app.workspaces(id) ON DELETE CASCADE,
+        collection_id uuid NOT NULL REFERENCES app.collections(id) ON DELETE CASCADE,
+        created_by uuid NOT NULL REFERENCES app.users(id) ON DELETE CASCADE,
+        file_name text NOT NULL CHECK (char_length(file_name) BETWEEN 1 AND 500),
+        byte_size bigint NOT NULL CHECK (byte_size > 0),
+        part_bytes integer NOT NULL CHECK (part_bytes > 0),
+        created_at timestamptz NOT NULL DEFAULT now(),
+        expires_at timestamptz NOT NULL
+      )`,
+      `CREATE INDEX upload_sessions_owner_idx ON app.upload_sessions (workspace_id, created_by)`,
+      `CREATE INDEX upload_sessions_expiry_idx ON app.upload_sessions (expires_at)`,
+      // A part is stored as one or more pieces, each small enough for serverless Postgres drivers.
+      `CREATE TABLE app.upload_session_parts (
+        upload_id uuid NOT NULL REFERENCES app.upload_sessions(id) ON DELETE CASCADE,
+        part integer NOT NULL CHECK (part >= 0),
+        piece integer NOT NULL CHECK (piece >= 0),
+        data bytea NOT NULL,
+        PRIMARY KEY (upload_id, part, piece)
+      )`,
+    ],
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version

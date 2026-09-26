@@ -4,7 +4,7 @@ import type { JobContext } from '@/server/jobs/context'
 import { JOBS } from '@/server/jobs/definitions'
 import { PermanentJobError } from '@/server/jobs/errors'
 import { log } from '@/server/logger'
-import { JOB_ATTEMPTS, type JobRecord, type JobType } from '@/server/repositories/jobs'
+import { JOB_ATTEMPTS, JOB_TYPES, type JobRecord, type JobType } from '@/server/repositories/jobs'
 
 export type { JobContext }
 
@@ -82,7 +82,8 @@ export async function runJobs(
   }
 
   while (processed + failed < maxJobs && Date.now() < deadline && !options.shouldStop?.()) {
-    const job = await context.repos.jobs.claim(options.types)
+    // Only the types this version knows: while a release rolls out, an older worker leaves new ones to newer code.
+    const job = await context.repos.jobs.claim(options.types ?? JOB_TYPES)
     if (!job) break
     try {
       await JOBS[job.type].run(job.payload, context, deadline)

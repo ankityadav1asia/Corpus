@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
 import { assertConfig, checkConfig } from '@/server/config-check'
-import { resetEnvCache, trustedProxyHops, webRunsJobs } from '@/server/env'
+import { getAppOrigin, getConfiguredAppUrl, resetEnvCache, trustedProxyHops, webRunsJobs } from '@/server/env'
 
 const KEYS = [
   'NODE_ENV',
@@ -12,7 +12,12 @@ const KEYS = [
   'APP_URL',
   'TRUST_PROXY',
   'VERCEL',
+  'VERCEL_ENV',
+  'VERCEL_URL',
+  'VERCEL_BRANCH_URL',
+  'VERCEL_PROJECT_PRODUCTION_URL',
   'WEB_RUNS_JOBS',
+  'CRON_SECRET',
   'GOOGLE_API_KEY',
   'GEMINI_API_KEY',
   'CHAT_PROVIDER',
@@ -97,6 +102,42 @@ describe('startup configuration check', () => {
     assert.deepEqual(checkConfig().errors, [])
     t.mock.method(console, 'warn', () => undefined)
     assert.doesNotThrow(() => assertConfig('web server'))
+  })
+})
+
+describe('on Vercel', () => {
+  /** What Vercel sets on a production deployment; APP_URL and TRUST_PROXY are left out on purpose. */
+  const VERCEL_PRODUCTION = {
+    ...PRODUCTION,
+    APP_URL: undefined,
+    TRUST_PROXY: undefined,
+    VERCEL: '1',
+    VERCEL_ENV: 'production',
+    VERCEL_URL: 'corpus-abc123-ankit.vercel.app',
+    VERCEL_BRANCH_URL: 'corpus-git-main-ankit.vercel.app',
+    VERCEL_PROJECT_PRODUCTION_URL: 'corpus.vercel.app',
+    CRON_SECRET: 'c'.repeat(32),
+  }
+
+  it("starts without APP_URL: the deployment's own https address is the public origin", () => {
+    setEnv(VERCEL_PRODUCTION)
+    assert.deepEqual(checkConfig(), { errors: [], warnings: [] })
+    assert.equal(getConfiguredAppUrl(), 'https://corpus.vercel.app')
+    assert.equal(getAppOrigin('https://spoofed.example/api/auth/oauth/start'), 'https://corpus.vercel.app', 'the Host header never decides it')
+
+    setEnv({ ...VERCEL_PRODUCTION, VERCEL_ENV: 'preview' })
+    assert.equal(getConfiguredAppUrl(), 'https://corpus-git-main-ankit.vercel.app', 'previews use their branch address')
+    setEnv({ ...VERCEL_PRODUCTION, APP_URL: 'https://docs.example.com' })
+    assert.equal(getConfiguredAppUrl(), 'https://docs.example.com', 'APP_URL (a custom domain) wins')
+    setEnv({ ...PRODUCTION, APP_URL: undefined, VERCEL_PROJECT_PRODUCTION_URL: 'corpus.vercel.app' })
+    assert.equal(getConfiguredAppUrl(), null, 'only on Vercel')
+  })
+
+  it('warns when the cron cannot drain the job queue', () => {
+    setEnv({ ...VERCEL_PRODUCTION, CRON_SECRET: undefined })
+    assert.match(checkConfig().warnings.join('\n'), /CRON_SECRET is not set/)
+    setEnv({ ...VERCEL_PRODUCTION, CRON_SECRET: undefined, WEB_RUNS_JOBS: 'false' })
+    assert.deepEqual(checkConfig().warnings, [], 'a separate worker (e.g. on Kubernetes) drains it')
   })
 })
 

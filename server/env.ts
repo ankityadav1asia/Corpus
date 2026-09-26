@@ -45,7 +45,12 @@ const envSchema = z.object({
   WEB_RUNS_JOBS: optionalString,
   /** Number of trusted reverse proxies that append to X-Forwarded-For (1 or true for one). */
   TRUST_PROXY: optionalString,
+  // Set by Vercel on every deployment (system environment variables).
   VERCEL: optionalString,
+  VERCEL_ENV: optionalString,
+  VERCEL_URL: optionalString,
+  VERCEL_BRANCH_URL: optionalString,
+  VERCEL_PROJECT_PRODUCTION_URL: optionalString,
   // Model back ends: 'gemini' (default) or 'openai-compatible' (Ollama, vLLM, LM Studio, LocalAI, Groq …).
   CHAT_PROVIDER: optionalString,
   EMBEDDING_PROVIDER: optionalString,
@@ -357,14 +362,14 @@ export function getAuthPolicy(): AuthPolicy {
 }
 
 /**
- * Public origin used to build OAuth redirect URIs. APP_URL is required in production so a
- * spoofed Host header can never influence where the provider sends the authorization code.
+ * Public origin used to build OAuth redirect URIs. APP_URL (or Vercel's own address) is required in
+ * production so a spoofed Host header can never influence where the provider sends the authorization code.
  */
 export function getAppOrigin(requestUrl: string): string {
-  const env = raw()
-  if (env.APP_URL) {
+  const appUrl = getConfiguredAppUrl()
+  if (appUrl) {
     try {
-      return new URL(env.APP_URL).origin
+      return new URL(appUrl).origin
     } catch {
       throw Errors.notConfigured('APP_URL is not a valid URL.')
     }
@@ -376,8 +381,7 @@ export function getAppOrigin(requestUrl: string): string {
 }
 
 export function shouldUseSecureCookies() {
-  const env = raw()
-  return env.NODE_ENV === 'production' || Boolean(env.APP_URL?.startsWith('https://'))
+  return isProduction() || Boolean(getConfiguredAppUrl()?.startsWith('https://'))
 }
 
 export type RerankerConfig = { kind: 'cohere'; apiKey: string; model: string } | { kind: 'llm' } | { kind: 'none' }
@@ -398,9 +402,23 @@ export function getRerankerConfig(): RerankerConfig {
   return { kind: 'llm' }
 }
 
-/** APP_URL exactly as configured, or null (getAppOrigin validates it for redirects). */
+/**
+ * The public origin as configured, or null (getAppOrigin validates it for redirects): APP_URL, or on
+ * Vercel the deployment's own address when APP_URL is unset (the production domain for production
+ * deployments, the branch URL for previews). Vercel sets those variables itself, so a request can
+ * never influence them.
+ */
 export function getConfiguredAppUrl(): string | null {
-  return raw().APP_URL ?? null
+  const env = raw()
+  if (env.APP_URL) return env.APP_URL
+  if (!env.VERCEL) return null
+  const host = env.VERCEL_ENV === 'production' ? env.VERCEL_PROJECT_PRODUCTION_URL : (env.VERCEL_BRANCH_URL ?? env.VERCEL_URL)
+  return host ? `https://${host}` : null
+}
+
+/** Running on Vercel (serverless functions: no long-lived worker, jobs run after responses and on a cron). */
+export function isVercel(): boolean {
+  return Boolean(raw().VERCEL)
 }
 
 const MAX_PROXY_HOPS = 5

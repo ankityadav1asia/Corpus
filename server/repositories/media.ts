@@ -1,7 +1,7 @@
 import type { DocumentSummary, MediaKind } from '@/lib/contracts'
 import type { Db } from '@/server/db/client'
 import { DOCUMENT_COLUMNS, documentValues, mapDocument, type NewDocument } from '@/server/repositories/document-rows'
-import { base64Parts, joinBase64Parts, toNullableNumber, toNumber } from '@/server/repositories/sql'
+import { base64Parts, readPartsInBatches, toNullableNumber, toNumber } from '@/server/repositories/sql'
 
 /** Media waiting to be read (OCR, transcription) before it can be indexed. */
 export interface PendingMedia {
@@ -122,17 +122,20 @@ export function mediaRepository(db: Db) {
     },
 
     async fileBytes(workspaceId: string, documentId: string): Promise<Uint8Array> {
-      const rows = await db.query<{ data: string }>(
-        `SELECT encode(p.data, 'base64') AS data FROM app.document_file_parts p JOIN app.documents d ON d.id = p.document_id
-         WHERE p.document_id = $1 AND d.workspace_id = $2 ORDER BY p.part`,
-        [documentId, workspaceId],
+      return readPartsInBatches((offset, limit) =>
+        db.query(
+          `SELECT encode(p.data, 'base64') AS data FROM app.document_file_parts p JOIN app.documents d ON d.id = p.document_id
+           WHERE p.document_id = $1 AND d.workspace_id = $2 ORDER BY p.part LIMIT $3 OFFSET $4`,
+          [documentId, workspaceId, limit, offset],
+        ),
       )
-      return joinBase64Parts(rows)
     },
 
     /** The stored media bytes, reassembled. */
     async bytes(id: string): Promise<Uint8Array> {
-      return joinBase64Parts(await db.query(`SELECT encode(data, 'base64') AS data FROM app.document_media_parts WHERE document_id = $1 ORDER BY part`, [id]))
+      return readPartsInBatches((offset, limit) =>
+        db.query(`SELECT encode(data, 'base64') AS data FROM app.document_media_parts WHERE document_id = $1 ORDER BY part LIMIT $2 OFFSET $3`, [id, limit, offset]),
+      )
     },
 
     async pageTexts(id: string): Promise<Array<{ page: number; text: string; method: 'text' | 'ocr' }>> {

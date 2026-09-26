@@ -1,0 +1,19 @@
+# The whole app on Kubernetes: web server, worker and an ingress (docs/DEPLOYMENT.md → Kubernetes).
+#
+#   kubectl apply -f deploy/kubernetes/worker/namespace.yaml
+#   kubectl -n corpus create secret generic corpus-env --from-env-file=.env.production
+#   kubectl apply -f deploy/kubernetes/migrate-job.yaml      # before each release
+#   kubectl apply -k deploy/kubernetes/full
+#
+# Edit ingress.yaml first: your domain, ingress class and TLS issuer.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: corpus
+resources:
+  - ../worker
+  - web.yaml
+  - ingress.yaml
+images:
+  - name: corpus
+    newName: ghcr.io/ankityadav1asia/corpus
+    newTag: main

@@ -36,12 +36,15 @@ Rotating on a schedule, or because someone who knew it left, keeps everyone sign
    - `AUTH_SECRET_PREVIOUS` = the current secret;
    - `AUTH_SECRET` = the new one.
 
-   On Render the worker copies `AUTH_SECRET` from the web service, so change it there. Add
-   `AUTH_SECRET_PREVIOUS` to both services.
+   On Vercel: Settings → Environment Variables. On Kubernetes: update the `corpus-env` Secret, then
+   restart the deployments (`kubectl -n corpus rollout restart deployment`).
 3. Deploy. New sessions and encrypted values use the new secret. Existing sessions and stored
    credentials are still accepted through the previous one.
 4. Re-encrypt what is stored: run `npm run secrets:reseal`. In a production container, run
-   `node --conditions=react-server dist/scripts/reseal-secrets.cjs` (Render: the web service's Shell).
+   `node --conditions=react-server dist/scripts/reseal-secrets.cjs`; on Kubernetes:
+   `kubectl -n corpus exec deploy/corpus-worker -- node --conditions=react-server dist/scripts/reseal-secrets.cjs`.
+   Vercel has no shell: run `npm run secrets:reseal` from a checkout, with `POSTGRES_URL`, `AUTH_SECRET`
+   and `AUTH_SECRET_PREVIOUS` set to the production values in your terminal session only.
    It reports how many values it re-sealed and lists any it could not read.
 5. After 7 days (the session lifetime), remove `AUTH_SECRET_PREVIOUS` and deploy again. The server logs
    a reminder while it is set.
@@ -77,13 +80,16 @@ The server refuses to start, and says why, when any of these is wrong:
 
 Also check:
 
-- [ ] `TRUST_PROXY` = the number of reverse proxies in front of the app (1 on Render, Railway or Fly;
-      2 with a CDN in front). Without it, per-IP limits treat every caller as one. Setting it higher
-      than the real number of proxies lets clients pick their own address.
+- [ ] `TRUST_PROXY` = the number of reverse proxies in front of the app (automatic on Vercel; 1 behind
+      one proxy such as a Kubernetes ingress; 2 with a CDN in front). Without it, per-IP limits treat
+      every caller as one. Setting it higher than the real number of proxies lets clients pick their
+      own address.
 - [ ] Sign-in is limited as intended: `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS` for a company
       deployment. Invitations do not bypass the allowlist.
 - [ ] OAuth apps list only your `APP_URL` redirect URIs. The Google app uses the read-only Drive scope.
-- [ ] `CRON_SECRET` is unset unless a scheduler calls `/api/jobs/run`.
+- [ ] `CRON_SECRET` is set (at least 16 random characters) only where a scheduler calls
+      `/api/jobs/run`, such as Vercel Cron.
+- [ ] Preview deployments never use the production database: give them a Neon branch, or no database.
 - [ ] The database role is used only by this app. Neon point-in-time restore is enabled.
 - [ ] CI is green: `npm audit --omit=dev --audit-level=high` runs on every push, and Dependabot opens
       update pull requests weekly.
@@ -117,6 +123,6 @@ Also check:
 
 - Admins add members by email without the member accepting, and the reply shows whether an account
   already exists. An invitation-acceptance flow would close both.
-- Uploads (up to 50 MB) arrive in a single request and are stored in Postgres. Very large files would
-  be better placed in object storage.
+- Uploads (up to 50 MB, sent in 4 MB parts above 4 MB) are stored in Postgres. Much larger files
+  would be better placed in object storage.
 - Voice input uses the browser's speech recognition, so audio is processed by the browser vendor.

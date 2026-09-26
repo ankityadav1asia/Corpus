@@ -10,6 +10,7 @@
     "dev": "next dev",
     "prebuild": "node scripts/copy-pdf-worker.mjs",
     "build": "next build",
+    "vercel-build": "node scripts/vercel-build.mjs",
     "start": "next start",
     "lint": "eslint . --ext .js,.cjs,.mjs,.ts,.tsx --max-warnings=0",
     "typecheck": "tsc --noEmit",

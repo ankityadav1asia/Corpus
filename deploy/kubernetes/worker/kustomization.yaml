@@ -1,0 +1,20 @@
+# The background worker on Kubernetes, next to the web app on Vercel (docs/DEPLOYMENT.md → Kubernetes).
+#
+#   kubectl apply -f deploy/kubernetes/worker/namespace.yaml
+#   kubectl -n corpus create secret generic corpus-env --from-env-file=.env.production
+#   kubectl apply -k deploy/kubernetes/worker
+#
+# Then set WEB_RUNS_JOBS=false on Vercel, so OCR, transcription and audio run here instead of
+# inside web requests. The whole app on Kubernetes instead: deploy/kubernetes/full.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: corpus
+resources:
+  - namespace.yaml
+  - worker.yaml
+# Published by CI (.github/workflows/ci.yml) when the repository variable PUBLISH_IMAGE is true.
+# Pin a release with: kustomize edit set image corpus=ghcr.io/ankityadav1asia/corpus:sha-<commit>
+images:
+  - name: corpus
+    newName: ghcr.io/ankityadav1asia/corpus
+    newTag: main

@@ -40,8 +40,25 @@ export function base64Parts(bytes: Uint8Array, partSize = BYTE_PART_SIZE): strin
 }
 
 /** Reassembles rows selected in order as `encode(data, 'base64') AS data`. */
-export function joinBase64Parts(rows: ReadonlyArray<Record<string, unknown>>): Uint8Array {
+export function joinBase64Parts(rows: ReadonlyArray<Record<string, unknown>>): Uint8Array<ArrayBuffer> {
   return new Uint8Array(Buffer.concat(rows.map((row) => Buffer.from(String(row.data), 'base64'))))
+}
+
+/** Parts read per query: 8 × 2 MB is about 22 MB of base64, far below Neon's 64 MB HTTP response limit. */
+const PARTS_PER_QUERY = 8
+
+/**
+ * Reads stored bytes a few parts per query and reassembles them. A whole 50 MB file in one query
+ * would be 67 MB of base64, more than a serverless driver returns. `select` returns the rows
+ * `encode(data, 'base64') AS data` in order, with `LIMIT limit OFFSET offset`.
+ */
+export async function readPartsInBatches(select: (offset: number, limit: number) => Promise<ReadonlyArray<Record<string, unknown>>>): Promise<Uint8Array<ArrayBuffer>> {
+  const rows: Array<Record<string, unknown>> = []
+  for (let offset = 0; ; offset += PARTS_PER_QUERY) {
+    const batch = await select(offset, PARTS_PER_QUERY)
+    rows.push(...batch)
+    if (batch.length < PARTS_PER_QUERY) return joinBase64Parts(rows)
+  }
 }
 
 /** Escapes LIKE wildcards so user search text is matched literally (used with ESCAPE '\'). */

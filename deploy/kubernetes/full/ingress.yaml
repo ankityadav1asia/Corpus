@@ -1,0 +1,31 @@
+# HTTPS entry point, written for ingress-nginx and cert-manager. Replace corpus.example.com with your
+# domain; APP_URL in the corpus-env secret must be exactly https://<that domain>.
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: corpus-web
+  labels:
+    app.kubernetes.io/name: corpus
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt
+    # ingress-nginx accepts 1 MB bodies by default; one-request uploads take up to 51 MB.
+    nginx.ingress.kubernetes.io/proxy-body-size: 52m
+    # Answers stream for up to a few minutes.
+    nginx.ingress.kubernetes.io/proxy-read-timeout: '300'
+spec:
+  ingressClassName: nginx
+  tls:
+    - hosts:
+        - corpus.example.com
+      secretName: corpus-tls
+  rules:
+    - host: corpus.example.com
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: corpus-web
+                port:
+                  name: http

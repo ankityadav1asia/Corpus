@@ -90,6 +90,15 @@ describe('background indexing', () => {
     assert.deepEqual(await runJobs(context(), { types: ['ingest_document'] }), { processed: 1, failed: 0 })
   })
 
+  it('leaves job types it does not know to newer code (mixed versions during a rollout)', async () => {
+    await resetJobs()
+    await t.db.query(`INSERT INTO app.jobs (type, payload) VALUES ('from_a_newer_release', '{}'::jsonb)`)
+    assert.deepEqual(await runJobs(context()), { processed: 0, failed: 0 })
+    const [row] = await t.db.query<{ status: string; attempts: number }>(`SELECT status, attempts FROM app.jobs WHERE type = 'from_a_newer_release'`)
+    assert.deepEqual({ ...row }, { status: 'queued', attempts: 0 })
+    await resetJobs()
+  })
+
   it('rejects bad input before storing or embedding anything', async () => {
     const is = (status: number) => (error: unknown) => error instanceof AppError && error.status === status
     await assert.rejects(queueDocument(repos, source('   ')), is(422))
