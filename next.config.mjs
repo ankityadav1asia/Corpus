@@ -40,6 +40,8 @@ const nextConfig = {
       './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
       './node_modules/@napi-rs/canvas/**/*',
       './node_modules/@napi-rs/canvas-*/**/*',
+      // The Rust RAG core, read from disk by server/core/index.ts.
+      './core/dist/corpus_core.wasm',
     ],
   },
   // PGlite is for local development and tests only (a production server refuses it): keep it out of deployed bundles.

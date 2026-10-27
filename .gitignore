@@ -52,3 +52,6 @@ next-env.d.ts
 .claude/
 CLAUDE.md
 .env.example
+
+# Rust build output (the module the app loads is core/dist/corpus_core.wasm, committed)
+/core/target/

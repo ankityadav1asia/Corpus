@@ -148,13 +148,13 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Technique | What it does | Code |
 |---|---|---|
 | Hybrid search | Dense vector similarity (pgvector, cosine) combined with PostgreSQL full-text search (`websearch_to_tsquery`) | `server/rag/retrieval.ts` |
-| Reciprocal Rank Fusion | Merges the ranked results of every query and both search types into one list | `server/rag/retrieval.ts` |
+| Reciprocal Rank Fusion | Merges the ranked results of every query and both search types into one list | `core/src/fusion.rs` (Rust) |
 | Multi-query expansion | Three to five rewrites of the question (deep mode) | `server/rag/query-transform.ts` |
 | Step-back prompting | Also searches a broader question about the underlying concept | `server/rag/query-transform.ts` |
 | HyDE | Embeds a hypothetical answer to find passages written like answers | `server/rag/query-transform.ts` |
 | Re-ranking | An LLM grades the candidates (listwise, 0–10) or Cohere Rerank scores them; the top K reach the model | `server/rag/rerank.ts` |
-| Relevance guardrail | No answer, and no model call, when the best passage is below the workspace's threshold | `server/rag/guardrail.ts` |
-| Grounded generation | Passages are escaped and wrapped in delimiters as data (prompt-injection defence); answers cite `[n]` | `server/rag/prompt.ts` |
+| Relevance guardrail | No answer, and no model call, when the best passage is below the workspace's threshold | `core/src/guardrail.rs` (Rust) |
+| Grounded generation | Passages are escaped and wrapped in delimiters as data (prompt-injection defence); answers cite `[n]` | `core/src/prompt.rs` (Rust), `server/rag/prompt.ts` |
 | Streaming | NDJSON events from the server; the answer appears as it is written | `lib/stream-protocol.ts` |
 | Fast paths | Helper calls skip the model's thinking phase or use a smaller model; each optional stage has a deadline; repeated questions reuse their embeddings | `server/ai`, `server/rag/query-cache.ts` |
 | LLM-as-judge | Faithfulness, answer relevance and context precision for live answers; context recall against reference answers in benchmarks | `server/evaluation` |
@@ -186,7 +186,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, SWR, react-markdown, pdf.js |
-| Backend | Next.js route handlers, zod validation, NDJSON streaming |
+| Backend | Next.js route handlers, zod validation, NDJSON streaming; a **Rust** core (WebAssembly) for text splitting, rank fusion, the guardrail and prompt escaping |
 | Database | PostgreSQL with pgvector (Neon in production); PGlite for tests and local development |
 | AI models | Google Gemini (chat, embeddings, vision, transcription, speech, images), Gemma, OpenAI-compatible servers (Ollama, vLLM, LM Studio, Groq and others), Cohere Rerank |
 | Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript, lamejs (MP3) |
@@ -278,7 +278,8 @@ hooks/          data hooks (SWR), chat streaming, shared UI state
 lib/            code shared by browser and server: API contracts, constants, roles
 server/         server-only code: RAG pipeline, ingestion, studio, connectors, jobs,
                 repositories (all SQL), security, model adapters
-scripts/        migrations, worker, re-sealing, seed, legacy import, the Vercel build
+core/           Rust RAG core, built to WebAssembly (core/dist/corpus_core.wasm)
+scripts/        migrations, worker, re-sealing, seed, legacy import, the Vercel build, core:build
 tests/          349 tests on PGlite with fake model providers
 docs/           architecture, code standards, deployment, security
 ```

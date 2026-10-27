@@ -33,3 +33,26 @@ jobs:
       - run: npm run build
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+
+  rust:
+    name: Rust core (tests, clippy, reproducible WebAssembly)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      # core/rust-toolchain.toml pins the version, components and target; rustup installs them.
+      - run: cd core && rustup show active-toolchain || rustup toolchain install
+      - run: cd core && cargo clippy --all-targets -- -D warnings
+      # Includes the golden tests: outputs must equal the TypeScript originals (core/tests/fixtures).
+      - run: cd core && cargo test
+      # The app loads the committed core/dist/corpus_core.wasm: it must be exactly what this source builds.
+      - run: node scripts/build-core.mjs --check
+      - name: Upload the built module and lockfile (to commit when they changed)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: corpus-core
+          path: |
+            core/target/wasm32-unknown-unknown/release/corpus_core.wasm
+            core/Cargo.lock
+          if-no-files-found: ignore

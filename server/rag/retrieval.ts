@@ -1,6 +1,7 @@
 import type { ChatMode } from '@/lib/constants'
 import type { Citation, RetrievalStep, WorkspaceSettings } from '@/lib/contracts'
 import type { AiProvider, ChatTurn } from '@/server/ai/provider'
+import { callCore } from '@/server/core'
 import { log } from '@/server/logger'
 import { checkGuardrail, describeGuardrail, type GuardrailResult } from '@/server/rag/guardrail'
 import { embedQueriesCached, withDeadline } from '@/server/rag/query-cache'
@@ -51,28 +52,11 @@ export interface RerankOutcome {
 
 /**
  * Reciprocal Rank Fusion: score(d) = Σ 1 / (k + rank). Rank-based, so it needs no score
- * normalisation between cosine similarity and ts_rank. Keeps the best similarity seen per chunk.
+ * normalisation between cosine similarity and ts_rank. Keeps the best similarity seen per chunk;
+ * ties are broken by chunk id. Implemented in the Rust core (core/src/fusion.rs).
  */
 export function fuseRankedLists(lists: ReadonlyArray<readonly SearchHit[]>, limit: number, k = RRF_K): SearchHit[] {
-  const fused = new Map<string, { hit: SearchHit; score: number }>()
-  for (const list of lists) {
-    list.forEach((hit, index) => {
-      const entry = fused.get(hit.chunkId)
-      const increment = 1 / (k + index + 1)
-      if (!entry) {
-        fused.set(hit.chunkId, { hit: { ...hit }, score: increment })
-        return
-      }
-      entry.score += increment
-      if (hit.similarity !== null && (entry.hit.similarity === null || hit.similarity > entry.hit.similarity)) {
-        entry.hit.similarity = hit.similarity
-      }
-    })
-  }
-  return [...fused.values()]
-    .sort((a, b) => b.score - a.score || a.hit.chunkId.localeCompare(b.hit.chunkId))
-    .slice(0, limit)
-    .map((entry) => entry.hit)
+  return callCore<SearchHit[]>('fuse_ranked_lists', { lists, limit, k })
 }
 
 export function plainPlan(question: string): QueryPlan {

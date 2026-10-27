@@ -1,0 +1,6 @@
+# Pinned so CI rebuilds core/dist/corpus_core.wasm byte for byte (see scripts/build-core.mjs).
+[toolchain]
+channel = "1.99.1"
+profile = "minimal"
+components = ["clippy"]
+targets = ["wasm32-unknown-unknown"]

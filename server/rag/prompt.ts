@@ -1,5 +1,6 @@
 import type { ChatMode } from '@/lib/constants'
 import type { ChatTurn } from '@/server/ai/provider'
+import { callCore } from '@/server/core'
 import type { SearchHit } from '@/server/repositories/documents'
 
 const MAX_TURN_CHARS = 4_000
@@ -23,28 +24,25 @@ export function systemPrompt(mode: ChatMode): string {
 /**
  * Untrusted text (documents, web pages, answers) is wrapped in XML-like delimiters in every prompt:
  * <source> for answering, <passage> for re-ranking and judging, <document> for reports. Neutralises
- * anything inside the text that could close or fake one of them.
+ * anything inside the text that could close or fake one of them (`<\s*\/?\s*(sources?|passages?|
+ * documents?|context|conversation|question|answer|reference|request)\b`, any case, becomes `‹…`).
+ * Implemented in the Rust core (core/src/prompt.rs).
  */
-const DELIMITER_TAG = /<\s*(\/?)\s*(sources?|passages?|documents?|context|conversation|question|answer|reference|request)\b/gi
-
 export function escapeSourceText(value: string): string {
-  return value.replace(DELIMITER_TAG, '‹$1$2')
+  return callCore<string>('escape_source_text', { value })
 }
 
-export function buildContextBlock(hits: readonly SearchHit[]): string {
-  if (hits.length === 0) return '<sources>\n(no matching passages were found in the knowledge base)\n</sources>'
-  const body = hits
-    .map((hit, index) => {
-      const title = escapeSourceText(hit.title).replace(/"/g, "'")
-      const origin = escapeSourceText(hit.source).replace(/"/g, "'")
-      return `<source id="${index + 1}" title="${title}" origin="${origin}">\n${escapeSourceText(hit.content)}\n</source>`
-    })
-    .join('\n')
-  return `<sources>\n${body}\n</sources>`
+/** What the prompt needs from a passage. */
+type PromptPassage = Pick<SearchHit, 'title' | 'source' | 'content'>
+
+const forPrompt = (hits: readonly PromptPassage[]) => hits.map(({ title, source, content }) => ({ title, source, content }))
+
+export function buildContextBlock(hits: readonly PromptPassage[]): string {
+  return callCore<string>('build_context_block', { hits: forPrompt(hits) })
 }
 
-export function buildUserPrompt(question: string, hits: readonly SearchHit[]): string {
-  return `${buildContextBlock(hits)}\n\nQuestion: ${question}`
+export function buildUserPrompt(question: string, hits: readonly PromptPassage[]): string {
+  return callCore<string>('build_user_prompt', { question, hits: forPrompt(hits) })
 }
 
 /**
