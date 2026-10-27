@@ -9,6 +9,19 @@ jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`
 | Background jobs | after each response, while someone waits, and on Vercel Cron |
 | Migrations | the production build (`scripts/vercel-build.mjs`) |
 
+## The Go API service
+
+`vercel.json` uses [Vercel Services](https://vercel.com/docs/services) (Beta): the Next.js app is
+the `web` service and the Go API with the Rust core (`backend/`, built from `backend/Dockerfile`)
+is the `api` service. Top-level rewrites send the paths the Go API owns (`/api/health`,
+`/api/workspaces`, `/api/collections`) to `api` and everything else to `web`. Both services read
+the same `POSTGRES_URL` and `AUTH_SECRET`; the container listens on `PORT` (80 by default).
+
+- Check a preview deployment first: `/api/health` should answer `{"ok":true,"database":"up","backend":"go",…}`.
+- Rolling back is one step: Vercel's Instant Rollback serves the previous deployment, both services together.
+- Locally, run the Go API (`npm run backend:dev`) and start Next.js with `GO_API_URL=http://localhost:8080`
+  so it proxies those paths ([backend/README.md](../backend/README.md)).
+
 ## How the app fits Vercel's limits
 
 [Vercel Functions limits](https://vercel.com/docs/functions/limitations) shaped the code:

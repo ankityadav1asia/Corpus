@@ -10,6 +10,17 @@ reports, images, audio overviews and mind maps. Models are Gemini by default; Ge
 OpenAI-compatible server (Ollama, vLLM, …) can take over each capability, and OCR runs locally with
 Tesseract.
 
+## Backend migration to Go and Rust
+
+The backend is being moved, route by route, from Next.js route handlers to a **Go** API with a
+**Rust** retrieval core (`backend/`, see [backend/README.md](../backend/README.md)). Migrated so far:
+`GET /api/health`, `GET·POST /api/workspaces` and `GET·POST /api/collections`, plus session
+verification, the permission table, the store for those routes, and the Rust core (text splitting,
+Reciprocal Rank Fusion, the guardrail, prompt escaping), which the Go process runs as WebAssembly.
+Both backends share the PostgreSQL schema below, the session cookie and `AUTH_SECRET`; contracts do
+not change. Golden fixtures produced by the TypeScript code (`npm run core:fixtures`) keep the
+ports exact. Everything else in this document is still served by Next.js.
+
 ## Principles
 
 1. **Fail closed.** No default secrets; missing configuration disables features instead of opening them. Non-members get 404 for workspace resources.

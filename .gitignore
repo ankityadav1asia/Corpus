@@ -52,3 +52,7 @@ next-env.d.ts
 .claude/
 CLAUDE.md
 .env.example
+
+# Rust build output and the WebAssembly module the Go backend embeds (npm run core:build)
+/backend/rust/target/
+/backend/internal/core/corpus_core.wasm
