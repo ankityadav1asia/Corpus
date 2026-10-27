@@ -1,18 +1,9 @@
 import type { BotMessagePayload } from '@/server/integrations/service'
-import { createBotFrameworkVerifier } from '@/server/integrations/teams'
 import { processJobsAfterResponse } from '@/server/jobs/trigger'
 import { log } from '@/server/logger'
 import type { Repositories } from '@/server/repositories'
 import { JOB_ATTEMPTS } from '@/server/repositories/jobs'
 import { RATE_LIMITS, enforceRateLimit } from '@/server/security/rate-limit'
-
-let verifier: { fetch: typeof fetch; verify: ReturnType<typeof createBotFrameworkVerifier> } | null = null
-
-/** One Bot Framework verifier (with its cached Microsoft keys) per fetch implementation. */
-export function teamsVerifier(fetcher: typeof fetch) {
-  if (!verifier || verifier.fetch !== fetcher) verifier = { fetch: fetcher, verify: createBotFrameworkVerifier(fetcher) }
-  return verifier.verify
-}
 
 /**
  * Queues a chat-app question for the background answerer. Over the per-integration limit the

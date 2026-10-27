@@ -34,7 +34,7 @@ const FEATURES: Array<{ icon: LucideIcon; title: string; text: string }> = [
   { icon: ScanText, title: 'Any source', text: 'PDFs, scans (OCR), images, audio and video transcripts, web pages, YouTube.' },
   { icon: Sparkles, title: 'Studio', text: 'Reports, slides, mind maps, two-host audio overviews and images.' },
   { icon: Workflow, title: 'Connected apps', text: 'Google Drive, Notion, GitHub and websites, synced on a schedule.' },
-  { icon: Share2, title: 'Teams and sharing', text: 'Workspaces with roles, share links, Slack and Microsoft Teams bots.' },
+  { icon: Share2, title: 'Teams and sharing', text: 'Workspaces with roles, share links, and a Slack bot.' },
   { icon: Lock, title: 'Secure by design', text: 'Server-side sessions, CSP nonces, SSRF-safe fetching, encrypted tokens.' },
 ]
 

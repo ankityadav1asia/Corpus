@@ -16,7 +16,7 @@ import { createRepositories, type Repositories } from '@/server/repositories'
 import { mergeSettings } from '@/server/repositories/workspaces'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { createFakeAi, createFakeImages, isJudge, isRerank, type FakeAi, type FakeAiOptions, type FakeImages } from './helpers/fake-ai'
+import { createFakeAi, isJudge, isRerank, type FakeAi, type FakeAiOptions } from './helpers/fake-ai'
 import { accessFor, addDocument, createTeam, createUser, type TestUser } from './helpers/fixtures'
 
 let t: TestDb
@@ -73,7 +73,7 @@ async function ask(message: string, options: AskOptions = {}) {
   return { ai, prepared, events, types: events.map((e) => e.type), sources: events.find((e) => e.type === 'sources') as EventOf<'sources'> | undefined }
 }
 
-const jobContext = (ai: FakeAi, images: FakeImages = createFakeImages()) => ({ repos, ai: () => ai, reranker: () => createLlmReranker(ai), images: () => images })
+const jobContext = (ai: FakeAi) => ({ repos, ai: () => ai, reranker: () => createLlmReranker(ai) })
 
 describe('ingestion service', () => {
   it('chunks, embeds and stores a document, then makes it searchable', async () => {

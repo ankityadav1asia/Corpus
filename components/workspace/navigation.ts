@@ -1,4 +1,4 @@
-import { BarChart2, FileBarChart, Headphones, Layers, MessageSquare, Network, Wand2 } from 'lucide-react'
+import { BarChart2, FileBarChart, Headphones, Layers, MessageSquare, Network } from 'lucide-react'
 
 import { WORKSPACE_TABS, type WorkspaceTab } from '@/lib/constants'
 
@@ -13,13 +13,12 @@ export interface TabInfo {
   icon: typeof MessageSquare
 }
 
-/** In navigation-rail order, which is also the order of the Alt+1…7 shortcuts. */
+/** In navigation-rail order, which is also the order of the Alt+1…6 shortcuts. */
 export const TABS: readonly TabInfo[] = [
   { id: 'chat', label: 'Chat', short: 'Chat', group: 'chat', icon: MessageSquare },
   { id: 'reports', label: 'Reports', short: 'Reports', group: 'studio', icon: FileBarChart },
   { id: 'audio', label: 'Audio overviews', short: 'Audio', group: 'studio', icon: Headphones },
   { id: 'mindmaps', label: 'Mind maps', short: 'Mind maps', group: 'studio', icon: Network },
-  { id: 'images', label: 'Image studio', short: 'Images', group: 'studio', icon: Wand2 },
   { id: 'explorer', label: 'Chunk editor', short: 'Chunks', group: 'tools', icon: Layers },
   { id: 'analytics', label: 'Analytics & quality', short: 'Analytics', group: 'tools', icon: BarChart2 },
 ]

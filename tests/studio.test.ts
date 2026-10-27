@@ -2,6 +2,7 @@ import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
 
 import type { MediaKind } from '@/lib/contracts'
+import { AiProviderError, DAILY_QUOTA_MESSAGE } from '@/server/ai/provider'
 import { readUpload } from '@/server/ingestion/extractors'
 import { queueMedia } from '@/server/ingestion/ingest-service'
 import { runJobs, type JobContext } from '@/server/jobs/runner'
@@ -36,7 +37,7 @@ async function resetJobs() {
 }
 
 function context(ai: FakeAi, extra: Partial<JobContext> = {}): JobContext {
-  return { repos, ai: () => ai, reranker: () => createLlmReranker(ai), images: () => null, ...extra }
+  return { repos, ai: () => ai, reranker: () => createLlmReranker(ai), ...extra }
 }
 
 function media(kind: MediaKind, fileName: string, data: Uint8Array, mimeType: string, extra: { pageCount?: number; pages?: Array<{ page: number; text: string }> } = {}) {
@@ -245,6 +246,52 @@ describe('mind maps', () => {
     const reduce = ai.calls.complete.find((call) => call.system.startsWith('Build a mind map'))
     assert.match(reduce!.prompt, /Focus the map on: energy/)
     assert.equal((await repos.notifications.list(owner.id)).items[0]?.kind, 'mindmap_ready')
+  })
+
+  it('rate limits wait as long as asked; a used-up daily quota fails at once', async () => {
+    const queueMap = async () => {
+      const map = await repos.mindMaps.create({
+        workspaceId: owner.workspaceId,
+        createdBy: owner.id,
+        title: 'Mind map',
+        focus: '',
+        collectionIds: [owner.notebookId],
+        documentIds: [],
+      })
+      await repos.jobs.enqueue('generate_mindmap', { mindMapId: map.id }, { maxAttempts: JOB_ATTEMPTS.generate_mindmap })
+      return map.id
+    }
+    const failing = (error: AiProviderError) =>
+      createFakeAi({
+        complete: (input) => {
+          if (input.system.startsWith('Build a mind map')) throw error
+          return undefined
+        },
+      })
+
+    await resetJobs()
+    const limited = await queueMap()
+    await runJobs(context(failing(new AiProviderError('Gemini request failed (429)', 429, true, 90))), { types: ['generate_mindmap'] })
+    const [job] = await t.db.query<{ wait: number; status: string }>(`SELECT status, extract(epoch FROM run_after - now())::int AS wait FROM app.jobs`)
+    assert.equal(job?.status, 'queued')
+    assert.ok(job!.wait >= 85, `retry scheduled after the requested 90s, got ${job!.wait}s`)
+    const waiting = await repos.mindMaps.get(owner.workspaceId, limited)
+    assert.equal(waiting?.status, 'queued')
+    assert.equal(waiting?.progress, 'AI service busy — retrying in ~91 s', 'the card says why it is waiting')
+
+    await resetJobs()
+    const exhausted = await queueMap()
+    const before = (await repos.notifications.list(owner.id)).items.length
+    const quota = failing(new AiProviderError('Gemini request failed (429)', 429, false, 48, true))
+    assert.deepEqual(await runJobs(context(quota), { types: ['generate_mindmap'] }), { processed: 0, failed: 1 })
+    const [spent] = await t.db.query<{ status: string; attempts: number }>(`SELECT status, attempts FROM app.jobs`)
+    assert.deepEqual([spent?.status, spent?.attempts], ['failed', 1], 'no retries against a used-up daily quota')
+    const detail = await repos.mindMaps.get(owner.workspaceId, exhausted)
+    assert.equal(detail?.status, 'failed')
+    assert.equal(detail?.error, DAILY_QUOTA_MESSAGE)
+    const notifications = (await repos.notifications.list(owner.id)).items
+    assert.equal(notifications.length, before + 1)
+    assert.equal(notifications[0]?.kind, 'mindmap_failed')
   })
 })
 

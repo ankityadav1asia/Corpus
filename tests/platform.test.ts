@@ -1,8 +1,6 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
 
-import { INSUFFICIENT_CONTEXT_MESSAGE } from '@/lib/constants'
-import { DAILY_QUOTA_MESSAGE } from '@/server/ai/provider'
 import { AppError } from '@/server/http/errors'
 import { CHUNK_OVERLAP, CHUNK_SIZE, indexQueuedDocument, queueDocument } from '@/server/ingestion/ingest-service'
 import { runJobs } from '@/server/jobs/runner'
@@ -12,7 +10,7 @@ import { createRepositories, type Repositories } from '@/server/repositories'
 import { JOB_ATTEMPTS } from '@/server/repositories/jobs'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { TINY_PNG, createFakeAi, createFakeImages, fakeEmbedding, type FakeAi, type FakeImages } from './helpers/fake-ai'
+import { createFakeAi, fakeEmbedding, type FakeAi } from './helpers/fake-ai'
 import { addDocument, createTeam, createUser, type TestUser } from './helpers/fixtures'
 
 let t: TestDb
@@ -29,11 +27,10 @@ before(async () => {
 
 after(() => t.close())
 
-const context = (ai: FakeAi = createFakeAi(), images: FakeImages = createFakeImages()) => ({
+const context = (ai: FakeAi = createFakeAi()) => ({
   repos,
   ai: () => ai,
   reranker: () => createLlmReranker(ai),
-  images: () => images,
 })
 
 const source = (text: string, extra: Partial<Parameters<typeof queueDocument>[1]> = {}) => ({
@@ -187,122 +184,6 @@ describe('background indexing', () => {
       ],
     )
     assert.equal(await repos.documents.detail(other.workspaceId, document.id, 10), null)
-  })
-})
-
-describe('image generation', () => {
-  let biologyId: string
-
-  before(async () => {
-    const biology = await addDocument(repos, {
-      workspaceId: owner.workspaceId,
-      collectionId: owner.notebookId,
-      createdBy: owner.id,
-      title: 'Photosynthesis basics',
-      chunks: ['Photosynthesis converts light energy into chemical energy stored in glucose.', 'Chlorophyll absorbs mostly blue and red light.'],
-    })
-    biologyId = biology.id
-  })
-
-  async function queueImage(prompt: string, extra: { documentIds?: string[]; collectionId?: string | null } = {}) {
-    const image = await repos.images.create({
-      workspaceId: owner.workspaceId,
-      createdBy: owner.id,
-      collectionId: extra.collectionId === undefined ? owner.notebookId : extra.collectionId,
-      documentIds: extra.documentIds ?? [],
-      prompt,
-      style: 'infographic',
-      aspectRatio: '16:9',
-    })
-    await repos.jobs.enqueue('generate_image', { imageId: image.id }, { maxAttempts: JOB_ATTEMPTS.generate_image })
-    return image.id
-  }
-
-  it('grounds the brief in retrieved passages, stores a verified image and notifies the author', async () => {
-    await resetJobs()
-    const id = await queueImage('Show how photosynthesis converts light energy into chemical energy')
-    const images = createFakeImages()
-    assert.deepEqual(await runJobs(context(createFakeAi(), images), { types: ['generate_image'] }), { processed: 1, failed: 0 })
-
-    const detail = await repos.images.get(owner.workspaceId, id)
-    assert.equal(detail?.status, 'completed')
-    assert.equal(detail?.mimeType, 'image/png')
-    assert.deepEqual([detail?.width, detail?.height, detail?.byteSize], [1, 1, TINY_PNG.length])
-    assert.equal(detail?.title, 'Grounded picture')
-    assert.equal(detail?.model, 'fake-image-model')
-    assert.ok(detail!.sources.some((item) => item.title === 'Photosynthesis basics'))
-    assert.match(detail!.finalPrompt!, /Photosynthesis converts light energy/, 'the brief quotes the knowledge base')
-    assert.match(detail!.finalPrompt!, /Aspect ratio 16:9/)
-    assert.equal(images.calls[0]?.aspectRatio, '16:9')
-
-    const file = await repos.images.file(id)
-    assert.deepEqual(Buffer.from(file!.data), TINY_PNG, 'bytes survive the round trip')
-    assert.equal(file?.workspaceId, owner.workspaceId)
-    assert.equal((await repos.notifications.list(owner.id)).items[0]?.kind, 'image_ready')
-    assert.equal(await repos.images.get(other.workspaceId, id), null)
-  })
-
-  it('draws from chosen documents without a relevance search', async () => {
-    await resetJobs()
-    const id = await queueImage('A poster about football', { documentIds: [biologyId], collectionId: null })
-    const ai = createFakeAi()
-    await runJobs(context(ai), { types: ['generate_image'] })
-    assert.equal((await repos.images.get(owner.workspaceId, id))?.status, 'completed')
-    assert.deepEqual(ai.calls.embedQuery, [], 'no search when the documents are chosen')
-  })
-
-  it('refuses to invent: with nothing relevant the request fails with the guardrail message', async () => {
-    await resetJobs()
-    const id = await queueImage('Standings of the football league')
-    const images = createFakeImages()
-    await runJobs(context(createFakeAi(), images), { types: ['generate_image'] })
-    const detail = await repos.images.get(owner.workspaceId, id)
-    assert.equal(detail?.status, 'failed')
-    assert.ok(detail!.error!.startsWith(INSUFFICIENT_CONTEXT_MESSAGE))
-    assert.equal(images.calls.length, 0, 'the image model is never called')
-  })
-
-  it('safety refusals fail at once; rate limits wait as long as asked; non-images are rejected', async () => {
-    await resetJobs()
-    const refused = await queueImage('Show how photosynthesis converts light energy', {})
-    await runJobs(context(createFakeAi(), createFakeImages({ behaviour: 'refuse' })), { types: ['generate_image'] })
-    const refusedDetail = await repos.images.get(owner.workspaceId, refused)
-    assert.equal(refusedDetail?.status, 'failed')
-    assert.match(refusedDetail!.error!, /safety filters/)
-
-    await resetJobs()
-    const limited = await queueImage('Show how photosynthesis converts light energy')
-    await runJobs(context(createFakeAi(), createFakeImages({ behaviour: 'rate-limit' })), { types: ['generate_image'] })
-    const [job] = await t.db.query<{ wait: number; status: string }>(`SELECT status, extract(epoch FROM run_after - now())::int AS wait FROM app.jobs`)
-    assert.equal(job?.status, 'queued')
-    assert.ok(job!.wait >= 85, `retry scheduled after the requested 90s, got ${job!.wait}s`)
-    const waiting = await repos.images.get(owner.workspaceId, limited)
-    assert.equal(waiting?.status, 'queued')
-    assert.equal(waiting?.progress, 'AI service busy — retrying in ~91 s', 'the card says why it is waiting')
-
-    await resetJobs()
-    const exhausted = await queueImage('Show how photosynthesis converts light energy')
-    const before = (await repos.notifications.list(owner.id)).items.length
-    assert.deepEqual(await runJobs(context(createFakeAi(), createFakeImages({ behaviour: 'daily-quota' })), { types: ['generate_image'] }), { processed: 0, failed: 1 })
-    const [spent] = await t.db.query<{ status: string; attempts: number }>(`SELECT status, attempts FROM app.jobs`)
-    assert.deepEqual([spent?.status, spent?.attempts], ['failed', 1], 'no retries against a used-up daily quota')
-    const exhaustedDetail = await repos.images.get(owner.workspaceId, exhausted)
-    assert.equal(exhaustedDetail?.status, 'failed')
-    assert.equal(exhaustedDetail?.error, DAILY_QUOTA_MESSAGE)
-    const notifications = (await repos.notifications.list(owner.id)).items
-    assert.equal(notifications.length, before + 1)
-    assert.equal(notifications[0]?.kind, 'image_failed')
-
-    await resetJobs()
-    const garbage = await queueImage('Show how photosynthesis converts light energy')
-    const broken = createFakeImages({ behaviour: 'garbage' })
-    for (let attempt = 0; attempt < JOB_ATTEMPTS.generate_image; attempt++) {
-      await t.db.query('UPDATE app.jobs SET run_after = now()')
-      await runJobs(context(createFakeAi(), broken), { types: ['generate_image'] })
-    }
-    const rejected = await repos.images.get(owner.workspaceId, garbage)
-    assert.equal(rejected?.status, 'failed')
-    assert.equal(await repos.images.file(garbage), null)
   })
 })
 

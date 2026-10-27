@@ -3,7 +3,6 @@ import { z } from 'zod'
 import { notify } from '@/server/activity'
 import { syncConnectorSource, syncPayload } from '@/server/connectors/sync'
 import { benchmarkPayload, evaluateAnswerPayload, evaluateMessage, runBenchmarkBatch } from '@/server/evaluation/service'
-import { generateImage, imagePayload } from '@/server/images/generate'
 import { indexQueuedDocument } from '@/server/ingestion/ingest-service'
 import { answerBotMessage, botMessagePayload } from '@/server/integrations/service'
 import type { JobContext } from '@/server/jobs/context'
@@ -132,21 +131,6 @@ export const JOBS: Record<JobType, JobDefinition> = {
       await repos.reports.fail(reportId, reason)
       const report = await repos.reports.forJob(reportId)
       if (report) await tellCreator(repos, report, { kind: 'report_failed', title: `Report failed: ${report.title}`, body: reason, link: { tab: 'reports', id: report.id } })
-    },
-  }),
-
-  generate_image: defineJob(imagePayload, {
-    async run({ imageId }, context) {
-      const images = context.images()
-      if (!images) throw new PermanentJobError('Image generation is not configured on this server.')
-      await generateImage({ repos: context.repos, ai: context.ai(), reranker: context.reranker(), images }, imageId)
-    },
-    onRetry: ({ imageId }, { repos }, progress) => repos.images.setProgress(imageId, 'queued', progress),
-    async onFailure({ imageId }, { repos }, reason) {
-      const image = await repos.images.forJob(imageId)
-      if (!image) return
-      await repos.images.fail(image.id, reason)
-      await tellCreator(repos, image, { kind: 'image_failed', title: 'An image could not be generated', body: reason, link: { tab: 'images', id: image.id } })
     },
   }),
 

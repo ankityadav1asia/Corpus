@@ -1,4 +1,3 @@
-import type { ImageGenerator } from '@/server/ai/image'
 import type { SpeechSynthesizer, Transcriber, VisionModel } from '@/server/ai/media'
 import type { AiProvider } from '@/server/ai/provider'
 import type { ConnectorRegistry } from '@/server/connectors/registry'
@@ -12,7 +11,6 @@ export interface JobContext {
   repos: Repositories
   ai: () => AiProvider
   reranker: () => Reranker | null
-  images: () => ImageGenerator | null
   /** Multimodal capabilities (absent = turned off). */
   vision?: () => VisionModel | null
   transcriber?: () => Transcriber | null
