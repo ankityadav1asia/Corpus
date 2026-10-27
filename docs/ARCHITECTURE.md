@@ -10,6 +10,17 @@ reports, images, audio overviews and mind maps. Models are Gemini by default; Ge
 OpenAI-compatible server (Ollama, vLLM, …) can take over each capability, and OCR runs locally with
 Tesseract.
 
+## Rust core
+
+Text splitting, Reciprocal Rank Fusion, the relevance guardrail and prompt escaping run in **Rust**
+(`core/`, crate `corpus-core`), built to WebAssembly (`core/dist/corpus_core.wasm`, committed) and loaded
+into the Node.js server by `server/core/index.ts` (one JSON entry point; loading takes a few
+milliseconds). `server/rag/*` keep their TypeScript signatures and call it. The Rust code replaced
+TypeScript implementations and must reproduce their outputs exactly: `core/tests/fixtures/golden.json`
+is checked natively (`cargo test`) and through the server (`tests/core.test.ts`). CI rebuilds the
+module with the pinned toolchain (`core/rust-toolchain.toml`) and fails if the committed file differs;
+`npm run core:build` rebuilds it locally.
+
 ## Principles
 
 1. **Fail closed.** No default secrets; missing configuration disables features instead of opening them. Non-members get 404 for workspace resources.
@@ -59,6 +70,7 @@ components/                 UI: workspace/ (shell, header, content, URL state, c
                             mind maps), chunk editor, analytics & quality, workspace-settings/, notifications, command palette
 scripts/                    init-db (migrate), worker, reseal-secrets, import-legacy, seed;
                             vercel-build (migrations on production builds, then next build)
+core/                       Rust RAG core (splitter, rank fusion, guardrail, prompt escaping) → dist/corpus_core.wasm
 tests/                      node:test suites (unit, PGlite integration, HTTP route tests)
 vercel.json                 Vercel: region cle1 (next to Neon), Fluid compute, build command, daily cron — docs/DEPLOYMENT.md
 .github/                    CI (typecheck, lint, tests, build, audit) and Dependabot
