@@ -12,13 +12,6 @@ const securityHeaders = [
   { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
 ]
 
-/**
- * API paths the Go backend (backend/) serves instead of Next.js. On Vercel, vercel.json routes them
- * to the Go service before Next.js sees them; locally, set GO_API_URL (e.g. http://localhost:8080)
- * and Next.js proxies them there. tests/go-backend.test.ts keeps this list and vercel.json in step.
- */
-export const GO_API_PATHS = ['/api/health', '/api/workspaces', '/api/collections']
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // A second local instance (a demo on another port, screenshots) can build into its own folder.
@@ -47,6 +40,8 @@ const nextConfig = {
       './node_modules/pdfjs-dist/legacy/build/pdf.worker.mjs',
       './node_modules/@napi-rs/canvas/**/*',
       './node_modules/@napi-rs/canvas-*/**/*',
+      // The Rust RAG core, read from disk by server/core/index.ts.
+      './core/dist/corpus_core.wasm',
     ],
   },
   // PGlite is for local development and tests only (a production server refuses it): keep it out of deployed bundles.
@@ -60,11 +55,6 @@ const nextConfig = {
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }]
-  },
-  async rewrites() {
-    const goApi = process.env.GO_API_URL?.replace(/\/+$/, '')
-    if (!goApi) return []
-    return { beforeFiles: GO_API_PATHS.map((source) => ({ source, destination: `${goApi}${source}` })) }
   },
 }
 

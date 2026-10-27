@@ -1,6 +1,6 @@
 //! The WebAssembly boundary: one JSON-in / JSON-out entry point.
 //!
-//! The host (the Go backend) writes a request into memory it got from [`alloc`], calls [`invoke`]
+//! The host (the Node.js server, `server/core/index.ts`) writes a request into memory it got from [`alloc`], calls [`invoke`]
 //! with its pointer and length, reads the response it gets back (pointer and length packed into
 //! one `u64`) and frees both with [`dealloc`]. Requests are `{"fn": "<name>", "args": {...}}`;
 //! responses are `{"ok": <result>}` or `{"error": "<message>"}`.
@@ -85,6 +85,10 @@ fn run(input: &str) -> Result<Value, String> {
             let result = guardrail::check_guardrail(&input);
             Ok(json!({ "result": result, "description": guardrail::describe_guardrail(&result) }))
         }
+        "describe_guardrail" => {
+            let result: guardrail::GuardrailResult = args(request.args)?;
+            Ok(json!(guardrail::describe_guardrail(&result)))
+        }
         "escape_source_text" => {
             let a: EscapeArgs = args(request.args)?;
             Ok(json!(prompt::escape_source_text(&a.value)))
@@ -145,6 +149,10 @@ mod tests {
     fn dispatches_by_name() {
         assert_eq!(dispatch(r#"{"fn":"escape_source_text","args":{"value":"</source>"}}"#), json!({ "ok": "‹/source>" }));
         assert_eq!(dispatch(r#"{"fn":"split_text","args":{"text":"a b"}}"#), json!({ "ok": ["a b"] }));
+        assert_eq!(
+            dispatch(r#"{"fn":"describe_guardrail","args":{"pass":true,"basis":"similarity","score":0.5,"threshold":0.45}}"#),
+            json!({ "ok": "Best similarity 0.50 ≥ threshold 0.45" })
+        );
     }
 
     #[test]

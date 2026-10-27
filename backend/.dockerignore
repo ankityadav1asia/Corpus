@@ -1,5 +1,0 @@
-rust/target
-internal/core/corpus_core.wasm
-**/*_test.go
-**/testdata
-rust/tests

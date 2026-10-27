@@ -1,5 +1,5 @@
-//! Every case in `fixtures/golden.json` (written by `npm run core:fixtures` from the TypeScript
-//! code) must come out of the Rust core exactly the same.
+//! Every case in `fixtures/golden.json` (the outputs of the TypeScript implementations this crate
+//! replaced) must come out of the Rust core exactly the same.
 
 use corpus_core::ffi::dispatch;
 use serde_json::{json, Value};

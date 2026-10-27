@@ -35,64 +35,24 @@ jobs:
         run: npm audit --omit=dev --audit-level=high
 
   rust:
-    name: Rust core (tests and WebAssembly build)
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    defaults:
-      run:
-        working-directory: backend/rust
-    steps:
-      - uses: actions/checkout@v5
-      - name: Rust toolchain with the WebAssembly target
-        run: rustup toolchain install stable --profile minimal --component clippy --target wasm32-unknown-unknown && rustup default stable
-      - run: cargo clippy --all-targets -- -D warnings
-      # Includes the golden tests: every output must equal the TypeScript code's (tests/fixtures/golden.json).
-      - run: cargo test
-      - run: cargo build --release --target wasm32-unknown-unknown
-      - uses: actions/upload-artifact@v4
-        with:
-          name: corpus-core-wasm
-          path: backend/rust/target/wasm32-unknown-unknown/release/corpus_core.wasm
-          if-no-files-found: error
-
-  go:
-    name: Go API (vet, tests against PostgreSQL, build)
-    needs: rust
+    name: Rust core (tests, clippy, reproducible WebAssembly)
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v5
-      - uses: actions/setup-go@v6
+      # core/rust-toolchain.toml pins the version, components and target; rustup installs them.
+      - run: cd core && rustup show active-toolchain || rustup toolchain install
+      - run: cd core && cargo clippy --all-targets -- -D warnings
+      # Includes the golden tests: outputs must equal the TypeScript originals (core/tests/fixtures).
+      - run: cd core && cargo test
+      # The app loads the committed core/dist/corpus_core.wasm: it must be exactly what this source builds.
+      - run: node scripts/build-core.mjs --check
+      - name: Upload the built module and lockfile (to commit when they changed)
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          go-version-file: backend/go.mod
-          cache-dependency-path: backend/go.sum
-      - uses: actions/setup-node@v5
-        with:
-          node-version: 24
-          cache: npm
-      - run: npm ci --no-audit --no-fund
-      - uses: actions/download-artifact@v5
-        with:
-          name: corpus-core-wasm
-          path: backend/internal/core
-      - name: Fixtures are up to date with the TypeScript code
-        run: npm run core:fixtures && git diff --exit-code -- backend/rust/tests/fixtures backend/internal/auth/testdata
-      - name: gofmt
-        working-directory: backend
-        run: test -z "$(gofmt -l .)"
-      - name: go vet
-        working-directory: backend
-        run: go vet ./...
-      # A migrated PostgreSQL (PGlite + pgvector) on a local port for the database tests.
-      - name: Start the test database
-        run: |
-          npm run db:pglite-server > pglite.log 2>&1 &
-          for i in $(seq 1 60); do grep -q READY pglite.log && break; sleep 1; done
-          grep READY pglite.log
-      - name: go test
-        working-directory: backend
-        env:
-          CORPUS_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:54329/postgres?sslmode=disable
-        run: go test -count=1 ./...
-      - name: Build the API container
-        run: docker build -t corpus-api backend
+          name: corpus-core
+          path: |
+            core/target/wasm32-unknown-unknown/release/corpus_core.wasm
+            core/Cargo.lock
+          if-no-files-found: ignore

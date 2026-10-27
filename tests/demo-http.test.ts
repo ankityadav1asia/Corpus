@@ -9,7 +9,8 @@ import * as chatRoute from '@/app/api/chat/route'
 import * as uploadsRoute from '@/app/api/learn/uploads/route'
 import * as followupsRoute from '@/app/api/messages/[id]/followups/route'
 import * as membersRoute from '@/app/api/workspaces/[id]/members/route'
-import type { SessionUser, WorkspaceMember } from '@/lib/contracts'
+import * as workspacesRoute from '@/app/api/workspaces/route'
+import type { SessionUser, WorkspaceMember, WorkspaceSummary } from '@/lib/contracts'
 import { clearSessionCacheForTests } from '@/server/auth/current-user'
 import { enforceDemoQuestionLimits, purgeGuests } from '@/server/auth/demo'
 import { isGuestEmail } from '@/server/auth/guest'
@@ -166,14 +167,15 @@ describe('public demo', () => {
     const { user, cookie } = await enterDemo()
     assert.deepEqual((await data<{ user: SessionUser }>(call(authRoute.GET, '/api/auth', { cookie }))).user.guest, true)
 
-    // Listing and creating workspaces is the Go API's; it skips the personal workspace for guests
-    // and refuses to create one (backend/internal/api). Signing in as a guest creates none either.
-    const workspaces = await repos.workspaces.listForUser(user.id)
+    const { workspaces } = await data<{ workspaces: WorkspaceSummary[] }>(call(workspacesRoute.GET, '/api/workspaces', { cookie, workspace: null }))
     assert.deepEqual(
       workspaces.map((workspace) => [workspace.id, workspace.role]),
       [[team.workspaceId, 'viewer']],
       'no personal workspace to upload into',
     )
+    const denied = await errorOf(call(workspacesRoute.POST, '/api/workspaces', { method: 'POST', cookie, workspace: null, body: { name: 'Mine' } }))
+    assert.deepEqual(denied.slice(0, 2), [403, 'FORBIDDEN'])
+    assert.match(denied[2], /read-only demo/)
 
     const upload = await errorOf(
       call(uploadsRoute.POST, '/api/learn/uploads', { method: 'POST', cookie, body: { collectionId: team.notebookId, fileName: 'notes.txt', byteSize: 10 } }),

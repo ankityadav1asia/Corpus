@@ -1,24 +1,8 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "buildCommand": "npm run vercel-build",
   "regions": ["cle1"],
   "fluid": true,
-  "crons": [{ "path": "/api/jobs/run", "schedule": "0 3 * * *" }],
-  "services": {
-    "web": {
-      "root": ".",
-      "framework": "nextjs",
-      "buildCommand": "npm run vercel-build"
-    },
-    "api": {
-      "root": "backend",
-      "runtime": "container",
-      "entrypoint": "Dockerfile"
-    }
-  },
-  "rewrites": [
-    { "source": "/api/health", "destination": { "service": "api" } },
-    { "source": "/api/workspaces", "destination": { "service": "api" } },
-    { "source": "/api/collections", "destination": { "service": "api" } },
-    { "source": "/(.*)", "destination": { "service": "web" } }
-  ]
+  "crons": [{ "path": "/api/jobs/run", "schedule": "0 3 * * *" }]
 }

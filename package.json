@@ -23,12 +23,8 @@
     "diagrams": "node scripts/diagrams/render.mjs",
     "fmt": "prettier --write . --ignore-unknown",
     "secrets:reseal": "node --conditions=react-server --import tsx scripts/reseal-secrets.ts",
-    "core:fixtures": "node --conditions=react-server --import tsx scripts/core-fixtures.ts",
     "core:build": "node scripts/build-core.mjs",
-    "core:test": "cd backend/rust && cargo test",
-    "db:pglite-server": "node --conditions=react-server --import tsx scripts/pglite-server.ts",
-    "backend:test": "cd backend && go test ./...",
-    "backend:dev": "cd backend && go run ./cmd/server"
+    "core:test": "cd core && cargo test"
   },
   "dependencies": {
     "@breezystack/lamejs": "^1.2.7",
@@ -65,7 +61,6 @@
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.8",
     "@electric-sql/pglite-pgvector": "^0.0.9",
-    "@electric-sql/pglite-socket": "0.2.11",
     "@tailwindcss/typography": "^0.5.16",
     "@types/node": "^22",
     "@types/nodemailer": "^8.0.2",

@@ -186,13 +186,13 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, SWR, react-markdown, pdf.js |
-| Backend | Next.js route handlers, zod validation, NDJSON streaming; moving step by step to a **Go** API (net/http, pgx) with a **Rust** RAG core run as WebAssembly (wazero) — see [backend/README.md](backend/README.md) |
+| Backend | Next.js route handlers, zod validation, NDJSON streaming |
 | Database | PostgreSQL with pgvector (Neon in production); PGlite for tests and local development |
 | AI models | Google Gemini (chat, embeddings, vision, transcription, speech, images), Gemma, OpenAI-compatible servers (Ollama, vLLM, LM Studio, Groq and others), Cohere Rerank |
 | Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript, lamejs (MP3) |
 | Integrations | Google Drive (OAuth with PKCE), Notion, GitHub, website crawler, Slack Events API, Microsoft Bot Framework |
 | Email | Resend or SMTP (nodemailer) for sign-in codes |
-| Operations | Vercel (functions, Services, cron), GitHub Actions, Dependabot |
+| Operations | Vercel (functions, cron), GitHub Actions, Dependabot |
 | Testing | node:test, tsx, PGlite, fake model providers |
 
 ## Quick start
@@ -278,7 +278,6 @@ hooks/          data hooks (SWR), chat streaming, shared UI state
 lib/            code shared by browser and server: API contracts, constants, roles
 server/         server-only code: RAG pipeline, ingestion, studio, connectors, jobs,
                 repositories (all SQL), security, model adapters
-backend/        Go API (cmd/, internal/) and the Rust RAG core (rust/), taking over the API step by step
 scripts/        migrations, worker, re-sealing, seed, legacy import, the Vercel build
 tests/          349 tests on PGlite with fake model providers
 docs/           architecture, code standards, deployment, security
