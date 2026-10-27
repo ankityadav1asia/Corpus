@@ -13,6 +13,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -37,6 +38,22 @@ type actor struct {
 	workspaceID string
 }
 
+// One connection for the whole package: the PGlite socket server serves a single client at a
+// time, so opening and closing a pool per test races its previous connection's teardown.
+var (
+	sharedDB  *store.Store
+	sharedErr error
+	openOnce  sync.Once
+)
+
+func TestMain(m *testing.M) {
+	code := m.Run()
+	if sharedDB != nil {
+		sharedDB.Close()
+	}
+	os.Exit(code)
+}
+
 func setup(t *testing.T) *env {
 	t.Helper()
 	url := os.Getenv("CORPUS_TEST_DATABASE_URL")
@@ -44,14 +61,13 @@ func setup(t *testing.T) *env {
 		t.Skip("CORPUS_TEST_DATABASE_URL is not set (start `npm run db:pglite-server`)")
 	}
 	logx.SetOutput(&strings.Builder{})
-	ctx := context.Background()
-	db, err := store.Open(ctx, url, 1)
-	if err != nil {
-		t.Fatal(err)
+	openOnce.Do(func() { sharedDB, sharedErr = store.Open(context.Background(), url, 1) })
+	if sharedErr != nil {
+		t.Fatal(sharedErr)
 	}
-	t.Cleanup(db.Close)
 	cfg := config.Config{PostgresURL: url, Secrets: []string{secret}, AppURL: ""}
-	return &env{t: t, db: db, handler: New(cfg, db, "test").Handler()}
+	// A new Server per test: its session cache starts empty.
+	return &env{t: t, db: sharedDB, handler: New(cfg, sharedDB, "test").Handler()}
 }
 
 func unique(prefix string) string {
