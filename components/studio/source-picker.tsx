@@ -40,7 +40,7 @@ export function SourcePicker({
 
   return (
     <fieldset disabled={disabled} className="space-y-2">
-      <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Sources</legend>
+      <legend className="mb-1.5 text-[10px] font-medium text-muted-foreground">Sources</legend>
       <div className="inline-flex rounded-xl border border-border/60 bg-card/50 p-0.5 text-[11px]">
         {(['notebooks', 'documents'] as const).map((option) => (
           <button
@@ -48,10 +48,7 @@ export function SourcePicker({
             type="button"
             onClick={() => switchMode(option)}
             aria-pressed={mode === option}
-            className={cn(
-              'rounded-lg px-3 py-1 font-medium transition-colors',
-              mode === option ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
-            )}
+            className={cn('rounded-lg px-3 py-1 font-medium transition-colors', mode === option ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground')}
           >
             {option === 'notebooks' ? 'Whole notebooks' : 'Specific documents'}
           </button>
@@ -69,8 +66,8 @@ export function SourcePicker({
                 aria-pressed={on}
                 onClick={() => onChange({ collectionIds: toggle(value.collectionIds, collection.id), documentIds: [] })}
                 className={cn(
-                  'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] transition-all',
-                  on ? 'border-primary/60 bg-primary/10 text-foreground shadow-sm' : 'border-border/60 bg-card/40 text-muted-foreground hover:text-foreground',
+                  'flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[11px] transition-colors',
+                  on ? 'border-primary/60 bg-primary/10 text-foreground' : 'border-border/60 bg-card/40 text-muted-foreground hover:text-foreground',
                 )}
               >
                 {on ? <Check className="size-3 text-primary" /> : <BookOpen className="size-3" />}

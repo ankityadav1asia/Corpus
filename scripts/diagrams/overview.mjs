@@ -26,16 +26,15 @@ const panel = ({ tone, glyph, title, items }) => `<div class="panel" style="--to
 const CLIENTS = [
   { tone: 'client', glyph: 'monitor', title: 'Browser app', text: 'chat, sources, studio, settings' },
   { tone: 'client', glyph: 'slack', title: 'Slack', text: 'mentions and direct messages' },
-  { tone: 'client', glyph: 'message-square', title: 'Microsoft Teams', text: 'bot conversations' },
   { tone: 'client', glyph: 'share-2', title: 'Shared links', text: 'read-only answers and reports' },
 ]
 
 const SERVICES = [
   { tone: 'web', glyph: 'search', title: 'RAG pipeline', text: 'grounded answers with citations' },
   { tone: 'web', glyph: 'file-text', title: 'Ingestion', text: 'files, scans, audio, video, web' },
-  { tone: 'web', glyph: 'presentation', title: 'Studio', text: 'reports, mind maps, audio, images' },
+  { tone: 'web', glyph: 'presentation', title: 'Studio', text: 'reports, mind maps, audio' },
   { tone: 'web', glyph: 'folder-sync', title: 'Connectors', text: 'Drive, Notion, GitHub, websites' },
-  { tone: 'web', glyph: 'bot', title: 'Sharing and bots', text: 'share links, Slack and Teams' },
+  { tone: 'web', glyph: 'bot', title: 'Sharing and bots', text: 'share links and a Slack bot' },
 ]
 
 const vercel = `
@@ -69,7 +68,7 @@ const foundation = `<div class="panels">
     glyph: 'gemini',
     title: 'AI models',
     items: [
-      { tone: 'ai', glyph: 'gemini', title: 'Gemini or Gemma', text: 'chat, embeddings, vision, speech, images' },
+      { tone: 'ai', glyph: 'gemini', title: 'Gemini or Gemma', text: 'chat, embeddings, vision, speech' },
       { tone: 'ai', glyph: 'cpu', title: 'OpenAI-compatible', text: 'Ollama, vLLM, Groq; Tesseract OCR' },
     ],
   })}

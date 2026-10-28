@@ -53,7 +53,7 @@ export function Composer({ disabled, isStreaming, placeholder, footer, tools, co
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-3xl">
-      <div className="composer flex items-end gap-2 p-2 shadow-lg shadow-black/5">
+      <div className="composer flex items-end gap-2 p-2">
         {tools}
         {speech.supported && (
           <span className={cn('contents', compactDictation && 'max-sm:hidden')}>
@@ -65,7 +65,7 @@ export function Composer({ disabled, isStreaming, placeholder, footer, tools, co
                 disabled={disabled}
                 className={cn(
                   'flex size-9 shrink-0 items-center justify-center rounded-lg transition-colors',
-                  speech.listening ? 'animate-pulse bg-red-500/20 text-red-500' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+                  speech.listening ? 'animate-pulse bg-bad/20 text-bad' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
                 )}
               >
                 {speech.listening ? <MicOff className="size-4" /> : <Mic className="size-4" />}
@@ -106,19 +106,19 @@ export function Composer({ disabled, isStreaming, placeholder, footer, tools, co
             type="submit"
             aria-label="Send"
             disabled={!canSend}
-            className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-gradient text-white shadow-md transition-all hover:shadow-lg active:scale-95 disabled:opacity-40 disabled:shadow-none"
+            className="flex size-9 shrink-0 items-center justify-center rounded-md border border-primary bg-primary text-primary-foreground transition-colors duration-micro hover:bg-primary/90 disabled:cursor-not-allowed disabled:border-rule-2 disabled:bg-transparent disabled:text-muted-foreground"
           >
             <ArrowUp className="size-4" strokeWidth={2.25} />
           </button>
         )}
       </div>
-      <div className="mt-1 flex items-center justify-between px-1 font-mono text-[10px] text-muted-foreground">
+      <div className="mt-1 flex items-center justify-between px-1 text-xs text-muted-foreground">
         {tooLong ? (
           <span className="text-destructive">
             {value.length.toLocaleString()} / {LIMITS.chatMessageChars.toLocaleString()} characters
           </span>
         ) : (
-          <span className="hidden sm:inline">Enter to send · Shift+Enter for a new line</span>
+          <span className="hidden sm:inline">Enter to send, Shift+Enter for a new line</span>
         )}
         <span className="ml-auto truncate">{footer}</span>
       </div>

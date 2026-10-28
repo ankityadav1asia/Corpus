@@ -6,7 +6,6 @@ import type { AiProvider } from '@/server/ai/provider'
 import { requireWorkspacePermission, type WorkspaceAccess } from '@/server/auth/access'
 import { Errors } from '@/server/http/errors'
 import { escapeSlackText, postSlackReply, slackAuthTest, toSlackMrkdwn, type SlackCredentials } from '@/server/integrations/slack'
-import { getBotToken, replyInTeams, sendTeamsTyping, type TeamsCredentials } from '@/server/integrations/teams'
 import { PermanentJobError } from '@/server/jobs/errors'
 import { log } from '@/server/logger'
 import { buildUserPrompt, normalizeTurns, systemPrompt } from '@/server/rag/prompt'
@@ -19,10 +18,10 @@ import type { SecretKeys } from '@/server/security/keys'
 
 type Fetch = typeof fetch
 
-type StoredCredentials = (({ provider: 'slack' } & SlackCredentials) | ({ provider: 'teams' } & TeamsCredentials)) & { account: string }
+type StoredCredentials = { provider: 'slack' } & SlackCredentials & { account: string }
 
 export function integrationEndpoint(origin: string, record: Pick<IntegrationRecord, 'id' | 'provider'>): string {
-  return record.provider === 'slack' ? `${origin}/api/integrations/slack/${record.id}/events` : `${origin}/api/integrations/teams/${record.id}/messages`
+  return `${origin}/api/integrations/${record.provider}/${record.id}/events`
 }
 
 export async function readCredentials(record: IntegrationRecord, secret: SecretKeys): Promise<StoredCredentials> {
@@ -63,27 +62,15 @@ interface ManageDeps {
   secret: SecretKeys
 }
 
-/** Connects a Slack app or Teams bot after checking its credentials with the platform (admins). */
+/** Connects a Slack app after checking its credentials with the platform (admins). */
 export async function createIntegration(deps: ManageDeps, access: WorkspaceAccess, input: z.output<typeof integrationCreateSchema>, origin: string): Promise<IntegrationSummary> {
   requireWorkspacePermission(access, 'integrations.manage')
   if (input.collectionId && !(await deps.repos.collections.get(access.workspaceId, input.collectionId, access.userId))) throw Errors.notFound('Notebook')
 
   let credentials: StoredCredentials
   try {
-    if (input.provider === 'slack') {
-      const identity = await slackAuthTest(deps.fetch, input.botToken)
-      credentials = { provider: 'slack', botToken: input.botToken, signingSecret: input.signingSecret, account: `${identity.team} · @${identity.bot}` }
-    } else {
-      const tenantId = input.tenantId ?? null
-      await getBotToken(deps.fetch, { appId: input.appId, appPassword: input.appPassword, tenantId })
-      credentials = {
-        provider: 'teams',
-        appId: input.appId,
-        appPassword: input.appPassword,
-        tenantId,
-        account: `Azure Bot ${input.appId.slice(0, 8)}…${tenantId ? ' (single tenant)' : ''}`,
-      }
-    }
+    const identity = await slackAuthTest(deps.fetch, input.botToken)
+    credentials = { provider: 'slack', botToken: input.botToken, signingSecret: input.signingSecret, account: `${identity.team} · @${identity.bot}` }
   } catch (error) {
     const reason = error instanceof PermanentJobError ? error.message : 'the platform could not be reached'
     throw Errors.badRequest(`Could not connect: ${reason}`)
@@ -114,14 +101,6 @@ export async function deleteIntegration(deps: Pick<ManageDeps, 'repos'>, access:
 
 export const botMessagePayload = z.discriminatedUnion('provider', [
   z.object({ provider: z.literal('slack'), integrationId: z.guid(), question: z.string().min(1).max(4_000), channel: z.string().max(40), threadTs: z.string().max(40) }),
-  z.object({
-    provider: z.literal('teams'),
-    integrationId: z.guid(),
-    question: z.string().min(1).max(4_000),
-    serviceUrl: z.string().max(500),
-    conversationId: z.string().max(500),
-    activityId: z.string().max(200),
-  }),
 ])
 export type BotMessagePayload = z.infer<typeof botMessagePayload>
 
@@ -150,16 +129,15 @@ export async function answerFromWorkspace(
   return { answer: answer.trim() || INSUFFICIENT_CONTEXT_MESSAGE, citations: toCitations(result.hits) }
 }
 
-/** The reply text: the answer, then its numbered sources (web links kept). */
-export function formatBotReply(answer: string, citations: ReadonlyArray<{ index: number; title: string; source: string }>, style: 'slack' | 'markdown'): string {
-  const body = style === 'slack' ? toSlackMrkdwn(answer) : answer
+/** The Slack reply text: the answer, then its numbered sources (web links kept). */
+export function formatBotReply(answer: string, citations: ReadonlyArray<{ index: number; title: string; source: string }>): string {
+  const body = toSlackMrkdwn(answer)
   if (citations.length === 0) return body
   const lines = citations.map((citation) => {
     const link = /^https?:\/\//.test(citation.source) ? citation.source : null
-    if (style === 'slack') return `[${citation.index}] ${link ? `<${link}|${escapeSlackText(citation.title).replace(/\|/g, ' ')}>` : escapeSlackText(citation.title)}`
-    return `[${citation.index}] ${link ? `[${citation.title}](${link})` : citation.title}`
+    return `[${citation.index}] ${link ? `<${link}|${escapeSlackText(citation.title).replace(/\|/g, ' ')}>` : escapeSlackText(citation.title)}`
   })
-  return `${body}\n\n${style === 'slack' ? '*Sources*' : '**Sources**'}\n${lines.join('\n')}`
+  return `${body}\n\n*Sources*\n${lines.join('\n')}`
 }
 
 /** Background job: answer a chat-app question and post the reply where it was asked. */
@@ -170,12 +148,6 @@ export async function answerBotMessage(deps: AnswerDeps, payload: BotMessagePayl
     throw new PermanentJobError('The chat app credentials can no longer be read.')
   })
 
-  let teamsToken: string | null = null
-  if (payload.provider === 'teams' && credentials.provider === 'teams') {
-    teamsToken = await getBotToken(deps.fetch, credentials)
-    await sendTeamsTyping(deps.fetch, teamsToken, payload).catch(() => undefined)
-  }
-
   let reply: string
   if (lostNotebook(integration)) {
     reply = 'This bot is not connected to a notebook any more. Ask a workspace admin to connect it again.'
@@ -183,7 +155,7 @@ export async function answerBotMessage(deps: AnswerDeps, payload: BotMessagePayl
   } else {
     try {
       const { answer, citations } = await answerFromWorkspace(deps, { workspaceId: integration.workspaceId, collectionId: integration.collectionId }, payload.question)
-      reply = formatBotReply(answer, citations, payload.provider === 'slack' ? 'slack' : 'markdown')
+      reply = formatBotReply(answer, citations)
     } catch (error) {
       log.warn('Bot answer failed', { integrationId: integration.id, error: String(error) })
       reply = 'Sorry — I could not answer that right now. Please try again in a minute.'
@@ -191,11 +163,7 @@ export async function answerBotMessage(deps: AnswerDeps, payload: BotMessagePayl
   }
 
   try {
-    if (payload.provider === 'slack' && credentials.provider === 'slack') {
-      await postSlackReply(deps.fetch, credentials.botToken, { channel: payload.channel, threadTs: payload.threadTs, text: reply })
-    } else if (payload.provider === 'teams' && teamsToken) {
-      await replyInTeams(deps.fetch, teamsToken, { serviceUrl: payload.serviceUrl, conversationId: payload.conversationId, id: payload.activityId }, reply)
-    }
+    await postSlackReply(deps.fetch, credentials.botToken, { channel: payload.channel, threadTs: payload.threadTs, text: reply })
     if (!lostNotebook(integration)) await deps.repos.integrations.markUsed(integration.id)
   } catch (error) {
     if (error instanceof PermanentJobError) await deps.repos.integrations.markError(integration.id, error.message)

@@ -14,6 +14,7 @@ export type NotificationKind =
   | 'document_failed'
   | 'report_ready'
   | 'report_failed'
+  // Image generation was removed; older notifications of these kinds still show.
   | 'image_ready'
   | 'image_failed'
   | 'audio_ready'

@@ -16,7 +16,7 @@ jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`
 | Limit | What the app does |
 |---|---|
 | Request bodies up to 4.5 MB | Files up to 4 MB go up in one request. Larger ones (up to 50 MB) go in 4 MB parts: `POST /api/learn/uploads`, `PUT …/parts/:n` (retried on its own if the network drops), `POST …/complete`. |
-| Buffered response bodies up to 4.5 MB | Original PDFs, audio overviews and images are streamed, which the limit does not cover. Recordings answer byte ranges so players can seek. |
+| Buffered response bodies up to 4.5 MB | Original files (PDFs, recordings) and audio overviews are streamed, which the limit does not cover. Recordings answer byte ranges so players can seek. |
 | No long-running process | Jobs run right after the response that queued them (Next.js `after()`, up to 50 s per pass), each time the UI polls while someone waits, and when Vercel Cron calls `/api/jobs/run`. Long jobs save their progress and continue in the next pass. |
 | Up to 300 s per function (Hobby) | Uploads, chat, URL and YouTube imports and the cron endpoint allow 300 s, so work that runs after the response has room. |
 | Only `/tmp` is writable | OCR keeps the language data of `OCR_LANGUAGES` other than English there. Nothing else is written to disk. |

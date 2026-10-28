@@ -56,14 +56,12 @@ export function DropOverlay({ enabled, targetName, onDrop }: { enabled: boolean;
 
   if (!visible) return null
   return (
-    <div aria-hidden className="pointer-events-none fixed inset-0 z-[80] flex animate-fade-in items-center justify-center bg-background/70 p-6 backdrop-blur-md">
-      <div className="flex w-full max-w-lg animate-scale-in flex-col items-center rounded-3xl border-2 border-dashed border-primary/60 bg-card/80 px-8 py-12 text-center shadow-2xl">
-        <div className="mb-4 flex size-16 animate-float items-center justify-center rounded-2xl bg-brand-gradient shadow-lg">
-          <UploadCloud className="size-8 text-white" />
-        </div>
-        <p className="font-display text-lg font-semibold">Drop to add sources</p>
+    <div aria-hidden className="pointer-events-none fixed inset-0 z-[80] flex animate-fade-in items-center justify-center bg-scrim/60 p-6">
+      <div className="flex w-full max-w-lg animate-scale-in flex-col items-start rounded-lg border-2 border-dashed border-signal bg-card px-8 py-10">
+        <UploadCloud aria-hidden className="mb-4 size-6 text-signal" />
+        <p className="font-display text-lg font-medium">Drop to add sources</p>
         <p className="mt-1 text-sm text-muted-foreground">
-          {targetName ? `Files go into “${targetName}”` : 'Choose a notebook you can edit first'} · up to {formatBytes(LIMITS.fileBytes)} each
+          {targetName ? `Files go into “${targetName}”` : 'Choose a notebook you can edit first'}, up to {formatBytes(LIMITS.fileBytes)} each
         </p>
       </div>
     </div>

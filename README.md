@@ -6,7 +6,7 @@
 
 Corpus turns files, scanned PDFs, images, recordings, web pages, YouTube videos and connected apps into
 searchable notebooks. Every answer comes only from those sources, with numbered citations, and the
-studio turns them into reports, mind maps, audio overviews and images for the whole team.
+studio turns them into reports, mind maps and audio overviews for the whole team.
 
 ### 🔗 Live demo: [corpusragagent.vercel.app](https://corpusragagent.vercel.app)
 
@@ -68,12 +68,11 @@ All screenshots show demo data for a fictional company.
 - Reports: executive summary, comparison table or slide outline across notebooks and documents
 - Mind maps: an interactive topic tree across your sources
 - Audio overviews: two-host conversations in 16 languages (including Hindi and Hinglish) with a timed transcript
-- Images grounded in your sources (infographics, diagrams, illustrations)
 
 **Teams**
 - A private personal workspace for everyone, plus team workspaces with Admin, Editor and Viewer roles and per-notebook overrides
 - Email invitations, an activity (audit) log, notifications, read-only share links
-- Slack and Microsoft Teams bots that answer from a chosen notebook, with sources
+- A Slack bot that answers from a chosen notebook, with sources
 
 **Quality and operations**
 - Every answer scored in the background (faithfulness, answer relevance, context precision); benchmarks with reference answers; thumbs up and down
@@ -84,7 +83,7 @@ All screenshots show demo data for a fictional company.
 
 ### System overview
 
-![Corpus architecture: clients (browser, Slack, Teams, shared links) reach the Next.js 15 app on Vercel (edge middleware, pages, API routes, services and background jobs), which uses Neon PostgreSQL with pgvector, Gemini or open-source models, and external sources](docs/images/diagrams/architecture.png)
+![Corpus architecture: clients (browser, Slack, shared links) reach the Next.js 15 app on Vercel (edge middleware, pages, API routes, services and background jobs), which uses Neon PostgreSQL with pgvector, Gemini or open-source models, and external sources](docs/images/diagrams/architecture.png)
 
 ### Answering a question
 
@@ -102,7 +101,7 @@ stored), so an interrupted job continues where it stopped.
 
 ### Background jobs
 
-![Background jobs: a Postgres job queue feeds the job runner, which handles indexing, reports, mind maps, audio, images, connector syncs, chat-app answers, evaluation and re-embedding](docs/images/diagrams/jobs.png)
+![Background jobs: a Postgres job queue feeds the job runner, which handles indexing, reports, mind maps, audio, connector syncs, chat-app answers, evaluation and re-embedding](docs/images/diagrams/jobs.png)
 
 - Any number of workers can run, and each job runs once.
 - Failures are retried with growing waits; failures a retry cannot fix end the job at once with a
@@ -111,7 +110,7 @@ stored), so an interrupted job continues where it stopped.
 
 ### Studio
 
-![Studio: source notes feed reports, mind maps and a two-host audio script; an image brief feeds the image model](docs/images/diagrams/studio.png)
+![Studio: source notes feed reports, mind maps and a two-host audio script](docs/images/diagrams/studio.png)
 
 ### Connected apps
 
@@ -122,7 +121,7 @@ and never sent to the browser.
 
 ### Sharing and chat apps
 
-![Sharing and chat apps: share links store a snapshot behind a random token; Slack and Teams webhooks are verified and answered by a background job](docs/images/diagrams/sharing.png)
+![Sharing and chat apps: share links store a snapshot behind a random token; Slack webhooks are verified and answered by a background job](docs/images/diagrams/sharing.png)
 
 ### Sign-in and access control
 
@@ -190,7 +189,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Database | PostgreSQL with pgvector (Neon in production); PGlite for tests and local development |
 | AI models | Google Gemini (chat, embeddings, vision, transcription, speech, images), Gemma, OpenAI-compatible servers (Ollama, vLLM, LM Studio, Groq and others), Cohere Rerank |
 | Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript, lamejs (MP3) |
-| Integrations | Google Drive (OAuth with PKCE), Notion, GitHub, website crawler, Slack Events API, Microsoft Bot Framework |
+| Integrations | Google Drive (OAuth with PKCE), Notion, GitHub, website crawler, Slack Events API |
 | Email | Resend or SMTP (nodemailer) for sign-in codes |
 | Operations | Vercel (functions, cron), GitHub Actions, Dependabot |
 | Testing | node:test, tsx, PGlite, fake model providers |
@@ -237,8 +236,7 @@ passages are found by keyword search only.
 
 `npm run db:migrate` applies every pending migration in order (v1 → v15); on Vercel, production
 builds run it. Take a backup (a Neon branch) first. From v13 on, sessions live in the database, so everyone signs in again once after
-upgrading. Data written by the very first version of the app can be imported with
-`npm run db:import-legacy -- --email you@example.com`.
+upgrading.
 
 ## Deployment
 
@@ -262,7 +260,6 @@ and schedules the job runner on Vercel Cron. The code works within Vercel's limi
 | `npm run db:migrate` | Apply pending schema migrations |
 | `npm run worker` | Process background jobs in a loop; `-- --once` empties the queue once |
 | `npm run secrets:reseal` | Re-encrypt stored credentials with a new `AUTH_SECRET` ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#rotating-auth_secret)) |
-| `npm run db:import-legacy -- --email …` | Import data from the previous version |
 | `npm run seed -- --email …` | Add a sample document to that user's personal workspace |
 
 Background jobs also run right after the request that queued them, and while the UI polls for their
@@ -278,7 +275,7 @@ hooks/          data hooks (SWR), chat streaming, shared UI state
 lib/            code shared by browser and server: API contracts, constants, roles
 server/         server-only code: RAG pipeline, ingestion, studio, connectors, jobs,
                 repositories (all SQL), security, model adapters
-scripts/        migrations, worker, re-sealing, seed, legacy import, the Vercel build
+scripts/        migrations, worker, re-sealing, seed, the Vercel build
 tests/          349 tests on PGlite with fake model providers
 docs/           architecture, code standards, deployment, security
 ```
@@ -313,15 +310,14 @@ get 404, and missing roles get 403.
 | `/api/audio`, `/api/audio/:id`, `/api/audio/:id/file` | GET, POST, DELETE | Queue (202) and play audio overviews (MP3 with HTTP Range) |
 | `/api/mindmaps`, `/api/mindmaps/:id` | GET, POST, DELETE | Queue (202) and read mind maps (Go) |
 | `/api/reports`, `/api/reports/:id` | GET, POST, DELETE | Queue (202) and read synthesis reports (Go) |
-| `/api/images`, `/api/images/:id`, `/api/images/:id/file` | GET, POST, DELETE | Queue (202) and read knowledge-grounded images |
 | `/api/conversations`, `/api/conversations/:id`, `/api/conversations/:id/branch` | GET, PATCH, DELETE, POST | Private history (`?q=` searches titles and message text), rename, pin, delete, fork (Go) |
 | `/api/messages/:id/feedback` | PUT | Rate an answer: up, down or cleared (Go) |
 | `/api/messages/:id/followups` | POST | Suggested follow-up questions for an answer, generated once, then stored (Go) |
 | `/api/shares`, `/api/shares/:id` | GET, POST, DELETE | Read-only public links to a chat or report; revoke |
 | `/api/public/shares/:token`, page `/s/:token` | GET | The shared snapshot (no sign-in) |
 | `/api/corpus/documents/:id/file` | GET | The original PDF, for the viewer |
-| `/api/workspaces/:id/integrations`, `…/:integrationId` | GET, POST, DELETE | Slack / Teams bots (admins) |
-| `/api/integrations/slack/:id/events`, `/api/integrations/teams/:id/messages` | POST | Webhooks (Slack signature / Bot Framework JWT) |
+| `/api/workspaces/:id/integrations`, `…/:integrationId` | GET, POST, DELETE | Slack bots (admins) |
+| `/api/integrations/slack/:id/events` | POST | Slack webhook (request signature) |
 | `/api/notifications`, `/api/notifications/read` | GET, POST | In-app notifications (Go) |
 | `/api/evaluations`, `/api/evaluations/cases`, `/api/evaluations/runs` | GET, POST, DELETE | Quality summary, benchmark questions, benchmark runs (202) |
 | `/api/stats`, `/api/analytics` | GET | Schema/feature status and totals; usage and latency (`?scope=workspace` for admins; analytics in Go) |
@@ -355,8 +351,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
 - **Per workspace:** retrieval, guardrail and evaluation settings live in Workspace settings in the app.
 - **Chat apps**
   - Slack: create an app with the bot scopes `app_mentions:read`, `chat:write` and `im:history`. Connect it in Workspace settings → Chat apps with its bot token and signing secret, then paste the Request URL it shows into Event Subscriptions (`app_mention`, `message.im`).
-  - Teams: create an Azure Bot, connect it with its App ID, client secret and tenant, then set the messaging endpoint it shows.
-- **Gemini free tier:** quotas are small, and image generation needs billing. A daily-quota error fails jobs quickly with a readable message instead of retrying all day.
+- **Gemini free tier:** quotas are small. A daily-quota error fails jobs quickly with a readable message instead of retrying all day.
 
 ## Documentation
 

@@ -16,7 +16,7 @@ import { JOB_ATTEMPTS } from '@/server/repositories/jobs'
 import { mergeSettings } from '@/server/repositories/workspaces'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { createFakeAi, createFakeImages, isJudge, type FakeAi, type FakeImages } from './helpers/fake-ai'
+import { createFakeAi, isJudge, type FakeAi } from './helpers/fake-ai'
 import { accessFor, addDocument, createTeam, createUser, type TestUser } from './helpers/fixtures'
 
 let t: TestDb
@@ -58,7 +58,7 @@ async function answered(question: string) {
   return conversation.id
 }
 
-const jobContext = (ai: FakeAi, images: FakeImages = createFakeImages()) => ({ repos, ai: () => ai, reranker: () => createLlmReranker(ai), images: () => images })
+const jobContext = (ai: FakeAi) => ({ repos, ai: () => ai, reranker: () => createLlmReranker(ai) })
 
 describe('ingestion service', () => {
   it('chunks, embeds and stores a document, then makes it searchable', async () => {

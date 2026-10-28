@@ -8,7 +8,7 @@ export function Section({ title, icon, children, description }: { title: string;
   return (
     <section className="space-y-3 border-b border-border/40 px-5 py-4">
       <div>
-        <h3 className="flex items-center gap-2 text-sm font-semibold">
+        <h3 className="flex items-center gap-2 text-sm font-medium">
           {icon}
           {title}
         </h3>
@@ -48,5 +48,5 @@ export function NumberField(props: { label: string; value: number; min: number; 
 }
 
 export function GroupHeading({ children, first = false }: { children: ReactNode; first?: boolean }) {
-  return <p className={`${first ? '' : 'pt-2 '}font-mono text-[10px] uppercase tracking-wider text-muted-foreground`}>{children}</p>
+  return <p className={`${first ? '' : 'pt-2 '}text-xs text-muted-foreground`}>{children}</p>
 }

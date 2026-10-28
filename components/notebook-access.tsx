@@ -59,12 +59,12 @@ export function NotebookAccessDrawer({ collection, onClose, onChanged }: Noteboo
               <li key={entry.userId} className="flex items-center gap-3 rounded-xl border border-border/50 bg-secondary/20 px-3 py-2.5 text-xs">
                 <div className="min-w-0 flex-1">
                   <p className="truncate font-medium">{entry.name ?? entry.email}</p>
-                  <p className="font-mono text-[10px] text-muted-foreground">
-                    Workspace: {ROLE_LABELS[entry.workspaceRole]} · Here: <span className="text-foreground">{ROLE_LABELS[entry.effectiveRole]}</span>
+                  <p className=" text-xs text-muted-foreground">
+                    Workspace: {ROLE_LABELS[entry.workspaceRole]}, Here: <span className="text-foreground">{ROLE_LABELS[entry.effectiveRole]}</span>
                   </p>
                 </div>
                 {entry.workspaceRole === 'admin' ? (
-                  <Badge variant="outline" className="font-mono text-[10px]">
+                  <Badge variant="outline" className=" text-xs">
                     Always admin
                   </Badge>
                 ) : (

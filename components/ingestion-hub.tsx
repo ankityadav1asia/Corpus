@@ -53,7 +53,7 @@ export function IngestionHub({ collectionId, disabled, onIngested, uploads, init
     try {
       const { document } = await apiJson<QueuedIngest>(path, { method: 'POST', json: { collectionId, ...body } })
       reset()
-      toast({ title: 'Source added', description: `“${document.title}” is being indexed — you can keep working.` })
+      toast({ title: 'Source added', description: `“${document.title}” is being indexed; you can keep working.` })
       onIngested()
     } catch (error) {
       toast({ variant: 'destructive', title: 'Could not add source', description: errorMessage(error) })
@@ -89,8 +89,8 @@ export function IngestionHub({ collectionId, disabled, onIngested, uploads, init
             aria-selected={tab === id}
             onClick={() => setTab(id)}
             className={cn(
-              'flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-medium transition-all',
-              tab === id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+              'flex items-center justify-center gap-1.5 rounded-lg py-1.5 text-[11px] font-medium transition-colors',
+              tab === id ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground',
             )}
           >
             <Icon className="size-3.5" />

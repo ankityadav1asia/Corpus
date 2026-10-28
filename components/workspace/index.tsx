@@ -19,7 +19,7 @@ import { SourcesPanel } from '@/components/sources-panel'
 import { useToast } from '@/components/ui/use-toast'
 import { WorkspaceProvider, useWorkspaceContext } from '@/components/workspace-provider'
 import { WorkspaceSettingsDrawer } from '@/components/workspace-settings'
-import { useCollections, useConversations, useImages, useReports, useStats } from '@/hooks/use-api'
+import { useCollections, useConversations, useReports, useStats } from '@/hooks/use-api'
 import { useErrorToast } from '@/hooks/use-error-toast'
 import { useHotkeys, useModKeyLabel } from '@/hooks/use-hotkeys'
 import { useRagChat } from '@/hooks/use-rag-chat'
@@ -84,14 +84,12 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [sharing, setSharing] = useState(false)
   const [viewer, setViewer] = useState<{ documentId: string; chunkId: string | null } | null>(null)
-  const [imageDraft, setImageDraft] = useState<{ prompt: string; collectionId: string | null } | null>(null)
   const [focus, setFocus] = useState<{ tab: WorkspaceTab; id: string } | null>(null)
 
   const collections = useCollections()
   const conversations = useConversations()
   const stats = useStats()
   const reports = useReports()
-  const images = useImages()
   const refreshConversations = conversations.mutate
   const chat = useRagChat({ onConversationCreated: () => void refreshConversations(), onSettled: () => void refreshConversations() })
 
@@ -273,7 +271,7 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
   })
 
   const onboarding = buildOnboardingSteps({
-    ...onboardingProgress({ stats: stats.data, conversations: conversationList, reports: reports.data?.reports, images: images.data?.images, workspaces: workspace.workspaces }),
+    ...onboardingProgress({ stats: stats.data, conversations: conversationList, reports: reports.data?.reports, workspaces: workspace.workspaces }),
     openSources: () => openSources(),
     focusComposer,
     showTab: setTab,
@@ -327,7 +325,7 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <WorkspaceHeader
           title={tab === 'chat' && activeConversation ? activeConversation.title : tabLabel(tab)}
-          subtitle={`${active ? workspaceName(active) : 'Loading…'} · ${scopeLabel}`}
+          subtitle={`${active ? workspaceName(active) : 'Loading…'}, ${scopeLabel}`}
           historyOpen={history.open}
           onOpenNavigation={() => history.change(true)}
           modKey={mod}
@@ -368,16 +366,10 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
           features={features}
           focus={focus}
           onFocusConsumed={() => setFocus(null)}
-          imageDraft={imageDraft}
-          onImageDraftConsumed={() => setImageDraft(null)}
           onboarding={user.guest ? null : <OnboardingChecklist steps={onboarding} />}
           onSend={(text) => void chat.send(text, { collectionId: scope?.id ?? null, mode })}
           onBranch={(messageId) => void conversationActions.branch(messageId)}
           onFeedback={conversationActions.rate}
-          onVisualize={(question) => {
-            setImageDraft({ prompt: question, collectionId: scope?.id ?? null })
-            setTab('images')
-          }}
           onAskInChat={(question) => {
             setTab('chat')
             void chat.send(question, { collectionId: scope?.id ?? null, mode })

@@ -1,25 +1,21 @@
-/** Studio outputs made from sources: reports, images, audio overviews and mind maps. */
+/** Studio outputs made from sources: reports, audio overviews and mind maps. */
 import { z } from 'zod'
 
 import {
   AUDIO_FORMATS,
   AUDIO_LANGUAGES,
   AUDIO_LENGTHS,
-  IMAGE_ASPECT_RATIOS,
-  IMAGE_STYLES,
   LIMITS,
   REPORT_TEMPLATES,
   STUDIO_LIMITS,
   type AudioFormat,
   type AudioLanguage,
   type AudioLength,
-  type ImageAspectRatio,
-  type ImageStyle,
   type ReportTemplate,
 } from '@/lib/constants'
 
 import type { JobStatus } from './common'
-import { id, requiredText } from './fields'
+import { id } from './fields'
 
 export const reportCreateSchema = z
   .object({
@@ -50,16 +46,6 @@ export const audioCreateSchema = z
   .refine(hasSources, 'Select at least one notebook or document')
 export const mindMapCreateSchema = z.object(studioSelection).refine(hasSources, 'Select at least one notebook or document')
 
-export const imageCreateSchema = z.object({
-  prompt: requiredText(LIMITS.imagePromptChars),
-  style: z.enum(IMAGE_STYLES).default('illustration'),
-  aspectRatio: z.enum(IMAGE_ASPECT_RATIOS).default('1:1'),
-  /** Ground the image in one notebook (null / omitted = the whole workspace). */
-  collectionId: id.nullish(),
-  /** Or in specific documents (then no relevance search is needed). */
-  documentIds: z.array(id).max(LIMITS.documentsPerImage).default([]),
-})
-
 export interface SlideOutline {
   title: string
   subtitle?: string
@@ -83,41 +69,6 @@ export interface ReportDetail extends ReportSummary {
   content: string | null
   output: SlideOutline | null
   sources: Array<{ documentId: string; title: string; source: string }>
-  error: string | null
-}
-
-export interface ImageSource {
-  documentId: string
-  chunkId: string | null
-  title: string
-  excerpt: string
-}
-
-export interface ImageSummary {
-  id: string
-  prompt: string
-  style: ImageStyle
-  aspectRatio: ImageAspectRatio
-  status: JobStatus
-  progress: string | null
-  title: string | null
-  altText: string | null
-  mimeType: string | null
-  byteSize: number | null
-  width: number | null
-  height: number | null
-  createdByEmail: string | null
-  createdAt: string
-  completedAt: string | null
-}
-
-export interface ImageDetail extends ImageSummary {
-  collectionId: string | null
-  documentIds: string[]
-  /** The source-grounded prompt that was sent to the image model. */
-  finalPrompt: string | null
-  sources: ImageSource[]
-  model: string | null
   error: string | null
 }
 

@@ -204,14 +204,14 @@ export function VoiceMode({ open, onClose, messages, isStreaming, disabled, onSe
   }
 
   if (!open || typeof document === 'undefined') return null
-  const label = { idle: 'Tap to speak', listening: 'Listening…', thinking: 'Thinking…', speaking: 'Speaking — tap to interrupt' }[phase]
+  const label = { idle: 'Tap to speak', listening: 'Listening…', thinking: 'Thinking…', speaking: 'Speaking. Tap to interrupt' }[phase]
 
   return createPortal(
     <div
       role="dialog"
       aria-modal="true"
       aria-label="Voice chat"
-      className="fixed inset-0 z-[80] flex animate-fade-in flex-col items-center justify-between bg-background/95 px-6 py-8 backdrop-blur-xl"
+      className="fixed inset-0 z-[80] flex animate-fade-in flex-col items-center justify-between bg-background/95 px-6 py-8"
     >
       <div className="flex w-full max-w-xl items-center justify-between">
         <select
@@ -242,7 +242,7 @@ export function VoiceMode({ open, onClose, messages, isStreaming, disabled, onSe
           onClick={onOrb}
           aria-label={label}
           className={cn(
-            'relative flex size-40 items-center justify-center rounded-full bg-brand-gradient text-white shadow-2xl transition-transform active:scale-95',
+            'relative flex size-40 items-center justify-center rounded-full border-2 border-primary bg-primary/15 text-foreground transition-colors duration-short',
             phase === 'listening' && 'animate-pulse',
           )}
         >

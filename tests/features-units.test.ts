@@ -11,7 +11,6 @@ import { resetEnvCache } from '@/server/env'
 import { clientIp } from '@/server/http/client-ip'
 import { formatBotReply } from '@/server/integrations/service'
 import { cleanSlackText, parseSlackEnvelope, toSlackMrkdwn, verifySlackSignature } from '@/server/integrations/slack'
-import { cleanTeamsText, isAllowedServiceUrl, parseTeamsActivity } from '@/server/integrations/teams'
 import { embedQueriesCached } from '@/server/rag/query-cache'
 import { STAGE_TIMEOUTS_MS } from '@/server/rag/retrieval'
 
@@ -148,41 +147,11 @@ describe('Slack', () => {
       'Hi &lt;!channel&gt; &amp; &lt;@U1&gt; &lt;https://evil.io|Official&gt;',
       'model text cannot ping or disguise links',
     )
-    const reply = formatBotReply(
-      'Answer [1].',
-      [
-        { index: 1, title: 'Policy', source: 'https://docs.io/p' },
-        { index: 2, title: 'Notes.pdf', source: 'Notes.pdf' },
-      ],
-      'slack',
-    )
+    const reply = formatBotReply('Answer [1].', [
+      { index: 1, title: 'Policy', source: 'https://docs.io/p' },
+      { index: 2, title: 'Notes.pdf', source: 'Notes.pdf' },
+    ])
     assert.equal(reply, 'Answer [1].\n\n*Sources*\n[1] <https://docs.io/p|Policy>\n[2] Notes.pdf')
-  })
-})
-
-describe('Microsoft Teams', () => {
-  it('replies only to Bot Connector hosts', () => {
-    assert.equal(isAllowedServiceUrl('https://smba.trafficmanager.net/amer/'), true)
-    assert.equal(isAllowedServiceUrl('https://europe.botframework.com/'), true)
-    assert.equal(isAllowedServiceUrl('http://smba.trafficmanager.net/amer/'), false)
-    assert.equal(isAllowedServiceUrl('https://evil.example/botframework.com'), false)
-    assert.equal(isAllowedServiceUrl('https://botframework.com.evil.io/'), false)
-    assert.equal(isAllowedServiceUrl('https://user:pw@smba.trafficmanager.net/'), false)
-  })
-
-  it('reads user messages without the bot mention and ignores other activities', () => {
-    assert.equal(cleanTeamsText('<at>Corpus</at> What is&nbsp;the <b>policy</b>?'), 'What is the policy ?')
-    const activity = parseTeamsActivity({
-      type: 'message',
-      id: 'a1',
-      serviceUrl: 'https://smba.trafficmanager.net/amer/',
-      channelId: 'msteams',
-      conversation: { id: 'c1' },
-      text: '<at>Corpus</at> hi',
-    })
-    assert.deepEqual(activity, { id: 'a1', serviceUrl: 'https://smba.trafficmanager.net/amer/', channelId: 'msteams', conversationId: 'c1', text: 'hi' })
-    assert.equal(parseTeamsActivity({ type: 'conversationUpdate', id: 'a2', serviceUrl: 'x', conversation: { id: 'c1' } }), null)
-    assert.equal(parseTeamsActivity({ type: 'message', id: 'a3', serviceUrl: 'x', conversation: { id: 'c1' }, text: '<at>Corpus</at>' }), null)
   })
 })
 
@@ -212,7 +181,7 @@ describe('public paths', () => {
     assert.equal(isPublicPath('/s/abcDEF123_-abcDEF123_-abcDEF123_-'), true)
     assert.equal(isPublicPath('/api/public/shares/abc'), true)
     assert.equal(isPublicPath('/api/integrations/slack/0b4e7f4e-6a55-4d38-9a2f-0f1b6c1d2e3f/events'), true)
-    assert.equal(isPublicPath('/api/integrations/teams/0b4e7f4e-6a55-4d38-9a2f-0f1b6c1d2e3f/messages'), true)
+    assert.equal(isPublicPath('/api/integrations/teams/0b4e7f4e-6a55-4d38-9a2f-0f1b6c1d2e3f/messages'), false, 'the Teams bot was removed')
     assert.equal(isPublicPath('/s/abc/../../api/conversations'), false)
     assert.equal(isPublicPath('/api/integrations/slack/0b4e7f4e-6a55-4d38-9a2f-0f1b6c1d2e3f/other'), false)
     assert.equal(isPublicPath('/api/shares'), false)

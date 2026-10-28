@@ -133,11 +133,7 @@ function LeaveOrDelete({ workspace, user, isAdmin, onGone }: { workspace: Worksp
 function AdminSections({ workspaceId }: { workspaceId: string }) {
   return (
     <>
-      <Section
-        title="Chat apps"
-        icon={<MessageSquareShare className="size-4 text-primary" />}
-        description="Slack and Microsoft Teams bots that answer questions from this workspace, with citations."
-      >
+      <Section title="Chat apps" icon={<MessageSquareShare className="size-4 text-primary" />} description="Slack bots that answer questions from this workspace, with citations.">
         <IntegrationsPanel workspaceId={workspaceId} />
       </Section>
       <Section title="Public links" icon={<Link2 className="size-4 text-primary" />} description="Read-only links to chats and reports that anyone with the link can open.">
@@ -173,10 +169,10 @@ export function WorkspaceSettingsDrawer({ open, onClose, user, onLeft }: Workspa
         active && (
           <span className="flex items-center gap-1.5">
             {active.name}
-            <Badge variant="outline" className="px-1.5 py-0 font-mono text-[10px]">
+            <Badge variant="outline" className="px-1.5 py-0 text-xs">
               {ROLE_LABELS[active.role]}
             </Badge>
-            {active.isPersonal && <span>· personal</span>}
+            {active.isPersonal && <span>(personal)</span>}
           </span>
         )
       }
@@ -194,7 +190,7 @@ export function WorkspaceSettingsDrawer({ open, onClose, user, onLeft }: Workspa
             <Section
               title="AI models"
               icon={<Cpu className="size-4 text-primary" />}
-              description="Which models answer, search, read images, transcribe and speak — Gemini or open-source."
+              description="Which models answer, search, read images, transcribe and speak: Gemini or open-source."
             >
               <ModelsStatusView workspaceId={active.id} isAdmin={isAdmin} />
             </Section>

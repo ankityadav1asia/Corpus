@@ -74,7 +74,7 @@ var permissions = map[Permission]rule{
 	MindmapsCreate:      {Viewer, "You do not have access to these sources."},
 	ConnectorsUse:       {Editor, "You need Editor access to connect apps and import from them."},
 	SharesCreate:        {Editor, "You need Editor access to share links outside the workspace."},
-	IntegrationsManage:  {Admin, "Only workspace admins can connect Slack or Microsoft Teams."},
+	IntegrationsManage:  {Admin, "Only workspace admins can connect Slack."},
 }
 
 // guestPermissions: demo visitors look around and ask questions; nothing else.

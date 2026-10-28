@@ -93,7 +93,6 @@ before(async () => {
     repos,
     ai: () => ai,
     reranker: () => createLlmReranker(ai),
-    images: () => null,
     vision: () => null,
     transcriber: () => null,
     speech: () => null,

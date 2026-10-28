@@ -19,8 +19,6 @@ import type {
   DocumentSummary,
   EvalCase,
   EvalRunSummary,
-  ImageDetail,
-  ImageSummary,
   MindMapDetail,
   MindMapSummary,
   ModelsStatus,
@@ -164,18 +162,6 @@ export function useEvalCases() {
 export function useEvalRuns() {
   return useWorkspaceSWR<{ runs: EvalRunSummary[] }>('/api/evaluations/runs', {
     refreshInterval: whileActive((data: { runs: EvalRunSummary[] }) => data.runs.some((run) => isRunning(run.status))),
-  })
-}
-
-export function useImages() {
-  return useWorkspaceSWR<{ images: ImageSummary[] }>('/api/images', {
-    refreshInterval: whileActive((data: { images: ImageSummary[] }) => data.images.some((image) => isRunning(image.status)), 2500),
-  })
-}
-
-export function useImage(imageId: string | null) {
-  return useWorkspaceSWR<{ image: ImageDetail }>(imageId ? `/api/images/${imageId}` : null, {
-    refreshInterval: whileActive((data: { image: ImageDetail }) => isRunning(data.image.status), 2000),
   })
 }
 

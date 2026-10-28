@@ -1,9 +1,7 @@
 import 'server-only'
 
 import { createGeminiProvider } from '@/server/ai/gemini'
-import { createGeminiImageGenerator } from '@/server/ai/gemini-image'
 import { DEFAULT_GEMINI_VOICES, createGeminiSpeech, createGeminiTranscriber, createGeminiVision } from '@/server/ai/gemini-media'
-import type { ImageGenerator } from '@/server/ai/image'
 import type { SpeechSynthesizer, Transcriber, VisionModel } from '@/server/ai/media'
 import { combineProviders, createOpenAiCompatibleChat, createOpenAiCompatibleEmbeddings } from '@/server/ai/openai-compatible'
 import { createOpenAiCompatibleSpeech, createOpenAiCompatibleTranscriber, createOpenAiCompatibleVision } from '@/server/ai/openai-compatible-media'
@@ -17,7 +15,6 @@ import {
   getEmailConfig,
   getEmbeddingBackend,
   getFastChatModel,
-  getImageConfig,
   getOAuthClient,
   getOcrConfig,
   getRerankerConfig,
@@ -42,8 +39,6 @@ export interface Services {
   ai(): AiProvider
   /** null when re-ranking is disabled (RERANKER=none). */
   reranker(): Reranker | null
-  /** null when image generation is not configured (no Gemini key, or GEMINI_IMAGE_MODEL=none). */
-  images(): ImageGenerator | null
   /** Reads images (text + description); null when no vision model is configured. */
   vision(): VisionModel | null
   /** Audio/video to text; null when not configured. */
@@ -85,7 +80,6 @@ function createServices(): Services {
   const db = createDb(getCoreEnv().POSTGRES_URL)
   let ai: AiProvider | null = null
   let reranker: Reranker | null | undefined
-  let images: ImageGenerator | null | undefined
   let vision: VisionModel | null | undefined
   let transcriber: Transcriber | null | undefined
   let speech: SpeechSynthesizer | null | undefined
@@ -111,12 +105,6 @@ function createServices(): Services {
       const config = getRerankerConfig()
       reranker = config.kind === 'cohere' ? createCohereReranker({ apiKey: config.apiKey, model: config.model }) : config.kind === 'llm' ? createLlmReranker(getAi()) : null
       return reranker
-    },
-    images: () => {
-      if (images !== undefined) return images
-      const config = getImageConfig()
-      images = config ? createGeminiImageGenerator(config) : null
-      return images
     },
     vision: getVision,
     transcriber: () => {

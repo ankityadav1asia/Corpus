@@ -36,15 +36,15 @@ function RetrievalFields({ settings, readOnly, update }: { settings: WorkspaceSe
       <Row label="Re-rank passages" hint="Score the fused candidates against the question and keep the best">
         <Switch label="Re-rank passages" checked={retrieval.rerank} disabled={readOnly} onChange={(rerank) => update('retrieval', { rerank })} />
       </Row>
-      <Row label="Candidates (top N)" hint="Passages retrieved by hybrid search, 5–50">
+      <Row label="Candidates (top N)" hint="Passages retrieved by hybrid search, 5 to 50">
         <NumberField label="Candidates" value={retrieval.candidatePool} min={5} max={50} disabled={readOnly} onChange={(candidatePool) => update('retrieval', { candidatePool })} />
       </Row>
-      <Row label="Passages sent to the model (top K)" hint="1–10">
+      <Row label="Passages sent to the model (top K)" hint="1 to 10">
         <NumberField label="Top K" value={retrieval.topK} min={1} max={10} disabled={readOnly} onChange={(topK) => update('retrieval', { topK })} />
       </Row>
 
       <GroupHeading>Deep mode query expansion</GroupHeading>
-      <Row label="Query variations" hint="Multi-query rewrites, 3–5">
+      <Row label="Query variations" hint="Multi-query rewrites, 3 to 5">
         <NumberField
           label="Query variations"
           value={retrieval.multiQueryCount}
@@ -73,7 +73,7 @@ function GuardrailFields({ settings, readOnly, update }: { settings: WorkspaceSe
       <Row label="Withhold weakly supported answers" hint="Replies “Insufficient context in knowledge base.” instead">
         <Switch label="Source guardrail" checked={guardrail.enabled} disabled={readOnly} onChange={(enabled) => update('guardrail', { enabled })} />
       </Row>
-      <Row label="Minimum re-ranker relevance" hint="0–1, used when re-ranking succeeded">
+      <Row label="Minimum re-ranker relevance" hint="0 to 1, used when re-ranking succeeded">
         <NumberField
           label="Minimum relevance"
           value={guardrail.minRelevance}
@@ -84,7 +84,7 @@ function GuardrailFields({ settings, readOnly, update }: { settings: WorkspaceSe
           onChange={(minRelevance) => update('guardrail', { minRelevance })}
         />
       </Row>
-      <Row label="Minimum similarity" hint="0–1, fallback when no re-ranker score exists">
+      <Row label="Minimum similarity" hint="0 to 1, fallback when no re-ranker score exists">
         <NumberField
           label="Minimum similarity"
           value={guardrail.minSimilarity}

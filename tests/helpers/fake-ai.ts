@@ -1,9 +1,7 @@
 import { EMBEDDING_DIMENSIONS } from '@/lib/constants'
-import { ImageRefusedError, type ImageGenerator } from '@/server/ai/image'
 import type { SpeechSynthesizer, SpokenLine, Transcriber, VisionModel } from '@/server/ai/media'
 import { AiProviderError, type AiProvider, type ChatTurn, type CompletionInput } from '@/server/ai/provider'
 import { JUDGE_SYSTEM } from '@/server/evaluation/judge'
-import { IMAGE_DIRECTOR_SYSTEM } from '@/server/images/generate'
 import { HYDE_SYSTEM, STEP_BACK_SYSTEM } from '@/server/rag/query-transform'
 import type { OcrEngine } from '@/server/media/ocr'
 import { LLM_RERANK_SYSTEM } from '@/server/rag/rerank'
@@ -82,13 +80,6 @@ export interface FakeAi extends AiProvider {
 export const isRerank = (input: CompletionInput) => input.system === LLM_RERANK_SYSTEM
 export const isJudge = (input: CompletionInput) => input.system === JUDGE_SYSTEM
 export const isMultiQuery = (input: CompletionInput) => input.system.startsWith('You generate search queries')
-export const isImageDirector = (input: CompletionInput) => input.system === IMAGE_DIRECTOR_SYSTEM
-
-/** An image brief built from the first source, so tests can check the brief is grounded in it. */
-export function fakeImageBrief(prompt: string): string {
-  const source = /<source id="1"[^>]*>\n([\s\S]*?)\n<\/source>/.exec(prompt)?.[1] ?? 'no sources'
-  return JSON.stringify({ title: 'Grounded picture', prompt: `An infographic that shows: ${source.slice(0, 200)}`, alt: 'A labelled infographic.' })
-}
 
 export const isMindMap = (input: CompletionInput) => input.system.startsWith('Build a mind map')
 export const isAudioScript = (input: CompletionInput) => input.system.startsWith('You write the script of an audio overview')
@@ -140,35 +131,10 @@ function defaultCompletion(input: CompletionInput, options: FakeAiOptions): stri
   if (input.system === HYDE_SYSTEM) return options.hyde ?? 'A hypothetical passage that explains the topic in several plausible sentences.'
   if (isRerank(input)) return fakeRerankOutput(input.prompt)
   if (isJudge(input)) return fakeJudgeOutput(input.prompt)
-  if (isImageDirector(input)) return fakeImageBrief(input.prompt)
   if (input.json) {
     return JSON.stringify({ title: 'Deck', subtitle: 'Generated', slides: [{ title: 'Overview', bullets: ['First point [1]', 'Second point'], notes: 'Say hello' }] })
   }
   return `Generated text for: ${input.prompt.slice(0, 40)}`
-}
-
-/** A real 1×1 PNG. */
-export const TINY_PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64')
-
-export interface FakeImages extends ImageGenerator {
-  calls: Array<{ prompt: string; aspectRatio: string }>
-}
-
-/** Image model double: returns TINY_PNG, or fails the way the real adapter does. */
-export function createFakeImages(options: { behaviour?: 'ok' | 'refuse' | 'rate-limit' | 'daily-quota' | 'garbage' } = {}): FakeImages {
-  const calls: FakeImages['calls'] = []
-  return {
-    model: 'fake-image-model',
-    calls,
-    async generate({ prompt, aspectRatio }) {
-      calls.push({ prompt, aspectRatio })
-      if (options.behaviour === 'refuse') throw new ImageRefusedError()
-      if (options.behaviour === 'rate-limit') throw new AiProviderError('Gemini image request failed (429)', 429, true, 90)
-      if (options.behaviour === 'daily-quota') throw new AiProviderError('Gemini image request failed (429)', 429, false, 48, true)
-      const data = options.behaviour === 'garbage' ? new TextEncoder().encode('<html>not an image</html>') : new Uint8Array(TINY_PNG)
-      return { data, mimeType: 'image/png', text: null }
-    },
-  }
 }
 
 export function createFakeAi(options: FakeAiOptions = {}): FakeAi {
