@@ -24,7 +24,7 @@ import { cn } from '@/lib/utils'
 const TEMPLATES: Array<{ id: ReportTemplate; label: string; description: string; icon: typeof FileText }> = [
   { id: 'executive_summary', label: 'Executive summary', description: 'Key findings, risks and next steps across the sources', icon: FileText },
   { id: 'comparison_table', label: 'Comparison table', description: 'Side-by-side table of scope, findings, numbers and limits', icon: Table2 },
-  { id: 'slide_outline', label: 'Slide outline', description: '6–10 slides with bullets and speaker notes (Markdown or JSON)', icon: Presentation },
+  { id: 'slide_outline', label: 'Slide outline', description: '6 to 10 slides with bullets and speaker notes (Markdown or JSON)', icon: Presentation },
 ]
 
 const TEMPLATE_LABEL = Object.fromEntries(TEMPLATES.map((template) => [template.id, template.label])) as Record<ReportTemplate, string>
@@ -32,18 +32,18 @@ const TEMPLATE_LABEL = Object.fromEntries(TEMPLATES.map((template) => [template.
 function StatusBadge({ status, progress }: { status: JobStatus; progress?: string | null }) {
   if (status === 'completed')
     return (
-      <Badge variant="outline" className="gap-1 border-emerald-500/40 font-mono text-[10px] text-emerald-500">
+      <Badge variant="outline" className="gap-1 border-ok/40 text-xs text-ok">
         <CheckCircle2 className="size-3" /> Ready
       </Badge>
     )
   if (status === 'failed')
     return (
-      <Badge variant="outline" className="gap-1 border-destructive/40 font-mono text-[10px] text-destructive">
+      <Badge variant="outline" className="gap-1 border-destructive/40 text-xs text-destructive">
         <AlertCircle className="size-3" /> Failed
       </Badge>
     )
   return (
-    <Badge variant="outline" className="gap-1 border-primary/40 font-mono text-[10px] text-primary">
+    <Badge variant="outline" className="gap-1 border-primary/40 text-xs text-primary">
       <Loader2 className="size-3 animate-spin" /> {progress ?? (status === 'queued' ? 'Queued' : 'Working')}
     </Badge>
   )
@@ -80,7 +80,7 @@ function NewReportForm({ collections, onCreated, onCancel }: { collections: Coll
           instructions: instructions.trim() || undefined,
         },
       })
-      toast({ description: 'Report queued. It is written in the background — you can keep working.' })
+      toast({ description: 'Report queued. It is written in the background; you can keep working.' })
       onCreated(report)
     } catch (error) {
       toast({ variant: 'destructive', description: errorMessage(error) })
@@ -92,7 +92,7 @@ function NewReportForm({ collections, onCreated, onCancel }: { collections: Coll
   return (
     <form onSubmit={submit} className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-display text-base font-semibold">New report</h3>
+        <h3 className="font-display text-base font-medium">New report</h3>
         <button type="button" aria-label="Close" onClick={onCancel} className="rounded p-1 text-muted-foreground hover:bg-secondary hover:text-foreground">
           <X className="size-4" />
         </button>
@@ -234,10 +234,10 @@ function ReportViewer({ report, canDelete, canShare, onDeleted }: { report: Repo
     <div className="space-y-4">
       <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border/50 pb-3">
         <div className="min-w-0">
-          <h3 className="font-display text-lg font-semibold">{report.title}</h3>
-          <p className="font-mono text-[11px] text-muted-foreground">
-            {TEMPLATE_LABEL[report.template]} · {report.format === 'json' ? 'JSON' : 'Markdown'} · {new Date(report.createdAt).toLocaleString()}
-            {report.createdByEmail && ` · ${report.createdByEmail}`}
+          <h3 className="font-display text-lg font-medium">{report.title}</h3>
+          <p className=" text-xs text-muted-foreground">
+            {TEMPLATE_LABEL[report.template]}, {report.format === 'json' ? 'JSON' : 'Markdown'}, {new Date(report.createdAt).toLocaleString()}
+            {report.createdByEmail && `, ${report.createdByEmail}`}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-1.5">
@@ -297,8 +297,8 @@ function ReportViewer({ report, canDelete, canShare, onDeleted }: { report: Repo
         <ol className="grid gap-3 md:grid-cols-2">
           {report.output.slides.map((slide, index) => (
             <li key={index} className="rounded-xl border border-border/60 bg-card/60 p-4">
-              <p className="font-mono text-[10px] uppercase tracking-wider text-primary">Slide {index + 1}</p>
-              <h4 className="mt-1 font-display text-sm font-semibold">{slide.title}</h4>
+              <p className=" text-xs text-primary">Slide {index + 1}</p>
+              <h4 className="mt-1 font-display text-sm font-medium">{slide.title}</h4>
               <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-foreground/85">
                 {slide.bullets.map((bullet, bulletIndex) => (
                   <li key={bulletIndex}>{bullet}</li>
@@ -314,7 +314,7 @@ function ReportViewer({ report, canDelete, canShare, onDeleted }: { report: Repo
 
       {report.sources.length > 0 && (
         <footer className="border-t border-border/50 pt-3">
-          <p className="mb-1.5 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Sources [n]</p>
+          <p className="mb-1.5 text-xs text-muted-foreground">Sources [n]</p>
           <ol className="space-y-0.5 text-xs text-muted-foreground">
             {report.sources.map((source, index) => (
               <li key={source.documentId}>
@@ -391,7 +391,7 @@ export function ReportsPanel({
               >
                 <p className="truncate font-medium">{entry.title}</p>
                 <div className="mt-1 flex items-center justify-between gap-2">
-                  <span className="truncate font-mono text-[10px] text-muted-foreground">{TEMPLATE_LABEL[entry.template]}</span>
+                  <span className="truncate text-xs text-muted-foreground">{TEMPLATE_LABEL[entry.template]}</span>
                   <StatusBadge status={entry.status} progress={entry.status === 'running' ? null : entry.progress} />
                 </div>
               </button>

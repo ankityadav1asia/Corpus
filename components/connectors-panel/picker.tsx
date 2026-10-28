@@ -102,7 +102,7 @@ export function Picker({
           options: path.trim() ? { path: path.trim() } : {},
         },
       })
-      toast({ title: `Added ${plural(chosen.size, 'item')}`, description: 'The first sync has started — documents appear as they are indexed.' })
+      toast({ title: `Added ${plural(chosen.size, 'item')}`, description: 'The first sync has started. Documents appear as they are indexed.' })
       onAdded()
     } catch (addError) {
       toast({ variant: 'destructive', description: errorMessage(addError) })
@@ -185,7 +185,7 @@ export function Picker({
                   return (
                     <li key={item.id} className="flex items-center gap-2 px-3 py-2 text-xs">
                       <input type="checkbox" aria-label={`Select ${item.name}`} checked={on} disabled={!item.importable} onChange={() => toggle(item)} />
-                      <Icon className={cn('size-4 shrink-0', item.kind === 'folder' ? 'text-amber-500' : 'text-muted-foreground')} />
+                      <Icon className={cn('size-4 shrink-0', item.kind === 'folder' ? 'text-signal' : 'text-muted-foreground')} />
                       <button
                         type="button"
                         disabled={!item.container}
@@ -200,7 +200,7 @@ export function Picker({
                         {item.name}
                       </button>
                       <span className="shrink-0 text-[10px] text-muted-foreground">
-                        {[item.size ? formatBytes(item.size) : null, item.modifiedAt ? timeAgo(item.modifiedAt) : null].filter(Boolean).join(' · ')}
+                        {[item.size ? formatBytes(item.size) : null, item.modifiedAt ? timeAgo(item.modifiedAt) : null].filter(Boolean).join(', ')}
                       </span>
                       {item.container && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />}
                     </li>

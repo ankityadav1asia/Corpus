@@ -17,9 +17,9 @@ export function formatScore(value: number | null | undefined): string {
 /** Traffic-light colouring shared by chat badges and the quality dashboard. */
 export function scoreTone(value: number | null | undefined): string {
   if (value === null || value === undefined) return 'border-border/60 text-muted-foreground'
-  if (value >= 0.8) return 'border-emerald-500/40 bg-emerald-500/10 text-emerald-500'
-  if (value >= 0.5) return 'border-amber-500/40 bg-amber-500/10 text-amber-500'
-  return 'border-red-500/40 bg-red-500/10 text-red-500'
+  if (value >= 0.8) return 'border-ok/40 bg-ok/10 text-ok'
+  if (value >= 0.5) return 'border-signal/40 bg-signal/10 text-signal'
+  return 'border-bad/40 bg-bad/10 text-bad'
 }
 
 /** Per-answer quality scores from the background judge. */

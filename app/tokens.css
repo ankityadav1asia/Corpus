@@ -1,0 +1,133 @@
+/*
+ * Console tokens (Hallmark). Colours are OKLCH channel triplets ("L C H") so Tailwind can add
+ * opacity (bg-paper-2/60); --color-* are the ready colours for hand-written CSS. Graphite (dark) is
+ * the default; html.light switches to the paper colourway. Amber means a person or the one primary
+ * control, cool blue means something the system measured or wrote.
+ */
+:root {
+  color-scheme: dark;
+  --space-3xs: 2px;
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 40px;
+  --space-2xl: 64px;
+  --space-3xl: 96px;
+  --space-4xl: 144px;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.2rem;
+  --text-xl: 1.44rem;
+  --text-2xl: 1.728rem;
+  --text-3xl: 2.074rem;
+  --text-display-s: 1.44rem;
+  --text-display: 1.728rem;
+  --text-section: 1.2rem;
+  --text-title: 1rem;
+  --text-lead: 1rem;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in: cubic-bezier(0.7, 0, 0.84, 0);
+  --ease-in-out: cubic-bezier(0.65, 0, 0.35, 1);
+  --dur-micro: 120ms;
+  --dur-short: 220ms;
+  --dur-long: 420ms;
+  --container: 1440px;
+  --gutter: 64px;
+  --gap-columns: 32px;
+  --section-gap-s: 120px;
+  --section-gap: 144px;
+  --section-gap-l: 176px;
+  --z-base: 1;
+  --z-raised: 10;
+  --z-dropdown: 100;
+  --z-sticky: 200;
+  --z-sticky-nav: 300;
+  --z-modal: 400;
+  --z-toast: 500;
+  --z-tooltip: 600;
+
+  /* graphite */
+  --lch-paper: 17% 0.008 250;
+  --lch-paper-2: 21% 0.009 250;
+  --lch-paper-3: 13.5% 0.007 250;
+  --lch-ink: 95% 0.005 250;
+  --lch-ink-2: 83% 0.008 250;
+  --lch-muted: 71% 0.01 250;
+  --lch-rule: 31% 0.01 250;
+  --lch-rule-2: 42% 0.012 250;
+  --lch-accent: 82% 0.15 80;
+  --lch-accent-ink: 18% 0.04 75;
+  --lch-accent-soft: 29% 0.05 80;
+  --lch-cool: 77% 0.12 245;
+  --lch-cool-soft: 29% 0.05 245;
+  --lch-ok: 76% 0.15 150;
+  --lch-ok-soft: 24.5% 0.03 150;
+  --lch-bad: 70% 0.17 25;
+  --lch-bad-soft: 24.5% 0.035 25;
+  --lch-scrim: 10% 0.006 250;
+  /* a field edge needs 3:1 against the surface around it */
+  --lch-field-edge: 52% 0.012 250;
+  --lch-bad-ink: 13.5% 0.007 250;
+  --lch-page: 99% 0.002 85;
+  --lch-page-ink: 45% 0.01 60;
+
+  --color-paper: oklch(var(--lch-paper));
+  --color-paper-2: oklch(var(--lch-paper-2));
+  --color-paper-3: oklch(var(--lch-paper-3));
+  --color-ink: oklch(var(--lch-ink));
+  --color-ink-2: oklch(var(--lch-ink-2));
+  --color-muted: oklch(var(--lch-muted));
+  --color-rule: oklch(var(--lch-rule));
+  --color-rule-2: oklch(var(--lch-rule-2));
+  --color-accent: oklch(var(--lch-accent));
+  --color-accent-ink: oklch(var(--lch-accent-ink));
+  --color-accent-soft: oklch(var(--lch-accent-soft));
+  --color-focus: oklch(var(--lch-accent));
+  --color-cool: oklch(var(--lch-cool));
+  --color-cool-soft: oklch(var(--lch-cool-soft));
+  --color-ok: oklch(var(--lch-ok));
+  --color-ok-soft: oklch(var(--lch-ok-soft));
+  --color-bad: oklch(var(--lch-bad));
+  --color-bad-soft: oklch(var(--lch-bad-soft));
+  --color-error: var(--color-bad);
+  --color-success: var(--color-ok);
+
+  --font-display: var(--font-host-grotesk), 'Host Grotesk', ui-sans-serif, system-ui, sans-serif;
+  --font-body: var(--font-display);
+  --font-outlier: var(--font-atkinson-mono), 'Atkinson Hyperlegible Mono', ui-monospace, monospace;
+  --radius-card: 10px;
+  --radius-pill: 6px;
+  --radius-chip: 4px;
+  --rule-hair: 1px;
+  --shadow-card: none;
+  --tracking-display: -0.03em;
+  --display-weight: 500;
+}
+
+/* paper: the light colourway, same hues */
+html.light {
+  color-scheme: light;
+  --lch-paper: 97.5% 0.006 85;
+  --lch-paper-2: 99.4% 0.003 85;
+  --lch-paper-3: 94.5% 0.008 85;
+  --lch-ink: 19% 0.01 60;
+  --lch-ink-2: 31% 0.01 60;
+  --lch-muted: 45% 0.012 60;
+  --lch-rule: 88.5% 0.008 70;
+  --lch-rule-2: 78% 0.01 70;
+  --lch-accent: 54% 0.14 70;
+  --lch-accent-ink: 99% 0.004 85;
+  --lch-accent-soft: 93% 0.04 80;
+  --lch-cool: 52% 0.14 250;
+  --lch-cool-soft: 94% 0.025 245;
+  --lch-ok: 50% 0.13 150;
+  --lch-ok-soft: 94.5% 0.035 150;
+  --lch-bad: 52% 0.18 25;
+  --lch-bad-soft: 94.5% 0.03 25;
+  --lch-scrim: 19% 0.01 60;
+  --lch-field-edge: 62% 0.01 70;
+  --lch-bad-ink: 99.4% 0.003 85;
+}

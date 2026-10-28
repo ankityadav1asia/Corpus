@@ -61,7 +61,7 @@ function VectorSummary({ chunkId }: { chunkId: string }) {
   return (
     <div className="rounded-lg border border-border/60 bg-secondary/30 p-2.5 font-mono text-[10px] text-muted-foreground">
       <p>
-        {embedding.dimensions.toLocaleString()} dimensions · L2 norm {embedding.norm}
+        {embedding.dimensions.toLocaleString()} dimensions, L2 norm {embedding.norm}
       </p>
       <p className="mt-1 break-all text-foreground/70">[{embedding.preview.join(', ')}, …]</p>
       <p className="mt-1">Stored in the same row as the text, so edits update both together.</p>
@@ -153,7 +153,7 @@ function ChunkCard({ chunk, notebookName, canEdit, onFilterLabel, onChanged }: C
   const contentChanged = mode === 'edit' && content.trim() !== chunk.content
 
   return (
-    <article className="group rounded-xl border border-border/70 bg-card/60 p-4 shadow-sm hover:border-primary/40">
+    <article className="group rounded-xl border border-border/70 bg-card/60 p-4 hover:border-primary/40">
       <header className="mb-2 flex items-start justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 font-mono text-[11px]">
           <span className="flex items-center gap-1 rounded-md bg-secondary/70 px-2 py-0.5">
@@ -164,8 +164,8 @@ function ChunkCard({ chunk, notebookName, canEdit, onFilterLabel, onChanged }: C
           </span>
           <span className="rounded-md border border-border/60 px-1.5 py-0.5 text-[10px] text-muted-foreground">{notebookName}</span>
           <span className="text-[10px] text-muted-foreground">
-            #{chunk.chunkIndex + 1} · {chunk.content.length} chars
-            {chunk.updatedAt && ` · edited ${new Date(chunk.updatedAt).toLocaleDateString()}`}
+            #{chunk.chunkIndex + 1}, {chunk.content.length} chars
+            {chunk.updatedAt && `, edited ${new Date(chunk.updatedAt).toLocaleDateString()}`}
           </span>
         </div>
         <div className="flex items-center gap-0.5 opacity-70 group-hover:opacity-100">
@@ -210,7 +210,7 @@ function ChunkCard({ chunk, notebookName, canEdit, onFilterLabel, onChanged }: C
               <button
                 type="button"
                 onClick={() => void remove('document')}
-                className="rounded px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                className="rounded px-1.5 py-0.5 text-xs text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
               >
                 Delete document
               </button>
@@ -231,7 +231,7 @@ function ChunkCard({ chunk, notebookName, canEdit, onFilterLabel, onChanged }: C
               className="font-mono text-xs leading-relaxed"
             />
             <p className="mt-1 flex justify-between font-mono text-[10px] text-muted-foreground">
-              <span className={cn(contentChanged && 'text-amber-500')}>{contentChanged ? 'Saving will re-embed this text (one embedding call).' : 'Text unchanged.'}</span>
+              <span className={cn(contentChanged && 'text-signal')}>{contentChanged ? 'Saving will re-embed this text (one embedding call).' : 'Text unchanged.'}</span>
               <span>
                 {content.length.toLocaleString()} / {LIMITS.chunkChars.toLocaleString()}
               </span>
@@ -271,7 +271,7 @@ function ChunkCard({ chunk, notebookName, canEdit, onFilterLabel, onChanged }: C
                 </button>
               </div>
             ))}
-            <button type="button" onClick={() => setRows([...rows, { key: '', value: '' }])} className="font-mono text-[10px] text-primary hover:underline">
+            <button type="button" onClick={() => setRows([...rows, { key: '', value: '' }])} className=" text-xs text-primary hover:underline">
               + Add field
             </button>
           </div>
@@ -288,7 +288,7 @@ function ChunkCard({ chunk, notebookName, canEdit, onFilterLabel, onChanged }: C
       ) : (
         <>
           <p className={expanded ? 'whitespace-pre-wrap text-xs leading-relaxed text-foreground/80' : 'line-clamp-3 text-xs leading-relaxed text-foreground/80'}>{chunk.content}</p>
-          <button type="button" onClick={() => setExpanded(!expanded)} className="mt-1 font-mono text-[10px] text-primary hover:underline">
+          <button type="button" onClick={() => setExpanded(!expanded)} className="mt-1 text-xs text-primary hover:underline">
             {expanded ? 'Show less' : 'Show full chunk'}
           </button>
           {(chunk.labels.length > 0 || Object.keys(chunk.metadata).length > 0) && (
@@ -299,14 +299,14 @@ function ChunkCard({ chunk, notebookName, canEdit, onFilterLabel, onChanged }: C
                   type="button"
                   title="Show chunks with this label"
                   onClick={() => onFilterLabel(label)}
-                  className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 font-mono text-[10px] text-primary hover:bg-primary/20"
+                  className="flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-xs text-primary hover:bg-primary/20"
                 >
                   <Tag className="size-2.5" />
                   {label}
                 </button>
               ))}
               {Object.entries(chunk.metadata).map(([key, value]) => (
-                <span key={key} className="rounded-md border border-border/60 px-1.5 py-0.5 font-mono text-[10px] text-muted-foreground">
+                <span key={key} className="rounded-md border border-border/60 px-1.5 py-0.5 text-xs text-muted-foreground">
                   {key}: <span className="text-foreground/80">{String(value)}</span>
                 </span>
               ))}
@@ -452,7 +452,7 @@ export function ChunkExplorer({ collections, selected, onChanged }: ChunkExplore
       {total > PAGE_SIZE && (
         <footer className="flex items-center justify-between border-t border-border/50 pt-3">
           <span className="font-mono text-xs text-muted-foreground">
-            Page {page + 1} of {pages} · {total.toLocaleString()} chunks
+            Page {page + 1} of {pages}, {total.toLocaleString()} chunks
           </span>
           <div className="flex items-center gap-1.5">
             <button

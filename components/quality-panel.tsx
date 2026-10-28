@@ -36,7 +36,7 @@ function Bar({ value }: { value: number | null }) {
   return (
     <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" title={formatScore(value)}>
       <div
-        className={cn('h-full rounded-full', value === null ? '' : value >= 0.8 ? 'bg-emerald-500' : value >= 0.5 ? 'bg-amber-500' : 'bg-red-500')}
+        className={cn('h-full rounded-full', value === null ? '' : value >= 0.8 ? 'bg-ok' : value >= 0.5 ? 'bg-signal' : 'bg-bad')}
         style={{ width: `${Math.round((value ?? 0) * 100)}%` }}
       />
     </div>
@@ -105,11 +105,11 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
           <div>
-            <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+            <h3 className="flex items-center gap-2 font-display text-base font-medium">
               <Gauge className="size-4 text-primary" /> Answer quality
             </h3>
             <p className="text-xs text-muted-foreground">
-              Scored in the background by an LLM judge{data ? ` · ${data.evaluated} answer${data.evaluated === 1 ? '' : 's'} evaluated` : ''}
+              Scored in the background by an LLM judge{data ? `, ${data.evaluated} answer${data.evaluated === 1 ? '' : 's'} evaluated` : ''}
             </p>
           </div>
           <div className="w-32">
@@ -130,8 +130,8 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               {METRICS.map((metric) => (
                 <div key={metric.key} className={cn('rounded-xl border p-4', scoreTone(data.averages[metric.key]))}>
-                  <p className="font-mono text-[11px]">{metric.label}</p>
-                  <p className="mt-1 font-display text-2xl font-bold">{formatScore(data.averages[metric.key])}</p>
+                  <p className=" text-xs">{metric.label}</p>
+                  <p className="mt-1 font-display text-2xl font-medium">{formatScore(data.averages[metric.key])}</p>
                   <p className="mt-1 text-[10px] leading-snug text-muted-foreground">{metric.description}</p>
                 </div>
               ))}
@@ -139,10 +139,10 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
 
             {data.trend.length > 0 && (
               <div className="rounded-xl border border-border/70 bg-card/50 p-4">
-                <h4 className="mb-3 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">Daily trend</h4>
+                <h4 className="mb-3 text-xs font-medium text-muted-foreground">Daily trend</h4>
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-xs">
-                    <thead className="font-mono text-[10px] text-muted-foreground">
+                    <thead className=" text-xs text-muted-foreground">
                       <tr>
                         <th className="pb-2 font-normal">Day</th>
                         <th className="pb-2 font-normal">Answers</th>
@@ -175,7 +175,7 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
 
             <div className="rounded-xl border border-border/70 bg-card/50 p-4">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-                <h4 className="flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <h4 className="flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                   <MessageSquareQuote className="size-3.5 text-primary" /> Reader feedback
                 </h4>
                 <div className="flex items-center gap-3 text-xs">
@@ -193,7 +193,7 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
                 </div>
               </div>
               {data.feedback.recent.length === 0 ? (
-                <p className="py-2 text-center text-xs text-muted-foreground">No ratings yet — use 👍 / 👎 under any answer.</p>
+                <p className="py-2 text-center text-xs text-muted-foreground">No ratings yet. Rate any answer with the thumbs under it.</p>
               ) : (
                 <ul className="space-y-2">
                   {data.feedback.recent.slice(0, 8).map((item) => (
@@ -203,7 +203,7 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
                         <p className="font-medium">{item.question ?? 'Answer'}</p>
                         {item.comment && <p className="mt-0.5 text-muted-foreground">“{item.comment}”</p>}
                         <p className="mt-1 text-[10px] text-muted-foreground">
-                          {item.userEmail ? `${item.userEmail} · ` : ''}
+                          {item.userEmail ? `${item.userEmail}, ` : ''}
                           {timeAgo(item.createdAt)}
                         </p>
                       </div>
@@ -214,11 +214,11 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
             </div>
 
             <div className="rounded-xl border border-border/70 bg-card/50 p-4">
-              <h4 className="mb-1 flex items-center gap-1.5 font-mono text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              <h4 className="mb-1 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
                 <AlertTriangle className="size-3.5 text-warning" /> Answers to review
               </h4>
               <p className="mb-3 text-[11px] text-muted-foreground">
-                Faithfulness or relevance below 50% — possible hallucinations or off-topic answers{role === 'admin' ? ' (everyone in the workspace)' : ' (your answers)'}.
+                Faithfulness or relevance below 50%: possible hallucinations or off-topic answers{role === 'admin' ? ' (everyone in the workspace)' : ' (your answers)'}.
               </p>
               {data.flagged.length === 0 ? (
                 <p className="py-3 text-center text-xs text-muted-foreground">Nothing flagged.</p>
@@ -243,10 +243,10 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
       <section className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
           <div>
-            <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+            <h3 className="flex items-center gap-2 font-display text-base font-medium">
               <FlaskConical className="size-4 text-primary" /> Benchmarks
             </h3>
-            <p className="text-xs text-muted-foreground">Questions with reference answers, run through the live pipeline — the only way to measure context recall.</p>
+            <p className="text-xs text-muted-foreground">Questions with reference answers, run through the live pipeline, the only way to measure context recall.</p>
           </div>
           {canManage && (
             <Button type="button" size="sm" onClick={startRun} disabled={busy === 'run' || runActive || caseList.length === 0}>
@@ -259,7 +259,7 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
         {runList.length > 0 && (
           <div className="overflow-x-auto rounded-xl border border-border/70 bg-card/50 p-4">
             <table className="w-full text-left text-xs">
-              <thead className="border-b border-border/60 font-mono text-[10px] text-muted-foreground">
+              <thead className="border-b border-border/60 text-xs text-muted-foreground">
                 <tr>
                   <th className="pb-2 font-normal">Started</th>
                   <th className="pb-2 font-normal">Status</th>
@@ -272,7 +272,7 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
                   <tr key={entry.id}>
                     <td className="py-2 pr-3 font-mono text-[11px]">{new Date(entry.createdAt).toLocaleString()}</td>
                     <td className="py-2 pr-3">
-                      <Badge variant="outline" className="font-mono text-[10px]">
+                      <Badge variant="outline" className=" text-xs">
                         {entry.status}
                       </Badge>
                       {entry.error && (
@@ -296,14 +296,14 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
 
         <div className="grid gap-4 lg:grid-cols-2">
           <div className="space-y-2">
-            <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
+            <p className=" text-xs text-muted-foreground">
               Questions ({caseList.length}/{LIMITS.evalCasesPerWorkspace})
             </p>
             {cases.isLoading ? (
               <Loader2 className="size-4 animate-spin text-primary" />
             ) : caseList.length === 0 ? (
               <p className="rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-                No benchmark questions yet{canManage ? ' — add a few questions whose correct answers you know.' : '.'}
+                No benchmark questions yet{canManage ? '. Add a few questions whose correct answers you know.' : '.'}
               </p>
             ) : (
               <ul className="max-h-96 space-y-2 overflow-y-auto pr-1">
@@ -324,7 +324,7 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
                       )}
                     </div>
                     <p className="mt-1 line-clamp-2 text-muted-foreground">{item.referenceAnswer}</p>
-                    <p className="mt-1 font-mono text-[10px] text-muted-foreground">{notebookName(item.collectionId)}</p>
+                    <p className="mt-1 text-xs text-muted-foreground">{notebookName(item.collectionId)}</p>
                   </li>
                 ))}
               </ul>

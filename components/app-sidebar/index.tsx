@@ -1,9 +1,10 @@
 'use client'
 
-import { Database, MessageSquarePlus, PanelLeft, PanelLeftClose, Search, Settings, Sparkles, X } from 'lucide-react'
+import { Database, MessageSquarePlus, PanelLeft, PanelLeftClose, Search, Settings, X } from 'lucide-react'
 import { Fragment, useState } from 'react'
 
 import { AccountMenu } from '@/components/account-menu'
+import { Monogram } from '@/components/wordmark'
 import { TABS, type TabInfo, type WorkspaceTab } from '@/components/workspace/navigation'
 import { LIMITS } from '@/lib/constants'
 import type { Collection, ConversationSummary, SessionUser } from '@/lib/contracts'
@@ -50,9 +51,9 @@ const RAIL_GROUPS: ReadonlyArray<TabInfo['group']> = ['chat', 'studio', 'tools']
 /** Every view, always one click away (collapsed history panel: also "show history" and "new chat"). */
 function NavigationRail(props: AppSidebarProps) {
   return (
-    <nav aria-label="Views" className="flex h-full w-[76px] shrink-0 flex-col items-center border-r border-border/60 bg-card/95 px-1.5 py-3 backdrop-blur-2xl">
-      <div className="mb-2 flex size-9 shrink-0 items-center justify-center rounded-xl bg-brand-gradient shadow-md" title="Corpus">
-        <Sparkles className="size-4 text-white" />
+    <nav aria-label="Views" className="flex h-full w-[76px] shrink-0 flex-col items-center border-r border-border bg-paper-3 px-1.5 py-3">
+      <div className="mb-2" title="Corpus">
+        <Monogram />
       </div>
       {!props.open && (
         <div className="mb-1 flex shrink-0 gap-1">
@@ -118,10 +119,7 @@ function HistoryPanel(props: AppSidebarProps) {
     <aside
       aria-label="Chat history"
       inert={!props.open}
-      className={cn(
-        'h-full shrink-0 overflow-hidden border-r border-border/60 bg-card transition-[width] duration-300 ease-smooth',
-        props.open ? 'w-[272px]' : 'w-[272px] lg:w-0 lg:border-r-0',
-      )}
+      className={cn('h-full shrink-0 overflow-hidden border-r border-border/60 bg-card duration-300 ease-smooth', props.open ? 'w-[272px]' : 'w-[272px] lg:w-0 lg:border-r-0')}
     >
       <div className="flex h-full w-[272px] flex-col">
         <div className="flex items-center gap-1 px-2 pb-1 pt-2">
@@ -164,7 +162,7 @@ function HistoryPanel(props: AppSidebarProps) {
           <button
             type="button"
             onClick={props.onNewChat}
-            className="flex w-full items-center gap-2 rounded-lg bg-brand-gradient px-3 py-2 text-[13px] font-semibold text-white shadow-sm transition-all hover:shadow-md active:scale-[0.98]"
+            className="flex h-9 w-full items-center gap-2 rounded-md px-2.5 text-[13px] font-medium text-foreground transition-colors duration-micro hover:bg-secondary"
           >
             <MessageSquarePlus className="size-4" />
             New chat
@@ -200,7 +198,7 @@ export function AppSidebar(props: AppSidebarProps) {
   const { open, onOpenChange } = props
   return (
     <>
-      {open && <div aria-hidden onClick={() => onOpenChange(false)} className="fixed inset-0 z-30 animate-fade-in bg-background/60 backdrop-blur-sm lg:hidden" />}
+      {open && <div aria-hidden onClick={() => onOpenChange(false)} className="fixed inset-0 z-30 animate-fade-in bg-background/60 lg:hidden" />}
       <div
         className={cn(
           'fixed inset-y-0 left-0 z-40 flex h-full shrink-0 transition-transform duration-300 ease-smooth lg:static lg:translate-x-0',

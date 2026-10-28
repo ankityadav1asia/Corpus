@@ -11,17 +11,12 @@ import { Button } from '@/components/ui/button'
 export function SessionExpiredModal({ open }: { open: boolean }) {
   if (!open) return null
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm"
-      role="alertdialog"
-      aria-modal="true"
-      aria-labelledby="session-expired-title"
-    >
-      <div className="w-full max-w-sm rounded-2xl border border-border/80 bg-card p-6 text-center shadow-2xl">
-        <div className="mx-auto mb-3 flex size-12 items-center justify-center rounded-2xl border border-amber-500/30 bg-amber-500/10">
-          <ShieldAlert className="size-6 text-amber-500" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-scrim/70 p-4" role="alertdialog" aria-modal="true" aria-labelledby="session-expired-title">
+      <div className="w-full max-w-sm rounded-lg border border-rule-2 bg-card p-6">
+        <div className="mb-3 flex size-10 items-center justify-center rounded-md border border-signal/40 bg-signal-soft">
+          <ShieldAlert className="size-6 text-signal" />
         </div>
-        <h2 id="session-expired-title" className="font-display text-lg font-semibold">
+        <h2 id="session-expired-title" className="font-display text-lg font-medium">
           Your session has ended
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">Sign in again to keep working. Your notebooks and conversations are saved.</p>

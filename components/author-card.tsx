@@ -4,17 +4,17 @@ import { AUTHOR } from '@/lib/author'
 import { cn } from '@/lib/utils'
 
 const iconLink =
-  'flex size-8 items-center justify-center rounded-full border border-border bg-background/60 text-muted-foreground transition-colors hover:border-primary/60 hover:text-foreground'
+  'flex size-8 items-center justify-center rounded-md border border-rule-2 text-muted-foreground transition-colors duration-micro hover:bg-secondary hover:text-foreground'
 
 /** The author's photo with LinkedIn and email links, for visitors who want to get in touch. */
 export function AuthorCard({ className }: { className?: string }) {
   return (
-    <div className={cn('flex items-center gap-2.5 rounded-full border border-border/80 bg-card/80 py-1.5 pl-1.5 pr-2 shadow-lg backdrop-blur', className)}>
+    <div className={cn('flex items-center gap-2.5', className)}>
       {/* eslint-disable-next-line @next/next/no-img-element -- a 5 KB WebP from public/ */}
-      <img src={AUTHOR.photo} alt={AUTHOR.name} width={36} height={36} className="size-9 rounded-full object-cover" />
+      <img src={AUTHOR.photo} alt={AUTHOR.name} width={32} height={32} className="size-8 rounded-md border border-rule object-cover" />
       <div className="hidden leading-tight sm:block">
-        <div className="text-sm font-medium">{AUTHOR.name}</div>
-        <div className="text-[11px] text-muted-foreground">Built Corpus · get in touch</div>
+        <div className="text-[13px] font-medium">{AUTHOR.name}</div>
+        <div className="text-xs text-muted-foreground">Built Corpus. Get in touch.</div>
       </div>
       <a href={AUTHOR.linkedin} target="_blank" rel="noreferrer" aria-label={`${AUTHOR.name} on LinkedIn`} title="LinkedIn" className={iconLink}>
         <Linkedin className="size-4" />

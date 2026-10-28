@@ -1,12 +1,13 @@
 'use client'
 
-import { AlertCircle, Check, ChevronDown, ChevronUp, Copy, GitBranch, Loader2, RotateCcw, SearchX, Send, Sparkles, ThumbsDown, ThumbsUp, Volume2, VolumeX } from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, ChevronUp, Copy, GitBranch, ListTree, Loader2, RotateCcw, SearchX, Send, ThumbsDown, ThumbsUp, Volume2, VolumeX } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 
 import { CitationList } from '@/components/citation-list'
 import Markdown from '@/components/markdown'
 import { EvaluationBadges } from '@/components/quality-badges'
 import { TypingIndicator } from '@/components/typing-indicator'
+import { Monogram } from '@/components/wordmark'
 import { Avatar } from '@/components/ui/feedback-primitives'
 import { Tooltip } from '@/components/ui/tooltip'
 import type { UiMessage } from '@/hooks/use-rag-chat'
@@ -37,7 +38,7 @@ function ActionButton({ label, onClick, active, children }: { label: string; onC
         aria-pressed={active}
         onClick={onClick}
         className={cn(
-          'flex size-7 items-center justify-center rounded-lg transition-all hover:bg-secondary active:scale-90',
+          'flex size-7 items-center justify-center rounded-lg transition-colors hover:bg-secondary',
           active ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
         )}
       >
@@ -120,25 +121,25 @@ function ResearchSteps({ steps, insufficient }: { steps: UiMessage['steps']; ins
   const [open, setOpen] = useState(false)
   if (steps.length === 0) return null
   return (
-    <div className="mb-3 rounded-xl border border-border/60 bg-card/50 px-3 py-2">
+    <div className="mb-3 border-b border-border pb-2">
       <button
         type="button"
         aria-expanded={open}
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between text-[11px] font-medium text-muted-foreground transition-colors hover:text-foreground"
+        className="flex w-full items-center justify-between text-[13px] font-medium text-muted-foreground transition-colors duration-micro hover:text-foreground"
       >
-        <span className="flex items-center gap-1.5">
-          {insufficient ? <SearchX className="size-3.5 text-warning" /> : <Sparkles className="size-3.5 text-primary" />}
+        <span className="flex items-center gap-1.5 whitespace-nowrap">
+          {insufficient ? <SearchX className="size-3.5 text-signal" /> : <ListTree className="size-3.5 text-cool" />}
           How this answer was researched
         </span>
         {open ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
       </button>
       {open && (
-        <dl className="mt-2 animate-slide-down space-y-1.5 border-t border-border/50 pt-2 text-xs text-muted-foreground">
+        <dl className="m-0 ml-[7px] mt-2 animate-slide-down space-y-2 border-l border-rule-2 pl-4 text-[13px] text-muted-foreground">
           {steps.map((step) => (
             <div key={step.label}>
-              <dt className="font-medium text-foreground/85">{step.label}</dt>
-              <dd>{step.detail}</dd>
+              <dt className="font-medium text-ink-2">{step.label}</dt>
+              <dd className="m-0">{step.detail}</dd>
             </div>
           ))}
         </dl>
@@ -303,9 +304,7 @@ export function ChatMessage({ message, user, onBranch, onFeedback, onRetry, onOp
 
   return (
     <article className="group flex animate-fade-up gap-3 py-3">
-      <div className="mt-1 flex size-7 shrink-0 items-center justify-center rounded-full bg-brand-gradient shadow-sm">
-        <Sparkles className="size-3.5 text-white" />
-      </div>
+      <Monogram className="mt-0.5 size-7 text-[13px]" />
       <div className="min-w-0 flex-1">
         <ResearchSteps steps={message.steps} insufficient={insufficient} />
         <AnswerBody message={message} insufficient={insufficient} />

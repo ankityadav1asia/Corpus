@@ -1,6 +1,6 @@
 'use client'
 
-import { ArrowDown, AudioLines, CornerDownRight, Database, Sparkles } from 'lucide-react'
+import { ArrowDown, AudioLines, CornerDownRight, Database, Layers } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { ChatMessage, type ChatMessageActions } from '@/components/chat-message'
@@ -48,11 +48,11 @@ function DeepModeToggle({ mode, disabled, onChange }: { mode: ChatMode; disabled
         disabled={disabled}
         onClick={() => onChange(deep ? 'standard' : 'deep')}
         className={cn(
-          'flex h-9 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors disabled:opacity-40 max-sm:w-9 max-sm:justify-center max-sm:px-0',
-          deep ? 'bg-primary/15 text-primary ring-1 ring-primary/30' : 'text-muted-foreground hover:bg-secondary hover:text-foreground',
+          'flex h-9 shrink-0 items-center gap-1.5 rounded-md border px-2.5 text-[13px] font-medium transition-colors duration-micro disabled:cursor-not-allowed disabled:opacity-55 max-sm:w-9 max-sm:justify-center max-sm:px-0',
+          deep ? 'border-signal/50 bg-signal-soft text-foreground' : 'border-transparent text-muted-foreground hover:bg-secondary hover:text-foreground',
         )}
       >
-        <Sparkles className="size-3.5" />
+        <Layers className="size-3.5" />
         <span className="hidden sm:inline">Deep</span>
       </button>
     </Tooltip>
@@ -73,7 +73,7 @@ function FollowupChips({ questions, disabled, onAsk }: { questions: string[]; di
             type="button"
             disabled={disabled}
             onClick={() => onAsk(question)}
-            className="rounded-full border border-border/70 bg-card/70 px-3.5 py-1.5 text-left text-xs text-secondary-foreground transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent disabled:opacity-40"
+            className="rounded-full border border-border/70 bg-card/70 px-3.5 py-1.5 text-left text-xs text-secondary-foreground transition-colors hover:border-primary/40 hover:bg-accent disabled:opacity-40"
           >
             {question}
           </button>
@@ -123,49 +123,41 @@ export function ChatPanel(props: ChatPanelProps) {
     <main className="relative flex min-h-0 flex-1 flex-col">
       <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto" aria-live="polite">
         {messages.length === 0 ? (
-          <div className="flex min-h-full flex-col items-center justify-center gap-8 px-4 py-12 text-center">
-            <div className="max-w-xl animate-fade-up">
-              <div className="relative mx-auto mb-6 size-16">
-                <div aria-hidden className="absolute inset-0 rounded-3xl bg-brand-gradient opacity-40 blur-xl" />
-                <div className="relative flex size-16 animate-float items-center justify-center rounded-3xl bg-brand-gradient shadow-lg">
-                  <Sparkles className="size-7 text-white" />
-                </div>
-              </div>
-              <h2 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">
-                {chunkCount > 0 ? (
-                  <>
-                    Ask <span className="text-gradient">your knowledge base</span>
-                  </>
-                ) : (
-                  <>
-                    Start with <span className="text-gradient">a source</span>
-                  </>
-                )}
-              </h2>
-              <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
-                {chunkCount > 0
-                  ? `${chunkCount.toLocaleString()} passage${chunkCount === 1 ? '' : 's'} indexed in ${scopeLabel}. Answers cite their sources — and say so when the sources don't cover a question.`
-                  : 'Add files up to 50 MB — documents, scans, images, audio, video — web pages, YouTube videos or notes, or connect Google Drive, Notion and GitHub. Then ask questions and create reports, audio overviews and mind maps grounded in them.'}
-              </p>
+          <div className="mx-auto flex min-h-full w-full max-w-3xl flex-col justify-center gap-10 px-6 py-12">
+            <div className="animate-fade-up">
+              <h2 className="text-2xl font-medium tracking-tight text-foreground sm:text-[28px]">{chunkCount > 0 ? 'Ask your knowledge base' : 'Start with a source'}</h2>
+              {chunkCount > 0 ? (
+                <p className="mt-2 text-[15px] text-muted-foreground">
+                  <span className="measured text-cool">{chunkCount.toLocaleString()}</span> passage{chunkCount === 1 ? '' : 's'} indexed in {scopeLabel}. Answers cite their
+                  sources, and say so when the sources don&apos;t cover a question.
+                </p>
+              ) : (
+                <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
+                  Add files up to 50 MB (documents, scans, images, audio, video), web pages, YouTube videos or notes, or connect Google Drive, Notion and GitHub. Then ask questions
+                  and create reports, audio overviews and mind maps grounded in them.
+                </p>
+              )}
               {chunkCount === 0 ? (
-                <Button type="button" variant="brand" className="mt-6" onClick={props.onAddSources}>
+                <Button type="button" className="mt-6" onClick={props.onAddSources}>
                   <Database className="mr-2 size-4" />
                   Add your first source
                 </Button>
               ) : (
-                <div className="stagger mt-6 flex flex-wrap justify-center gap-2">
+                <ul aria-label="Try a question" className="mt-6 divide-y divide-border border-y border-border">
                   {SUGGESTIONS.map((suggestion) => (
-                    <button
-                      key={suggestion}
-                      type="button"
-                      disabled={disabled || isStreaming}
-                      onClick={() => props.onSend(suggestion)}
-                      className="rounded-full border border-border/70 bg-card/70 px-4 py-2 text-xs text-secondary-foreground transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:bg-accent hover:shadow-md disabled:opacity-40"
-                    >
-                      {suggestion}
-                    </button>
+                    <li key={suggestion}>
+                      <button
+                        type="button"
+                        disabled={disabled || isStreaming}
+                        onClick={() => props.onSend(suggestion)}
+                        className="flex w-full items-center gap-3 px-1 py-2.5 text-left text-sm text-ink-2 transition-colors duration-micro hover:bg-paper-2 hover:text-foreground disabled:cursor-not-allowed disabled:opacity-55"
+                      >
+                        <CornerDownRight aria-hidden className="size-3.5 shrink-0 text-muted-foreground" />
+                        {suggestion}
+                      </button>
+                    </li>
                   ))}
-                </div>
+                </ul>
               )}
             </div>
             {props.onboarding}
@@ -198,7 +190,7 @@ export function ChatPanel(props: ChatPanelProps) {
           type="button"
           onClick={jumpToBottom}
           aria-label="Jump to the latest message"
-          className="absolute bottom-28 left-1/2 flex size-9 -translate-x-1/2 animate-fade-up items-center justify-center rounded-full border border-border/70 bg-card text-muted-foreground shadow-lg transition-colors hover:text-foreground"
+          className="absolute bottom-28 left-1/2 flex size-9 -translate-x-1/2 animate-fade-up items-center justify-center rounded-full border border-border/70 bg-card text-muted-foreground transition-colors hover:text-foreground"
         >
           <ArrowDown className="size-4" />
         </button>
@@ -209,7 +201,7 @@ export function ChatPanel(props: ChatPanelProps) {
           disabled={disabled}
           isStreaming={isStreaming}
           placeholder={disabled ? 'Chat is unavailable until the server is configured' : `Ask about ${scopeLabel}…`}
-          footer={`${props.mode === 'deep' ? 'Deep mode' : 'Standard'} · ${scopeLabel}`}
+          footer={`${props.mode === 'deep' ? 'Deep mode' : 'Standard'}, ${scopeLabel}`}
           compactDictation={canVoice}
           tools={
             <>

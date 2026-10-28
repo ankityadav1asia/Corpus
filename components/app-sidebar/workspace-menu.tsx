@@ -11,7 +11,7 @@ export function WorkspaceMenu({ onSelect, onCreate, onOpenSettings }: { onSelect
   const { workspaces, active } = useWorkspaceContext()
   const name = active ? workspaceName(active) : 'Loading…'
   const detail = active
-    ? [active.isPersonal ? 'Private' : 'Team', ROLE_LABELS[active.role], active.memberCount > 1 ? `${active.memberCount} members` : null].filter(Boolean).join(' · ')
+    ? [active.isPersonal ? 'Private' : 'Team', ROLE_LABELS[active.role], active.memberCount > 1 ? `${active.memberCount} members` : null].filter(Boolean).join(', ')
     : ''
 
   return (
@@ -22,11 +22,11 @@ export function WorkspaceMenu({ onSelect, onCreate, onOpenSettings }: { onSelect
       triggerClassName="flex min-w-0 flex-1 items-center gap-2.5 rounded-xl p-1.5 text-left transition-colors hover:bg-secondary/70"
       trigger={
         <>
-          <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-gradient text-xs font-bold text-white shadow-sm">
+          <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-md border border-rule-2 bg-paper-3 text-xs font-medium text-ink-2">
             {name.slice(0, 1).toUpperCase()}
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-[13px] font-semibold">{name}</span>
+            <span className="block truncate text-[13px] font-medium">{name}</span>
             <span className="block truncate text-[10px] text-muted-foreground">{detail}</span>
           </span>
           <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
@@ -35,7 +35,7 @@ export function WorkspaceMenu({ onSelect, onCreate, onOpenSettings }: { onSelect
     >
       {(close) => (
         <>
-          <p className="px-2.5 pb-1 pt-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Workspaces</p>
+          <p className="px-2.5 pb-1 pt-1.5 text-[10px] font-medium text-muted-foreground">Workspaces</p>
           <div className="max-h-64 overflow-y-auto">
             {workspaces.map((workspace) => (
               <MenuItem

@@ -95,12 +95,17 @@ function DocumentRow({
     <li
       id={`document-${document.id}`}
       className={cn(
-        'group rounded-xl border bg-card/60 px-3 py-2.5 text-xs transition-all',
+        'group rounded-xl border bg-card/60 px-3 py-2.5 text-xs transition-colors',
         highlighted ? 'border-primary/60 ring-4 ring-primary/10' : 'border-border/60 hover:border-primary/30',
       )}
     >
       <div className="flex items-center gap-3">
-        <div className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', document.status === 'failed' ? 'bg-destructive/10' : 'bg-brand-soft')}>
+        <div
+          className={cn(
+            'flex size-8 shrink-0 items-center justify-center rounded-md border',
+            document.status === 'failed' ? 'border-bad/40 bg-bad-soft' : 'border-rule-2 bg-paper-3',
+          )}
+        >
           {document.status === 'processing' ? (
             <Loader2 className="size-4 animate-spin text-primary" />
           ) : document.status === 'failed' ? (
@@ -113,12 +118,12 @@ function DocumentRow({
           <p className="truncate font-medium text-foreground group-hover:text-primary" title={document.source}>
             {document.title}
           </p>
-          <p className="font-mono text-[10px] text-muted-foreground">
+          <p className=" text-xs text-muted-foreground">
             {document.status === 'processing'
               ? processingLabel(document)
               : document.status === 'failed'
                 ? 'Could not be added'
-                : `${origin ? `${origin} · ` : ''}${plural(document.chunkCount, 'passage')}${document.byteSize ? ` · ${formatBytes(document.byteSize)}` : ''} · ${timeAgo(document.createdAt)}`}
+                : `${origin ? `${origin}, ` : ''}${plural(document.chunkCount, 'passage')}${document.byteSize ? `, ${formatBytes(document.byteSize)}` : ''}, ${timeAgo(document.createdAt)}`}
           </p>
         </button>
         <div className="flex shrink-0 items-center gap-0.5 opacity-70 transition-opacity group-hover:opacity-100">
@@ -238,12 +243,12 @@ export function SourcesPanel({ open, onClose, collections, target, onTargetChang
       title="Sources"
       description={
         <span>
-          {list.length} source{list.length === 1 ? '' : 's'} in “{targetName}”{indexing ? ` · ${indexing} indexing` : ''}
+          {list.length} source{list.length === 1 ? '' : 's'} in “{targetName}”{indexing ? `, ${indexing} indexing` : ''}
         </span>
       }
     >
       <div className="border-b border-border/50 px-4 pt-4">
-        <label htmlFor="sources-target" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <label htmlFor="sources-target" className="mb-1.5 block text-[10px] font-medium text-muted-foreground">
           Notebook
         </label>
         <Select id="sources-target" value={target ?? ''} onChange={(event) => onTargetChange(event.target.value)} disabled={collections.length === 0}>
@@ -267,7 +272,7 @@ export function SourcesPanel({ open, onClose, collections, target, onTargetChang
 
         <div className="p-4">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Indexed sources</p>
+            <p className="text-[10px] font-medium text-muted-foreground">Indexed sources</p>
             {list.length > 0 && canClear && (
               <button type="button" onClick={clearNotebook} className="text-[10px] text-muted-foreground hover:text-destructive">
                 Clear notebook

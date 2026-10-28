@@ -325,7 +325,7 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <WorkspaceHeader
           title={tab === 'chat' && activeConversation ? activeConversation.title : tabLabel(tab)}
-          subtitle={`${active ? workspaceName(active) : 'Loading…'} · ${scopeLabel}`}
+          subtitle={`${active ? workspaceName(active) : 'Loading…'}, ${scopeLabel}`}
           historyOpen={history.open}
           onOpenNavigation={() => history.change(true)}
           modKey={mod}

@@ -21,11 +21,11 @@ export function CitationList({ citations, onOpenSource }: CitationListProps) {
 
   return (
     <div className="mt-4">
-      <p className="mb-2 flex items-center gap-1.5 text-[11px] font-medium text-muted-foreground">
-        <BookOpen className="size-3.5 text-primary" />
-        Sources ({citations.length})
+      <p className="mb-1.5 flex items-center gap-1.5 text-xs font-medium text-muted-foreground">
+        <BookOpen className="size-3.5" />
+        Sources <span className="measured text-cool">{citations.length}</span>
       </p>
-      <div className="flex flex-wrap gap-1.5">
+      <div className="overflow-hidden rounded-md border border-border">
         {citations.map((citation) => (
           <button
             key={citation.index}
@@ -33,46 +33,53 @@ export function CitationList({ citations, onOpenSource }: CitationListProps) {
             aria-expanded={open === citation.index}
             onClick={() => setOpen(open === citation.index ? null : citation.index)}
             className={cn(
-              'flex max-w-[260px] items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs transition-all',
-              open === citation.index
-                ? 'border-primary/50 bg-primary/10 text-foreground'
-                : 'border-border/70 bg-card/60 text-muted-foreground hover:-translate-y-px hover:border-primary/40 hover:text-foreground',
+              'grid w-full grid-cols-[2rem_minmax(0,1fr)_auto] items-center gap-x-2 px-3 py-2 text-left text-[13px] transition-colors duration-micro [&:not(:first-child)]:border-t [&:not(:first-child)]:border-border',
+              open === citation.index ? 'bg-paper-3 text-foreground' : 'bg-card text-ink-2 hover:bg-secondary hover:text-foreground',
             )}
           >
-            <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-primary/15 text-[9px] font-bold text-primary">{citation.index}</span>
+            <span className="measured text-cool">[{citation.index}]</span>
             <span className="truncate">{citation.title}</span>
             {typeof citation.relevance === 'number' ? (
-              <span className="shrink-0 rounded-full bg-primary/10 px-1.5 font-mono text-[10px] text-primary" title="Re-ranker relevance (0–1)">
+              <span className="measured shrink-0 text-xs text-ink-2" title="Re-ranker relevance (0 to 1)">
                 {citation.relevance.toFixed(2)}
               </span>
+            ) : citation.similarity !== null ? (
+              <span className="measured shrink-0 text-xs text-muted-foreground" title="Cosine similarity (0 to 1)">
+                {citation.similarity.toFixed(2)}
+              </span>
             ) : (
-              citation.similarity !== null && (
-                <span className="shrink-0 font-mono text-[10px] text-muted-foreground" title="Cosine similarity (0–1)">
-                  {citation.similarity.toFixed(2)}
-                </span>
-              )
+              <span />
             )}
           </button>
         ))}
       </div>
       {active && (
-        <div className="mt-2 animate-slide-down rounded-2xl border border-primary/25 bg-card/70 p-3 text-xs leading-relaxed">
-          <div className="mb-1.5 flex items-center justify-between gap-2 text-[10px] text-muted-foreground">
-            <span className="truncate font-semibold">{active.source}</span>
+        <div className="mt-2 animate-slide-down rounded-md border border-border bg-paper-3 p-3 text-[13px] leading-relaxed">
+          <div className="mb-1.5 flex items-center justify-between gap-2 text-xs text-muted-foreground">
+            <span className="truncate font-medium">{active.source}</span>
             <span className="flex shrink-0 items-center gap-3">
               {onOpenSource && active.documentId && (
-                <button type="button" onClick={() => onOpenSource(active.documentId!, active.chunkId)} className="flex items-center gap-1 font-medium text-primary hover:underline">
+                <button
+                  type="button"
+                  onClick={() => onOpenSource(active.documentId!, active.chunkId)}
+                  className="flex items-center gap-1 font-medium text-foreground underline decoration-rule-2 underline-offset-4 hover:decoration-signal"
+                >
                   <BookOpenText className="size-3" /> Read in document
                 </button>
               )}
               {activeUrl && (
-                <a href={activeUrl} target="_blank" rel="noopener noreferrer nofollow" className="flex items-center gap-1 text-primary hover:underline">
+                <a
+                  href={activeUrl}
+                  target="_blank"
+                  rel="noopener noreferrer nofollow"
+                  className="flex items-center gap-1 text-foreground underline decoration-rule-2 underline-offset-4 hover:decoration-signal"
+                >
                   Open <ExternalLink className="size-2.5" />
                 </a>
               )}
             </span>
           </div>
-          <blockquote className="whitespace-pre-wrap border-l-2 border-primary/50 pl-2.5 text-foreground/85">{active.excerpt}</blockquote>
+          <blockquote className="whitespace-pre-wrap border-l-2 border-cool pl-2.5 text-ink-2">{active.excerpt}</blockquote>
         </div>
       )}
     </div>
