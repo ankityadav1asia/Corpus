@@ -194,7 +194,7 @@ Heavy work runs outside the request in a durable queue (`app.jobs`):
 - Retries back off 10 s → 20 s → 40 s…; when Gemini returns 429 with a `RetryInfo` delay, the job waits at least that long, and the adapter stops burning quota on immediate retries. A **daily** quota error, invalid input or a `PermanentJobError` fails the job at once with a readable message instead of retrying. Waiting items show why (“AI service busy — retrying in ~40s”).
 - Jobs return `'more'` when their time budget runs out; a follow-up job continues from the stored progress (chunks, OCR pages, audio segments, sync state).
 - Duplicate work is refused while the same job is active (`hasActive`), e.g. a second “Sync now”.
-- **Who runs jobs:** after each response that queued work (Next.js `after()`), the endpoints the UI polls while waiting (sources, conversation, reports, images, audio, mind maps, connectors, benchmark runs), `npm run worker` (a polling loop), and `/api/jobs/run` for a scheduler (Bearer `CRON_SECRET`; Vercel Cron calls it, see `vercel.json`). Each pass also queues connector syncs that are due. One runner per server instance at a time. With a dedicated worker, `WEB_RUNS_JOBS=false` keeps OCR, transcription and audio out of the web process.
+- **Who runs jobs:** after each response that queued work (Next.js `after()`), the endpoints the UI polls while waiting (sources, images, audio, connectors, benchmark runs; for reports and mind maps, which the Go API queues, the browser calls `POST /api/jobs/nudge` while it polls; the Go conversation endpoint runs a pending answer evaluation itself), `npm run worker` (a polling loop), and `/api/jobs/run` for a scheduler (Bearer `CRON_SECRET`; Vercel Cron calls it, see `vercel.json`). Each pass also queues connector syncs that are due. One runner per server instance at a time. With a dedicated worker, `WEB_RUNS_JOBS=false` keeps OCR, transcription and audio out of the web process.
 - A runner claims only the job types its version knows, so during a rollout an older worker leaves new types to newer code.
 
 ## Speed
@@ -498,7 +498,7 @@ OCR tests run real Tesseract on generated scans):
 - `tests/quality-units.test.ts` — judge parsing and metrics, slide-outline validation, settings merge, retry policy
 - `tests/repositories.test.ts` — every repository on PGlite: workspaces, last-admin race, invites, chunk editing, job queue
 - `tests/services.test.ts` — ingestion, chat pipeline and guardrail short-circuit, evaluation, benchmarks, reports, chunk editor permissions
-- `tests/http.test.ts` — real route handlers + middleware: auth, CSRF, role matrix, IDOR, workspaces API, reports, cron endpoint
+- `tests/http.test.ts` — real route handlers + middleware: auth, CSRF, role matrix, IDOR, cron and nudge endpoints
 - `tests/migrations.test.ts` — upgrading real v1 data to the latest schema
 - `tests/platform.test.ts`, `tests/platform-http.test.ts` — background indexing and retries, image generation, feedback, notifications, audit log, pins
 - `tests/images-units.test.ts` — image inspection, brief parsing, Gemini image adapter

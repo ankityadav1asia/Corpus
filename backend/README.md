@@ -11,7 +11,7 @@ is signed in for the Go routes too.
 |---|---|
 | `../api/go.go` | the Vercel Go Function: builds the handler once per instance and serves every Go path |
 | `cmd/dev` | the same handler on a local port, for development |
-| `api` | route wrappers (session, workspace access, CSRF origin check), handlers; `admin.go`/`settings.go` (group 2), `conversations.go` (group 3), `chat.go` (group 4a) |
+| `api` | route wrappers (session, workspace access, CSRF origin check), handlers; `admin.go`/`settings.go` (group 2), `conversations.go` (group 3), `chat.go` (group 4a), `studio.go` (group 4b) |
 | `ai` | model vendors over REST: Gemini (streaming, embeddings, thinking control, retry hints, daily quotas) and OpenAI-compatible servers; configuration from the same variables as `server/env.ts` |
 | `rag` | prompts, query planning, Reciprocal Rank Fusion, re-ranking (LLM grader or Cohere), guardrail, follow-ups and the answer judge, checked against outputs of the TypeScript code (`testdata/golden.json`, `npm run go:fixtures`) |
 | `auth` | session cookie verification (HMAC-SHA256, key rotation, revocation), the role-permission table, workspace access |
@@ -28,7 +28,7 @@ is signed in for the Go routes too.
 | 3 | `GET /api/conversations` (`?q=` search), `GET·PATCH·DELETE /api/conversations/:id`, `POST …/:id/branch`, `PUT /api/messages/:id/feedback`, `GET /api/notifications`, `POST /api/notifications/read`, `GET /api/analytics` | Go |
 | – | Still TypeScript from the workspace area: `…/integrations` (Slack credentials are sealed with the TypeScript key ring), `…/shares` (opens sealed share tokens), `…/models` and `…/reembed` (AI configuration and a background job) | later, with the parts they depend on |
 | 4a | `POST /api/chat` (the whole pipeline: deep-mode query planning, hybrid search, RRF, re-ranking, guardrail, streamed NDJSON answer), `POST /api/messages/:id/followups`; polling a conversation runs its answer's queued evaluation | Go |
-| 4b | Studio: reports and mind maps (audio overviews are media and stay TypeScript) | next |
+| 4b | Studio: `GET·POST /api/reports`, `GET·DELETE /api/reports/:id`, the same for `/api/mindmaps`. Go queues them; the TypeScript job runner writes them, started by the browser through `POST /api/jobs/nudge` while it polls. Audio overviews are media and stay TypeScript | Go |
 | – | Staying TypeScript: media processing (uploads, OCR, transcription, audio), the connectors' sync jobs, the job runner and cron, `GET /api/stats` (reports the OCR, email and OAuth configuration of the TypeScript side) | by decision |
 
 Everything not listed as Go is still served by Next.js.

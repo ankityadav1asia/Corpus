@@ -41,6 +41,11 @@ export const GO_API_PATHS = [
   // Group 4a: asking a question (streamed) and follow-up suggestions.
   '/api/chat',
   '/api/messages/:id/followups',
+  // Group 4b: studio reports and mind maps (the TypeScript job runner writes them: app/api/jobs/nudge).
+  '/api/reports',
+  '/api/reports/:id',
+  '/api/mindmaps',
+  '/api/mindmaps/:id',
 ]
 
 /** @type {import('next').NextConfig} */

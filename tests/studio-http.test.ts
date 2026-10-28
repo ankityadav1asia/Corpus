@@ -14,8 +14,6 @@ import * as sourceItemRoute from '@/app/api/connectors/sources/[id]/route'
 import * as sourceSyncRoute from '@/app/api/connectors/sources/[id]/sync/route'
 import * as sourcesRoute from '@/app/api/connectors/sources/route'
 import * as uploadRoute from '@/app/api/learn/upload/route'
-import * as mindMapRoute from '@/app/api/mindmaps/[id]/route'
-import * as mindMapsRoute from '@/app/api/mindmaps/route'
 import * as modelsRoute from '@/app/api/workspaces/[id]/models/route'
 import * as reembedRoute from '@/app/api/workspaces/[id]/reembed/route'
 import type {
@@ -25,8 +23,6 @@ import type {
   ConnectorBrowseResult,
   ConnectorsOverview,
   ConnectorSourceSummary,
-  MindMapDetail,
-  MindMapSummary,
   ModelsStatus,
   UploadResult,
 } from '@/lib/contracts'
@@ -204,9 +200,8 @@ describe('media uploads', () => {
   })
 })
 
-describe('studio: audio overviews and mind maps', () => {
+describe('studio: audio overviews', () => {
   let audioId: string
-  let mindMapId: string
 
   it('lets any member request an audio overview of notebooks they can read', async () => {
     const created = await call(audioRoute.POST, '/api/audio', {
@@ -251,19 +246,8 @@ describe('studio: audio overviews and mind maps', () => {
     assert.match(download.headers.get('content-disposition') ?? '', /^attachment; filename=".+\.mp3"$/)
   })
 
-  it('builds mind maps and lets only the author or an admin delete them', async () => {
-    const created = await call(mindMapsRoute.POST, '/api/mindmaps', { method: 'POST', as: ed, body: { collectionIds: [team.notebookId], focus: 'pollination' } })
-    assert.equal(created.status, 202)
-    mindMapId = (await data<{ mindMap: MindMapSummary }>(created)).mindMap.id
-    await jobs()
-    const { mindMap } = await data<{ mindMap: MindMapDetail }>(call(mindMapRoute.GET, `/api/mindmaps/${mindMapId}`, { as: val, params: { id: mindMapId } }))
-    assert.equal(mindMap.status, 'completed')
-    assert.ok(mindMap.root && mindMap.root.children.length > 0)
-    const { mindMaps } = await data<{ mindMaps: MindMapSummary[] }>(call(mindMapsRoute.GET, '/api/mindmaps', { as: val }))
-    assert.ok(mindMaps.some((item) => item.id === mindMapId))
-    assert.equal((await call(mindMapRoute.DELETE, `/api/mindmaps/${mindMapId}`, { method: 'DELETE', as: val, params: { id: mindMapId } })).status, 403)
+  it('lets only the author or an admin delete an audio overview', async () => {
     assert.equal((await call(audioItemRoute.DELETE, `/api/audio/${audioId}`, { method: 'DELETE', as: ed, params: { id: audioId } })).status, 403)
-    assert.equal((await call(mindMapRoute.DELETE, `/api/mindmaps/${mindMapId}`, { method: 'DELETE', as: ada, params: { id: mindMapId } })).status, 200)
     assert.equal((await call(audioItemRoute.DELETE, `/api/audio/${audioId}`, { method: 'DELETE', as: val, params: { id: audioId } })).status, 200)
   })
 })

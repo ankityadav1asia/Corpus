@@ -35,6 +35,7 @@ type Server struct {
 	admin    AdminStore
 	chats    ConversationStore
 	asking   ChatStore
+	studio   StudioStore
 	sessions *auth.Sessions
 }
 
@@ -48,6 +49,7 @@ func New(cfg config.Config, db Store) *Server {
 		s.admin, _ = db.(AdminStore)
 		s.chats, _ = db.(ConversationStore)
 		s.asking, _ = db.(ChatStore)
+		s.studio, _ = db.(StudioStore)
 	}
 	return s
 }
@@ -88,6 +90,15 @@ func (s *Server) Handler() http.Handler {
 	// Group 4a: asking a question and follow-up suggestions.
 	mux.Handle("POST /api/chat", s.workspace(s.chatOnly(s.chat)))
 	mux.Handle("POST /api/messages/{id}/followups", s.workspace(s.chatOnly(s.followups)))
+	// Group 4b: studio reports and mind maps (the TypeScript job runner writes them).
+	mux.Handle("GET /api/reports", s.workspace(s.studioOnly(s.listReports)))
+	mux.Handle("POST /api/reports", s.workspace(s.studioOnly(s.createReport)))
+	mux.Handle("GET /api/reports/{id}", s.workspace(s.studioOnly(s.reportDetail)))
+	mux.Handle("DELETE /api/reports/{id}", s.workspace(s.studioOnly(s.deleteReport)))
+	mux.Handle("GET /api/mindmaps", s.workspace(s.studioOnly(s.listMindMaps)))
+	mux.Handle("POST /api/mindmaps", s.workspace(s.studioOnly(s.createMindMap)))
+	mux.Handle("GET /api/mindmaps/{id}", s.workspace(s.studioOnly(s.mindMapDetail)))
+	mux.Handle("DELETE /api/mindmaps/{id}", s.workspace(s.studioOnly(s.deleteMindMap)))
 	return mux
 }
 

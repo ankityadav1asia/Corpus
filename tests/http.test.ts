@@ -10,13 +10,12 @@ import * as corpusRoute from '@/app/api/corpus/route'
 import * as evalCasesRoute from '@/app/api/evaluations/cases/route'
 import * as evaluationsRoute from '@/app/api/evaluations/route'
 import * as evalRunsRoute from '@/app/api/evaluations/runs/route'
+import * as jobsNudgeRoute from '@/app/api/jobs/nudge/route'
 import * as jobsRunRoute from '@/app/api/jobs/run/route'
 import * as learnRoute from '@/app/api/learn/route'
 import * as learnUrlRoute from '@/app/api/learn/url/route'
-import * as reportRoute from '@/app/api/reports/[id]/route'
-import * as reportsRoute from '@/app/api/reports/route'
 import * as statsRoute from '@/app/api/stats/route'
-import type { ChunkPage, ReportDetail } from '@/lib/contracts'
+import type { ChunkPage } from '@/lib/contracts'
 import { middleware } from '@/middleware'
 import { AiProviderError, DAILY_QUOTA_MESSAGE } from '@/server/ai/provider'
 import { SESSION_COOKIE, createSessionToken } from '@/server/auth/session'
@@ -365,30 +364,6 @@ describe('chunk editor API', () => {
   })
 })
 
-describe('reports API', () => {
-  it('queues a report (202), generates it in the background and restricts deletion', async () => {
-    const res = await call(reportsRoute.POST, '/api/reports', {
-      as: vera,
-      workspace: team.workspaceId,
-      method: 'POST',
-      body: { template: 'executive_summary', collectionIds: [team.notebookId] },
-    })
-    assert.equal(res.status, 202)
-    const { report } = await data<{ report: ReportDetail }>(res)
-    assert.equal(report.status, 'queued')
-    assert.match(report.title, /Executive summary — \d+ documents?/)
-    assert.equal((await call(reportsRoute.POST, '/api/reports', { as: vera, workspace: team.workspaceId, method: 'POST', body: { template: 'executive_summary' } })).status, 400)
-
-    await runJobs({ repos, ai: () => ai, reranker: () => null, images: () => images })
-    const detail = await data<{ report: ReportDetail }>(call(reportRoute.GET, `/api/reports/${report.id}`, { as: eddie, workspace: team.workspaceId, params: { id: report.id } }))
-    assert.equal(detail.report.status, 'completed')
-    assert.ok(detail.report.content)
-    assert.equal((await call(reportRoute.GET, `/api/reports/${report.id}`, { as: bob, params: { id: report.id } })).status, 404)
-    assert.equal((await call(reportRoute.DELETE, `/api/reports/${report.id}`, { as: eddie, workspace: team.workspaceId, method: 'DELETE', params: { id: report.id } })).status, 403)
-    assert.equal((await call(reportRoute.DELETE, `/api/reports/${report.id}`, { as: alice, workspace: team.workspaceId, method: 'DELETE', params: { id: report.id } })).status, 200)
-  })
-})
-
 describe('evaluation API', () => {
   it('editors manage benchmark questions and start one run at a time; members read the summary', async () => {
     const asTeam = (who: Actor) => ({ as: who, workspace: team.workspaceId })
@@ -422,6 +397,12 @@ describe('background job endpoint', () => {
       delete process.env.CRON_SECRET
       resetEnvCache()
     }
+  })
+
+  it('lets signed-in users keep the runner going for work the Go API queued', async () => {
+    assert.equal((await call(jobsNudgeRoute.POST, '/api/jobs/nudge', { method: 'POST' })).status, 401)
+    assert.equal((await call(jobsNudgeRoute.POST, '/api/jobs/nudge', { method: 'POST', as: vera, origin: 'https://evil.example' })).status, 403)
+    assert.equal((await call(jobsNudgeRoute.POST, '/api/jobs/nudge', { method: 'POST', as: vera })).status, 202)
   })
 })
 

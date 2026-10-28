@@ -58,6 +58,25 @@ const whileActive =
 
 const isRunning = (status: string) => status === 'queued' || status === 'running'
 
+let lastNudge = 0
+
+/**
+ * Reports and mind maps are queued by the Go API, which cannot run the TypeScript job runner: while
+ * one is still being written, each poll asks the runner to keep going (at most once per 2 s).
+ */
+function nudgeJobs() {
+  const now = Date.now()
+  if (now - lastNudge < 2000) return
+  lastNudge = now
+  apiJson('/api/jobs/nudge', { method: 'POST', workspaceId: null }).catch(() => undefined)
+}
+
+const nudgeWhile =
+  <T>(isActive: (data: T) => boolean) =>
+  (data: T) => {
+    if (isActive(data)) nudgeJobs()
+  }
+
 export function useCollections() {
   return useWorkspaceSWR<{ collections: Collection[] }>('/api/collections')
 }
@@ -122,14 +141,15 @@ export function useCollectionRoles(collectionId: string | null) {
 }
 
 export function useReports() {
-  return useWorkspaceSWR<{ reports: ReportSummary[] }>('/api/reports', {
-    refreshInterval: whileActive((data: { reports: ReportSummary[] }) => data.reports.some((report) => isRunning(report.status))),
-  })
+  const active = (data: { reports: ReportSummary[] }) => data.reports.some((report) => isRunning(report.status))
+  return useWorkspaceSWR<{ reports: ReportSummary[] }>('/api/reports', { refreshInterval: whileActive(active), onSuccess: nudgeWhile(active) })
 }
 
 export function useReport(reportId: string | null) {
+  const active = (data: { report: ReportDetail }) => isRunning(data.report.status)
   return useWorkspaceSWR<{ report: ReportDetail }>(reportId ? `/api/reports/${reportId}` : null, {
-    refreshInterval: whileActive((data: { report: ReportDetail }) => isRunning(data.report.status), 2000),
+    refreshInterval: whileActive(active, 2000),
+    onSuccess: nudgeWhile(active),
   })
 }
 
@@ -181,14 +201,15 @@ export function useAudioOverview(id: string | null) {
 }
 
 export function useMindMaps() {
-  return useWorkspaceSWR<{ mindMaps: MindMapSummary[] }>('/api/mindmaps', {
-    refreshInterval: whileActive((data: { mindMaps: MindMapSummary[] }) => data.mindMaps.some((item) => isRunning(item.status)), 2500),
-  })
+  const active = (data: { mindMaps: MindMapSummary[] }) => data.mindMaps.some((item) => isRunning(item.status))
+  return useWorkspaceSWR<{ mindMaps: MindMapSummary[] }>('/api/mindmaps', { refreshInterval: whileActive(active, 2500), onSuccess: nudgeWhile(active) })
 }
 
 export function useMindMap(id: string | null) {
+  const active = (data: { mindMap: MindMapDetail }) => isRunning(data.mindMap.status)
   return useWorkspaceSWR<{ mindMap: MindMapDetail }>(id ? `/api/mindmaps/${id}` : null, {
-    refreshInterval: whileActive((data: { mindMap: MindMapDetail }) => isRunning(data.mindMap.status), 2000),
+    refreshInterval: whileActive(active, 2000),
+    onSuccess: nudgeWhile(active),
   })
 }
 

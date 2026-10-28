@@ -311,8 +311,8 @@ get 404, and missing roles get 403.
 | `/api/connectors/google-drive/start`, `…/callback` | GET | Google Drive OAuth (read-only) |
 | `/api/connectors/sources`, `…/:id`, `…/:id/sync` | POST, PATCH, DELETE | Sync items or a website into a notebook; schedule; sync now; remove |
 | `/api/audio`, `/api/audio/:id`, `/api/audio/:id/file` | GET, POST, DELETE | Queue (202) and play audio overviews (MP3 with HTTP Range) |
-| `/api/mindmaps`, `/api/mindmaps/:id` | GET, POST, DELETE | Queue (202) and read mind maps |
-| `/api/reports`, `/api/reports/:id` | GET, POST, DELETE | Queue (202) and read synthesis reports |
+| `/api/mindmaps`, `/api/mindmaps/:id` | GET, POST, DELETE | Queue (202) and read mind maps (Go) |
+| `/api/reports`, `/api/reports/:id` | GET, POST, DELETE | Queue (202) and read synthesis reports (Go) |
 | `/api/images`, `/api/images/:id`, `/api/images/:id/file` | GET, POST, DELETE | Queue (202) and read knowledge-grounded images |
 | `/api/conversations`, `/api/conversations/:id`, `/api/conversations/:id/branch` | GET, PATCH, DELETE, POST | Private history (`?q=` searches titles and message text), rename, pin, delete, fork (Go) |
 | `/api/messages/:id/feedback` | PUT | Rate an answer: up, down or cleared (Go) |
@@ -326,6 +326,7 @@ get 404, and missing roles get 403.
 | `/api/evaluations`, `/api/evaluations/cases`, `/api/evaluations/runs` | GET, POST, DELETE | Quality summary, benchmark questions, benchmark runs (202) |
 | `/api/stats`, `/api/analytics` | GET | Schema/feature status and totals; usage and latency (`?scope=workspace` for admins; analytics in Go) |
 | `/api/jobs/run` | GET, POST | Process queued jobs (Bearer `CRON_SECRET`; 404 when unset) |
+| `/api/jobs/nudge` | POST | Start a job-runner pass after the response (signed in; the browser calls it while a report or mind map queued by the Go API is being written) |
 | `/api/health` | GET | Public liveness check (Go) |
 
 </details>

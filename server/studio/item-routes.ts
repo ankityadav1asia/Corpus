@@ -20,9 +20,9 @@ interface StudioItemRepository<T extends OwnedStudioItem> {
 }
 
 /**
- * GET and DELETE for one studio item (report, image, audio overview, mind map): the same rules for
- * all of them — any member reads it (reading a running item keeps the job queue moving), and its
- * creator or a workspace admin deletes it.
+ * GET and DELETE for one studio item (image, audio overview): the same rules for all of them — any
+ * member reads it (reading a running item keeps the job queue moving), and its creator or a
+ * workspace admin deletes it. Reports and mind maps follow the same rules in Go (backend/api/studio.go).
  */
 export function studioItemRoutes<T extends OwnedStudioItem>(config: {
   /** "Audio overview" — for messages. */
