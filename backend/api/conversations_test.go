@@ -201,7 +201,8 @@ func TestNotificationsListAndRead(t *testing.T) {
 	}
 	w, body = e.do(&val, call{method: "POST", path: "/api/notifications/read", noWorkspace: true, body: `{"all":true}`})
 	e.expect(w, 200)
-	if body["updated"] != 1.0 {
+	// "All" includes the hidden one from the workspace they are not in, as the TypeScript route did.
+	if body["updated"] != 2.0 {
 		t.Fatalf("read all = %v", body)
 	}
 	w, body = e.do(&val, call{path: "/api/notifications", noWorkspace: true})
