@@ -1,6 +1,6 @@
 'use client'
 
-import { Check, ChevronRight, Rocket, X } from 'lucide-react'
+import { Check, ChevronRight, X } from 'lucide-react'
 import { useEffect, useState } from 'react'
 
 import { Progress } from '@/components/ui/feedback-primitives'
@@ -41,18 +41,16 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
   }
 
   return (
-    <section aria-label="Getting started" className="w-full max-w-xl animate-fade-up rounded-2xl border border-border/70 bg-card/70 p-4 text-left backdrop-blur">
+    <section aria-label="Getting started" className="w-full animate-fade-up rounded-lg border border-border bg-card p-4 text-left">
       <div className="flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-8 items-center justify-center rounded-xl bg-brand-gradient shadow-md">
-            <Rocket className="size-4 text-white" />
-          </div>
-          <div>
-            <p className="font-display text-sm font-semibold">Get started</p>
-            <p className="text-[11px] text-muted-foreground">
-              {completed} of {steps.length} done
-            </p>
-          </div>
+        <div>
+          <p className="text-sm font-medium">Get started</p>
+          <p className="text-[13px] text-muted-foreground">
+            <span className="measured text-cool">
+              {completed} of {steps.length}
+            </span>{' '}
+            done
+          </p>
         </div>
         <button type="button" aria-label="Dismiss getting started" onClick={dismiss} className="rounded-lg p-1 text-muted-foreground hover:bg-secondary hover:text-foreground">
           <X className="size-3.5" />
@@ -66,21 +64,24 @@ export function OnboardingChecklist({ steps }: { steps: OnboardingStep[] }) {
               type="button"
               onClick={step.action}
               disabled={step.done}
-              className={cn('group flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left transition-colors', step.done ? 'opacity-60' : 'hover:bg-secondary/70')}
+              className={cn(
+                'group flex w-full items-center gap-3 rounded-md px-2 py-2 text-left transition-colors duration-micro',
+                step.done ? 'opacity-60' : 'hover:bg-secondary',
+              )}
             >
               <span
                 className={cn(
-                  'flex size-5 shrink-0 items-center justify-center rounded-full border transition-all',
-                  step.done ? 'border-transparent bg-success text-white' : 'border-border group-hover:border-primary',
+                  'flex size-5 shrink-0 items-center justify-center rounded-full border transition-colors',
+                  step.done ? 'border-ok bg-ok-soft text-ok' : 'border-input group-hover:border-signal',
                 )}
               >
-                {step.done && <Check className="size-3 animate-pop" />}
+                {step.done && <Check className="size-3" />}
               </span>
               <span className="min-w-0 flex-1">
                 <span className={cn('block text-xs font-medium', step.done && 'line-through')}>{step.label}</span>
-                <span className="block text-[11px] text-muted-foreground">{step.description}</span>
+                <span className="block text-[13px] text-muted-foreground">{step.description}</span>
               </span>
-              {!step.done && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />}
+              {!step.done && <ChevronRight className="size-3.5 shrink-0 text-muted-foreground" />}
             </button>
           </li>
         ))}

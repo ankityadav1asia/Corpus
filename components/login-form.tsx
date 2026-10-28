@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertCircle, ArrowRight, CheckCircle2, Github, Loader2, Mail, ShieldCheck } from 'lucide-react'
+import { AlertCircle, ArrowRight, CheckCircle2, Github, Loader2, Mail } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { useState, type FormEvent } from 'react'
 
@@ -93,13 +93,12 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
   const anyOAuth = providers.google || providers.github
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-border/80 bg-card/90 p-8 shadow-2xl backdrop-blur-xl animate-fade-up">
-      <div className="mb-6 text-center">
-        <div className="mx-auto flex size-14 items-center justify-center rounded-2xl border border-primary/30 bg-primary/10">
-          <ShieldCheck className="size-7 text-primary" />
-        </div>
-        <h1 className="mt-5 font-display text-2xl font-semibold tracking-tight">Sign in to Corpus</h1>
-        <p className="mt-1.5 text-xs text-muted-foreground">Your notebooks are private to your account.</p>
+    <div className="w-full max-w-[26rem] animate-fade-up">
+      <div className="mb-8">
+        <h1 className="text-[28px] font-medium tracking-tight">Sign in to Corpus</h1>
+        <p className="mt-2 text-[15px] text-muted-foreground">
+          Answers from your own documents, each line tied to the passage it came from. Your notebooks are private to your account.
+        </p>
       </div>
 
       {error && (
@@ -112,13 +111,13 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
       {anyOAuth && (
         <div className="space-y-3">
           {providers.google && (
-            <Button type="button" variant="outline" className="h-11 w-full gap-3" disabled={busy !== null} onClick={() => oauth('google')}>
+            <Button type="button" variant="outline" className="h-10 w-full gap-3" disabled={busy !== null} onClick={() => oauth('google')}>
               {busy === 'google' ? <Loader2 className="size-4 animate-spin" /> : <GoogleIcon />}
               Continue with Google
             </Button>
           )}
           {providers.github && (
-            <Button type="button" variant="outline" className="h-11 w-full gap-3" disabled={busy !== null} onClick={() => oauth('github')}>
+            <Button type="button" variant="outline" className="h-10 w-full gap-3" disabled={busy !== null} onClick={() => oauth('github')}>
               {busy === 'github' ? <Loader2 className="size-4 animate-spin" /> : <Github className="size-4" />}
               Continue with GitHub
             </Button>
@@ -127,7 +126,7 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
       )}
 
       {anyOAuth && providers.email && (
-        <div className="my-5 flex items-center gap-3 text-[11px] uppercase tracking-wider text-muted-foreground">
+        <div className="my-5 flex items-center gap-3 text-[11px] text-muted-foreground">
           <span className="h-px flex-1 bg-border" />
           or
           <span className="h-px flex-1 bg-border" />
@@ -154,7 +153,7 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
                 />
               </div>
             </div>
-            <Button type="submit" className="h-11 w-full" disabled={busy !== null || !email.trim()}>
+            <Button type="submit" className="h-10 w-full" disabled={busy !== null || !email.trim()}>
               {busy === 'email' ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Email me a sign-in code
               {busy !== 'email' && <ArrowRight className="ml-2 size-4" />}
@@ -163,7 +162,7 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
         ) : (
           <form onSubmit={verify} className="space-y-4">
             {notice && (
-              <p className="flex items-center justify-center gap-1.5 rounded-lg border border-emerald-500/30 bg-emerald-500/10 p-2.5 text-center text-xs text-emerald-500">
+              <p className="flex items-center gap-1.5 rounded-md border border-ok/40 bg-ok-soft p-2.5 text-[13px] text-foreground">
                 <CheckCircle2 className="size-3.5" />
                 {notice}
               </p>
@@ -188,7 +187,7 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
               <Button
                 type="button"
                 variant="outline"
-                className="h-11"
+                className="h-10"
                 disabled={busy !== null}
                 onClick={() => {
                   setStep('email')
@@ -198,7 +197,7 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
               >
                 Change email
               </Button>
-              <Button type="submit" className="h-11 flex-1" disabled={busy !== null || code.length !== 6}>
+              <Button type="submit" className="h-10 flex-1" disabled={busy !== null || code.length !== 6}>
                 {busy === 'code' ? <Loader2 className="size-4 animate-spin" /> : 'Verify & sign in'}
               </Button>
             </div>
@@ -206,14 +205,14 @@ export function LoginForm({ next, errorCode, configError, providers }: LoginForm
               type="button"
               disabled={busy !== null}
               onClick={() => requestCode()}
-              className="w-full text-center font-mono text-[11px] text-muted-foreground hover:text-foreground disabled:opacity-50"
+              className="whitespace-nowrap text-[13px] text-muted-foreground underline decoration-rule-2 underline-offset-4 transition-colors duration-micro hover:text-foreground hover:decoration-signal disabled:cursor-not-allowed disabled:opacity-55"
             >
               Didn’t get it? Send a new code
             </button>
           </form>
         ))}
 
-      {!anyOAuth && !providers.email && <p className="text-center text-sm text-muted-foreground">No sign-in method is configured on this server.</p>}
+      {!anyOAuth && !providers.email && <p className="text-sm text-muted-foreground">No sign-in method is configured on this server.</p>}
     </div>
   )
 }

@@ -1,4 +1,6 @@
-import { FileText, MessageSquare, Sparkles } from 'lucide-react'
+import { FileText, MessageSquare } from 'lucide-react'
+
+import { Monogram } from '@/components/wordmark'
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
@@ -64,16 +66,22 @@ export default async function SharedPage({ params }: { params: Promise<{ token: 
   const created = new Date(view.createdAt).toLocaleDateString('en', { year: 'numeric', month: 'long', day: 'numeric' })
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="border-b border-border/60 bg-card/70 backdrop-blur-xl">
+      <header className="border-b border-border bg-paper-3">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
-          <div className="flex size-8 items-center justify-center rounded-xl bg-brand-gradient shadow-md">
-            <Sparkles className="size-4 text-white" />
-          </div>
+          <Monogram className="size-8" />
           <div className="min-w-0">
-            <h1 className="truncate font-display text-base font-bold">{view.title}</h1>
+            <h1 className="truncate font-display text-base font-medium">{view.title}</h1>
             <p className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
               {view.kind === 'conversation' ? <MessageSquare className="size-3" /> : <FileText className="size-3" />}
-              Shared {view.kind} · {view.workspaceName} · {created} · read-only
+              <span>Shared {view.kind}, read-only</span>
+              <span aria-hidden className="text-rule-2">
+                |
+              </span>
+              <span>{view.workspaceName}</span>
+              <span aria-hidden className="text-rule-2">
+                |
+              </span>
+              <time className="measured text-cool">{created}</time>
             </p>
           </div>
         </div>

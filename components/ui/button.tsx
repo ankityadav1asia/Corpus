@@ -5,23 +5,24 @@ import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
 const buttonVariants = cva(
-  'inline-flex items-center justify-center whitespace-nowrap rounded-xl text-sm font-medium ring-offset-background transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/60 focus-visible:ring-offset-2 active:scale-[0.98] disabled:pointer-events-none disabled:opacity-50',
+  'inline-flex items-center justify-center whitespace-nowrap rounded-md border text-sm font-medium transition-colors duration-micro ease-out focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring disabled:cursor-not-allowed disabled:opacity-55',
   {
     variants: {
       variant: {
-        default: 'bg-primary text-primary-foreground shadow-sm hover:bg-primary/90',
-        brand: 'bg-brand-gradient text-white shadow-md hover:opacity-95 hover:shadow-lg',
-        destructive: 'bg-destructive text-destructive-foreground hover:bg-destructive/90',
-        outline: 'border border-border bg-card/60 hover:border-primary/40 hover:bg-accent hover:text-accent-foreground',
-        secondary: 'bg-secondary text-secondary-foreground hover:bg-secondary/80',
-        ghost: 'hover:bg-secondary hover:text-foreground',
-        link: 'text-primary underline-offset-4 hover:underline',
+        // The one amber control on a screen.
+        default: 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80',
+        brand: 'border-primary bg-primary text-primary-foreground hover:bg-primary/90 active:bg-primary/80',
+        destructive: 'border-rule-2 bg-card text-bad hover:border-bad hover:bg-bad-soft active:bg-bad-soft/70',
+        outline: 'border-rule-2 bg-card text-foreground hover:bg-secondary active:bg-paper-3',
+        secondary: 'border-rule bg-secondary text-ink-2 hover:text-foreground active:bg-paper',
+        ghost: 'border-transparent text-ink-2 hover:bg-secondary hover:text-foreground active:bg-paper',
+        link: 'border-transparent text-foreground underline decoration-rule-2 underline-offset-4 hover:decoration-signal',
       },
       size: {
-        default: 'h-10 px-4 py-2',
-        sm: 'h-9 px-3 text-xs',
-        lg: 'h-11 px-8',
-        icon: 'h-10 w-10',
+        default: 'h-9 px-3.5',
+        sm: 'h-8 px-2.5 text-[13px]',
+        lg: 'h-10 px-5',
+        icon: 'size-9',
       },
     },
     defaultVariants: {

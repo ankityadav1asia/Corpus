@@ -42,7 +42,7 @@ import { createRepositories, type Repositories } from '@/server/repositories'
 import { setServicesForTests, type Services } from '@/server/services'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { createFakeAi, createFakeImages, type FakeAi, type FakeImages } from './helpers/fake-ai'
+import { createFakeAi, type FakeAi } from './helpers/fake-ai'
 import { createTeam, createUser, type TestUser } from './helpers/fixtures'
 import { sessionToken } from './helpers/session'
 
@@ -50,7 +50,6 @@ const SECRET = 'y'.repeat(48)
 const ORIGIN = 'http://localhost:3000'
 let t: TestDb
 let ai: FakeAi
-let images: FakeImages
 let repos: Repositories
 let services: Services
 
@@ -97,7 +96,7 @@ function call(handler: unknown, path: string, init: CallOptions = {}) {
 
 /** Sources are indexed by a background job; tests run it explicitly. */
 async function indexQueued() {
-  await runJobs({ repos, ai: () => ai, reranker: () => null, images: () => images }, { types: ['ingest_document'], maxJobs: 20 })
+  await runJobs({ repos, ai: () => ai, reranker: () => null }, { types: ['ingest_document'], maxJobs: 20 })
 }
 
 async function data<T>(res: Response | Promise<Response>): Promise<T> {
@@ -117,14 +116,12 @@ before(async () => {
   setJobAutorun(false)
   t = await createTestDb()
   ai = createFakeAi()
-  images = createFakeImages()
   repos = createRepositories(t.db)
   services = {
     db: t.db,
     repos,
     ai: () => ai,
     reranker: () => createLlmReranker(ai),
-    images: () => images,
     vision: () => null,
     transcriber: () => null,
     speech: () => null,
@@ -541,7 +538,7 @@ describe('reports API', () => {
     assert.match(report.title, /Executive summary — \d+ documents?/)
     assert.equal((await call(reportsRoute.POST, '/api/reports', { as: vera, workspace: team.workspaceId, method: 'POST', body: { template: 'executive_summary' } })).status, 400)
 
-    await runJobs({ repos, ai: () => ai, reranker: () => null, images: () => images })
+    await runJobs({ repos, ai: () => ai, reranker: () => null })
     const detail = await data<{ report: ReportDetail }>(call(reportRoute.GET, `/api/reports/${report.id}`, { as: eddie, workspace: team.workspaceId, params: { id: report.id } }))
     assert.equal(detail.report.status, 'completed')
     assert.ok(detail.report.content)
@@ -560,7 +557,7 @@ describe('evaluation API', () => {
     const started = await call(evalRunsRoute.POST, '/api/evaluations/runs', { ...asTeam(eddie), method: 'POST' })
     assert.equal(started.status, 202)
     assert.equal((await call(evalRunsRoute.POST, '/api/evaluations/runs', { ...asTeam(eddie), method: 'POST' })).status, 409)
-    await runJobs({ repos, ai: () => ai, reranker: () => createLlmReranker(ai), images: () => images })
+    await runJobs({ repos, ai: () => ai, reranker: () => createLlmReranker(ai) })
     const summary = await data<{ lastBenchmark: { status: string; averages: { contextRecall: number | null } } | null }>(
       call(evaluationsRoute.GET, '/api/evaluations', asTeam(vera)),
     )

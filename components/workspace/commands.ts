@@ -16,7 +16,6 @@ import {
   Settings,
   Sparkles,
   Sun,
-  Wand2,
 } from 'lucide-react'
 
 import type { Command } from '@/components/command-palette'
@@ -51,14 +50,6 @@ export function buildCommands(deps: {
     ...TABS.map(({ id, label, icon }, index) => ({ id: `tab:${id}`, label: `Go to ${label}`, group: 'Navigate', icon, hint: `Alt ${index + 1}`, run: () => deps.showTab(id) })),
     { id: 'new-chat', label: 'New chat', group: 'Actions', icon: MessageSquarePlus, run: deps.newChat },
     { id: 'add-sources', label: 'Add sources', group: 'Actions', icon: Database, keywords: 'upload file pdf docx url website youtube text ingest', run: () => deps.openSources() },
-    {
-      id: 'generate-image',
-      label: 'Generate an image',
-      group: 'Actions',
-      icon: Wand2,
-      keywords: 'picture infographic diagram visual illustration',
-      run: () => deps.showTab('images'),
-    },
     {
       id: 'audio-overview',
       label: 'Create an audio overview',
@@ -117,7 +108,6 @@ export function buildOnboardingSteps(deps: {
   hasDocuments: boolean
   hasConversations: boolean
   hasReports: boolean
-  hasImages: boolean
   hasTeam: boolean
   openSources: () => void
   focusComposer: () => void
@@ -125,10 +115,9 @@ export function buildOnboardingSteps(deps: {
   inviteTeam: () => void
 }): OnboardingStep[] {
   return [
-    { id: 'source', label: 'Add a source', description: 'A file up to 50 MB, a web page, a video, notes — or connect an app', done: deps.hasDocuments, action: deps.openSources },
+    { id: 'source', label: 'Add a source', description: 'A file up to 50 MB, a web page, a video or notes, or connect an app', done: deps.hasDocuments, action: deps.openSources },
     { id: 'ask', label: 'Ask a question', description: 'Answers cite the passages they come from', done: deps.hasConversations, action: deps.focusComposer },
     { id: 'report', label: 'Create a report', description: 'Executive summaries, comparisons and slide outlines', done: deps.hasReports, action: () => deps.showTab('reports') },
-    { id: 'image', label: 'Generate an image', description: 'Infographics and diagrams grounded in your sources', done: deps.hasImages, action: () => deps.showTab('images') },
     { id: 'team', label: 'Invite your team', description: 'Share a workspace with Admin, Editor and Viewer roles', done: deps.hasTeam, action: deps.inviteTeam },
   ]
 }

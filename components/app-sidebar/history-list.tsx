@@ -46,7 +46,7 @@ function SearchResults({ search, found, pending, actions }: { search: string; fo
       ) : (
         <ul className="space-y-px">
           {found.map((conversation) => (
-            <ConversationItem key={conversation.id} {...itemProps(conversation, actions)} meta={`${conversation.pinned ? 'Pinned · ' : ''}${timeAgo(conversation.updatedAt)}`} />
+            <ConversationItem key={conversation.id} {...itemProps(conversation, actions)} meta={`${conversation.pinned ? 'Pinned, ' : ''}${timeAgo(conversation.updatedAt)}`} />
           ))}
         </ul>
       )}
@@ -95,7 +95,7 @@ export function HistoryList({ search, conversations, loading, actions }: { searc
         </section>
       ))}
       {conversations.length >= RECENT_LIMIT && (
-        <p className="px-2.5 pb-2 pt-4 text-center text-[11px] text-muted-foreground">Showing your {RECENT_LIMIT} most recent chats — search to find older ones.</p>
+        <p className="px-2.5 pb-2 pt-4 text-center text-[11px] text-muted-foreground">Showing your {RECENT_LIMIT} most recent chats. Search to find older ones.</p>
       )}
     </>
   )

@@ -130,7 +130,6 @@ export interface StatsResponse {
     google: boolean
     github: boolean
     reranker: 'cohere' | 'llm' | 'none'
-    images: boolean
     ocr: 'tesseract' | 'vision' | null
     vision: boolean
     transcription: boolean
@@ -166,7 +165,6 @@ export interface ModelsStatus {
     transcription: ModelInfo | null
     speech: ModelInfo | null
     ocr: ModelInfo | null
-    image: ModelInfo | null
   }
   embeddings: { active: string | null; total: number; stale: number; reembedding: boolean }
 }

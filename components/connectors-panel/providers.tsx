@@ -8,25 +8,22 @@ import { CONNECTOR_LABELS } from '@/lib/constants'
 import type { ConnectorProvider } from '@/lib/contracts'
 import { cn } from '@/lib/utils'
 
-export const PROVIDERS: Record<ConnectorProvider, { label: string; description: string; icon: typeof Globe; tone: string }> = {
+export const PROVIDERS: Record<ConnectorProvider, { label: string; description: string; icon: typeof Globe }> = {
   google_drive: {
     label: CONNECTOR_LABELS.google_drive,
-    description: 'Docs, Sheets, Slides, PDFs, images and recordings — whole folders stay in sync.',
+    description: 'Docs, Sheets, Slides, PDFs, images and recordings; whole folders stay in sync.',
     icon: HardDrive,
-    tone: 'from-emerald-500 to-sky-500',
   },
-  notion: { label: CONNECTOR_LABELS.notion, description: 'Pages and databases shared with your Notion integration.', icon: NotebookText, tone: 'from-zinc-700 to-zinc-500' },
+  notion: { label: CONNECTOR_LABELS.notion, description: 'Pages and databases shared with your Notion integration.', icon: NotebookText },
   github: {
     label: CONNECTOR_LABELS.github,
     description: 'Markdown and text docs from repositories (public ones need no token).',
     icon: Github,
-    tone: 'from-slate-800 to-violet-600',
   },
   website: {
     label: CONNECTOR_LABELS.website,
-    description: 'A docs site, help centre or blog — pages under a URL, re-read on a schedule.',
+    description: 'A docs site, help centre or blog: pages under a URL, re-read on a schedule.',
     icon: Globe,
-    tone: 'from-violet-500 to-fuchsia-500',
   },
 }
 
@@ -38,9 +35,9 @@ export const INTERVALS = [
 ]
 
 export function ProviderIcon({ provider, className }: { provider: ConnectorProvider; className?: string }) {
-  const { icon: Icon, tone } = PROVIDERS[provider]
+  const { icon: Icon } = PROVIDERS[provider]
   return (
-    <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br text-white shadow-sm', tone, className)}>
+    <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-md border border-rule-2 bg-paper-3 text-ink-2', className)}>
       <Icon className="size-4" />
     </span>
   )

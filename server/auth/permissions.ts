@@ -27,7 +27,7 @@ export const PERMISSIONS = {
   'connectors.use': 'editor',
   // Public read-only links to a conversation or report (their content leaves the workspace).
   'shares.create': 'editor',
-  // Slack / Microsoft Teams bots that answer from this workspace.
+  // Slack bots that answer from this workspace.
   'integrations.manage': 'admin',
 } as const satisfies Record<string, Role>
 
@@ -70,7 +70,7 @@ const MESSAGES: Record<Permission, string> = {
   'mindmaps.create': 'You do not have access to these sources.',
   'connectors.use': 'You need Editor access to connect apps and import from them.',
   'shares.create': 'You need Editor access to share links outside the workspace.',
-  'integrations.manage': 'Only workspace admins can connect Slack or Microsoft Teams.',
+  'integrations.manage': 'Only workspace admins can connect Slack.',
 }
 
 /** Demo visitors look around and ask questions; nothing else (no uploads, studio jobs, links or settings). */

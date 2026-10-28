@@ -121,19 +121,19 @@ function PdfPageView({
     <div
       ref={containerRef}
       data-page={pageNumber}
-      className="relative mx-auto overflow-hidden rounded-md bg-white shadow-md ring-1 ring-black/5"
+      className="relative mx-auto overflow-hidden rounded-md border border-rule bg-page"
       style={{ width: size?.width ?? width * zoom, height: size?.height ?? width * zoom * 1.3 }}
     >
-      <canvas ref={canvasRef} className="block h-full w-full" />
+      <canvas ref={canvasRef} aria-label={`Page ${pageNumber}`} className="block h-full w-full" />
       {highlights.map((box, index) => (
         <span
           key={index}
           aria-hidden
-          className="pointer-events-none absolute rounded-sm bg-yellow-300/45 mix-blend-multiply"
+          className="pointer-events-none absolute rounded-sm bg-signal/45 mix-blend-multiply"
           style={{ left: box.left, top: box.top, width: box.width, height: box.height }}
         />
       ))}
-      <span className="absolute bottom-1 right-2 font-mono text-[10px] text-black/40">{pageNumber}</span>
+      <span className="measured absolute bottom-1 right-2 text-[11px] text-page-ink">{pageNumber}</span>
     </div>
   )
 }

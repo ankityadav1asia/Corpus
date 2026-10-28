@@ -19,13 +19,16 @@ export interface IntegrationRecord {
   createdBy: string | null
 }
 
+/** Microsoft Teams bots were removed; their old rows are left alone but never listed or answered. */
+const SUPPORTED = `provider = 'slack'`
+
 const COLUMNS = `id, workspace_id, provider, name, collection_id, all_notebooks, credentials, status, last_error, last_used_at, created_at, created_by`
 
 function mapIntegration(row: Record<string, unknown>): IntegrationRecord {
   return {
     id: String(row.id),
     workspaceId: String(row.workspace_id),
-    provider: row.provider === 'teams' ? 'teams' : 'slack',
+    provider: 'slack',
     name: String(row.name),
     collectionId: row.collection_id ? String(row.collection_id) : null,
     allNotebooks: row.all_notebooks === true,
@@ -38,7 +41,7 @@ function mapIntegration(row: Record<string, unknown>): IntegrationRecord {
   }
 }
 
-/** Chat-app bots (Slack, Microsoft Teams) connected to a workspace. */
+/** Chat-app bots (Slack) connected to a workspace. */
 export function integrationsRepository(db: Db) {
   return {
     async create(input: {
@@ -59,13 +62,13 @@ export function integrationsRepository(db: Db) {
     },
 
     async list(workspaceId: string): Promise<IntegrationRecord[]> {
-      const rows = await db.query(`SELECT ${COLUMNS} FROM app.integrations WHERE workspace_id = $1 ORDER BY created_at DESC`, [workspaceId])
+      const rows = await db.query(`SELECT ${COLUMNS} FROM app.integrations WHERE workspace_id = $1 AND ${SUPPORTED} ORDER BY created_at DESC`, [workspaceId])
       return rows.map(mapIntegration)
     },
 
     /** By id alone: webhooks identify the integration by the id in their URL, then prove it with its secret. */
     async byId(id: string): Promise<IntegrationRecord | null> {
-      const [row] = await db.query(`SELECT ${COLUMNS} FROM app.integrations WHERE id = $1`, [id])
+      const [row] = await db.query(`SELECT ${COLUMNS} FROM app.integrations WHERE id = $1 AND ${SUPPORTED}`, [id])
       return row ? mapIntegration(row) : null
     },
 

@@ -13,7 +13,6 @@ export function jobContextFrom(services: Services): JobContext {
     repos: services.repos,
     ai: services.ai,
     reranker: services.reranker,
-    images: services.images,
     vision: services.vision,
     transcriber: services.transcriber,
     speech: services.speech,
