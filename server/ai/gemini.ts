@@ -1,7 +1,8 @@
-import { GoogleGenerativeAI, GoogleGenerativeAIFetchError, TaskType, type Content } from '@google/generative-ai'
+import { GoogleGenerativeAI, GoogleGenerativeAIFetchError, TaskType, type Content, type UsageMetadata } from '@google/generative-ai'
 
 import { EMBEDDING_DIMENSIONS } from '@/lib/constants'
 import { AiProviderError, type AiProvider, type ChatTurn } from '@/server/ai/provider'
+import { estimateTokens, recordUsage } from '@/server/ai/usage'
 
 const EMBED_BATCH_SIZE = 100 // batchEmbedContents limit
 const EMBED_CONCURRENCY = 3
@@ -139,6 +140,15 @@ export function answerText(parts: ReadonlyArray<{ text?: string; thought?: boole
     .join('')
 }
 
+/** Tokens of a generation; thinking tokens are billed as output, so output is everything but the prompt. */
+function recordGeneration(model: string, usage: UsageMetadata | undefined, fallback: { prompt: string[]; answer: string }) {
+  if (usage?.promptTokenCount !== undefined) {
+    const output = usage.totalTokenCount ? usage.totalTokenCount - usage.promptTokenCount : (usage.candidatesTokenCount ?? 0)
+    return recordUsage({ model, kind: 'generate', inputTokens: usage.promptTokenCount, outputTokens: output, estimated: false })
+  }
+  return recordUsage({ model, kind: 'generate', inputTokens: estimateTokens(fallback.prompt), outputTokens: estimateTokens([fallback.answer]), estimated: true })
+}
+
 function toContents(turns: readonly ChatTurn[]): Content[] {
   return turns.map((turn) => ({ role: turn.role === 'assistant' ? 'model' : 'user', parts: [{ text: turn.content }] }))
 }
@@ -155,6 +165,8 @@ export function createGeminiProvider(config: GeminiConfig): AiProvider {
     if (response.embeddings.length !== texts.length) {
       throw new AiProviderError(`Embedding batch returned ${response.embeddings.length} vectors for ${texts.length} inputs`)
     }
+    // The embedding API does not count tokens.
+    await recordUsage({ model: config.embeddingModel, kind: 'embed', inputTokens: estimateTokens(texts), outputTokens: 0, estimated: true })
     return response.embeddings.map((embedding) => assertEmbedding(embedding.values))
   }
 
@@ -183,6 +195,7 @@ export function createGeminiProvider(config: GeminiConfig): AiProvider {
 
     async embedQuery(text, signal) {
       const response = await withRetry(() => embedder.embedContent({ content: { role: 'user', parts: [{ text }] }, taskType: TaskType.RETRIEVAL_QUERY }, { signal }), signal)
+      await recordUsage({ model: config.embeddingModel, kind: 'embed', inputTokens: estimateTokens([text]), outputTokens: 0, estimated: true })
       return assertEmbedding(response.embedding.values)
     },
 
@@ -198,14 +211,20 @@ export function createGeminiProvider(config: GeminiConfig): AiProvider {
           .generateContentStream({ contents: toContents(turns) }, { signal })
       // Only the initial request is retried; a stream that fails midway is surfaced to the caller.
       const result = await withRetry(() => withThinkingChoice(name, fast, start), signal)
+      let answer = ''
       try {
         for await (const chunk of result.stream) {
           const text = answerText(chunk.candidates?.[0]?.content?.parts)
-          if (text) yield text
+          if (text) {
+            answer += text
+            yield text
+          }
         }
       } catch (error) {
         throw toProviderError(error)
       }
+      const final = await result.response.catch(() => null)
+      await recordGeneration(name, final?.usageMetadata, { prompt: [system, ...turns.map((turn) => turn.content)], answer })
     },
 
     async complete({ system, prompt, json, temperature, fast = false, signal }) {
@@ -216,7 +235,9 @@ export function createGeminiProvider(config: GeminiConfig): AiProvider {
           .getGenerativeModel({ model: name, systemInstruction: system, generationConfig: generationConfig(name, base, thinkingOff) })
           .generateContent({ contents: [{ role: 'user', parts: [{ text: prompt }] }] }, { signal })
       const result = await withRetry(() => withThinkingChoice(name, fast, run), signal)
-      return answerText(result.response.candidates?.[0]?.content?.parts)
+      const text = answerText(result.response.candidates?.[0]?.content?.parts)
+      await recordGeneration(name, result.response.usageMetadata, { prompt: [system, prompt], answer: text })
+      return text
     },
   }
 }

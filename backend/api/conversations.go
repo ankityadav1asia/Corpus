@@ -110,7 +110,7 @@ func (s *Server) conversationDetail(req *request) error {
 		if messages[i].Role != "assistant" {
 			continue
 		}
-		if messages[i].Evaluation == nil && s.evaluatePending(ctx, messages[i].ID) {
+		if messages[i].Evaluation == nil && s.evaluatePending(metered(ctx, req.access, "evaluate_answer"), messages[i].ID) {
 			if messages, err = s.chats.Messages(ctx, conversation.ID, req.access.UserID); err != nil {
 				return err
 			}

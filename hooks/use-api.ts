@@ -29,6 +29,7 @@ import type {
   ReportDetail,
   ReportSummary,
   StatsResponse,
+  UsageSummary,
   WorkspaceDetail,
   WorkspaceInvite,
   WorkspaceMember,
@@ -114,6 +115,11 @@ export function useStats() {
 
 export function useAnalytics(scope: 'me' | 'workspace') {
   return useWorkspaceSWR<AnalyticsResponse>(`/api/analytics?scope=${scope}`)
+}
+
+/** AI tokens, questions, storage and studio items of the workspace (admins; null skips the request). */
+export function useUsage(days: number | null) {
+  return useWorkspaceSWR<UsageSummary>(days ? `/api/usage?days=${days}` : null)
 }
 
 export function useChunks(params: { collectionId: string | null; label: string; q: string; page: number; pageSize: number }) {

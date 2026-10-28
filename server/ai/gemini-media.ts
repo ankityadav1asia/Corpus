@@ -1,6 +1,7 @@
 import { answerText, geminiHttpError } from '@/server/ai/gemini'
 import { IMAGE_PROMPTS, transcriptionPrompt, type SpeechSynthesizer, type SpokenLine, type Transcriber, type VisionModel } from '@/server/ai/media'
 import { AiProviderError } from '@/server/ai/provider'
+import { recordUsage } from '@/server/ai/usage'
 import { pcmFromL16, sampleRateFromMime } from '@/server/media/wav'
 
 /**
@@ -22,6 +23,7 @@ interface GeminiConfig {
 
 interface GenerateResponse {
   candidates?: Array<{ content?: { parts?: Array<{ text?: string; thought?: boolean; inlineData?: { mimeType?: string; data?: string } }> }; finishReason?: string }>
+  usageMetadata?: { promptTokenCount?: number; totalTokenCount?: number; candidatesTokenCount?: number }
 }
 
 const retryable = (status: number) => status === 429 || status >= 500
@@ -61,7 +63,12 @@ async function generate(config: GeminiConfig, model: string, body: Record<string
     label,
     signal,
   )
-  return (await response.json()) as GenerateResponse
+  const data = (await response.json()) as GenerateResponse
+  // Images, audio and video are counted in tokens too; the vendor reports them for every call.
+  const usage = data.usageMetadata
+  const input = usage?.promptTokenCount ?? 0
+  await recordUsage({ model, kind: 'generate', inputTokens: input, outputTokens: usage?.totalTokenCount ? usage.totalTokenCount - input : (usage?.candidatesTokenCount ?? 0), estimated: !usage })
+  return data
 }
 
 const base64 = (data: Uint8Array) => Buffer.from(data.buffer, data.byteOffset, data.byteLength).toString('base64')

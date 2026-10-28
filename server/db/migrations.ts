@@ -679,6 +679,27 @@ export const MIGRATIONS: Migration[] = [
       )`,
     ],
   },
+  {
+    version: 16,
+    name: 'ai_usage',
+    statements: [
+      // One row per model call: tokens in and out, the model, and what the call served (a job type
+      // or an API area). Feeds the usage dashboard; rows older than about a year are purged.
+      `CREATE TABLE app.ai_usage (
+        id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+        workspace_id uuid NOT NULL REFERENCES app.workspaces(id) ON DELETE CASCADE,
+        user_id uuid REFERENCES app.users(id) ON DELETE SET NULL,
+        feature text NOT NULL,
+        model text NOT NULL,
+        kind text NOT NULL CHECK (kind IN ('generate', 'embed')),
+        input_tokens integer NOT NULL CHECK (input_tokens >= 0),
+        output_tokens integer NOT NULL CHECK (output_tokens >= 0),
+        estimated boolean NOT NULL DEFAULT false,
+        created_at timestamptz NOT NULL DEFAULT now()
+      )`,
+      `CREATE INDEX ai_usage_workspace_created_idx ON app.ai_usage (workspace_id, created_at DESC)`,
+    ],
+  },
 ]
 
 export const LATEST_SCHEMA_VERSION = MIGRATIONS[MIGRATIONS.length - 1]!.version

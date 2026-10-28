@@ -5,6 +5,7 @@ import { useState } from 'react'
 
 import { QualityPanel } from '@/components/quality-panel'
 import { Badge } from '@/components/ui/badge'
+import { UsagePanel } from '@/components/usage-panel'
 import { useWorkspaceContext } from '@/components/workspace-provider'
 import { useAnalytics } from '@/hooks/use-api'
 import { errorMessage } from '@/lib/api-client'
@@ -164,6 +165,8 @@ export function AnalyticsDashboard({ totals, collections }: AnalyticsDashboardPr
           </div>
         </>
       )}
+
+      {role === 'admin' && <UsagePanel />}
 
       <QualityPanel collections={collections} />
     </div>

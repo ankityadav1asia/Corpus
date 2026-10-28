@@ -31,6 +31,7 @@ async function handle(req: NextRequest) {
   await services.repos.jobs.purgeFinished(7).catch(() => 0)
   await services.repos.uploads.purgeExpired().catch(() => 0)
   await purgeGuests(services.repos).catch(() => 0)
+  await services.repos.usage.purgeOlderThan(400).catch(() => 0)
   return json(result)
 }
 

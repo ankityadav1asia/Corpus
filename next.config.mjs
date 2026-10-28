@@ -46,6 +46,8 @@ export const GO_API_PATHS = [
   '/api/reports/:id',
   '/api/mindmaps',
   '/api/mindmaps/:id',
+  // Workspace usage: AI tokens, questions, storage (admins).
+  '/api/usage',
 ]
 
 /** @type {import('next').NextConfig} */

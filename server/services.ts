@@ -8,6 +8,7 @@ import type { SpeechSynthesizer, Transcriber, VisionModel } from '@/server/ai/me
 import { combineProviders, createOpenAiCompatibleChat, createOpenAiCompatibleEmbeddings } from '@/server/ai/openai-compatible'
 import { createOpenAiCompatibleSpeech, createOpenAiCompatibleTranscriber, createOpenAiCompatibleVision } from '@/server/ai/openai-compatible-media'
 import type { AiProvider } from '@/server/ai/provider'
+import { setUsageSink } from '@/server/ai/usage'
 import { createConnectorRegistry, type ConnectorRegistry } from '@/server/connectors/registry'
 import { createDb, type Db } from '@/server/db/client'
 import { createEmailSender, type EmailSender } from '@/server/email/sender'
@@ -151,11 +152,20 @@ function createServices(): Services {
   }
 }
 
+/** Model calls are metered into the services' database (server/ai/usage.ts). */
+function meterInto(services: Services | null) {
+  setUsageSink(services ? (entry) => services.repos.usage.record(entry) : null)
+}
+
 export function getServices(): Services {
-  instance ??= createServices()
+  if (!instance) {
+    instance = createServices()
+    meterInto(instance)
+  }
   return instance
 }
 
 export function setServicesForTests(services: Services | null) {
   instance = services
+  meterInto(services)
 }
