@@ -45,7 +45,7 @@ function Equalizer({ className }: { className?: string }) {
   return (
     <span aria-hidden className={cn('flex h-5 items-end gap-0.5', className)}>
       {[0, 0.2, 0.4, 0.1, 0.3].map((delay) => (
-        <span key={delay} className="h-full w-1 origin-bottom animate-eq rounded-full bg-brand-gradient" style={{ animationDelay: `${delay}s` }} />
+        <span key={delay} className="h-full w-0.5 origin-bottom animate-eq bg-cool" style={{ animationDelay: `${delay}s` }} />
       ))}
     </span>
   )
@@ -98,13 +98,13 @@ function AudioPlayer({ overview, onOpenSource }: { overview: AudioDetail; onOpen
         onTimeUpdate={(event) => setCurrent(event.currentTarget.currentTime)}
         onLoadedMetadata={(event) => Number.isFinite(event.currentTarget.duration) && setDuration(event.currentTarget.duration)}
       />
-      <div className="rounded-2xl border border-primary/25 bg-brand-soft p-4">
+      <div className="rounded-lg border border-border bg-paper-3 p-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
             aria-label="Back 15 seconds"
             onClick={() => seek(current - 15)}
-            className="rounded-full p-2 text-muted-foreground transition-colors hover:bg-card hover:text-foreground"
+            className="rounded-md p-2 text-muted-foreground transition-colors duration-micro hover:bg-card hover:text-foreground"
           >
             <Rewind className="size-4" />
           </button>
@@ -112,7 +112,7 @@ function AudioPlayer({ overview, onOpenSource }: { overview: AudioDetail; onOpen
             type="button"
             aria-label={playing ? 'Pause' : 'Play'}
             onClick={toggle}
-            className="flex size-12 shrink-0 items-center justify-center rounded-full bg-brand-gradient text-white shadow-lg transition-transform hover:scale-105 active:scale-95"
+            className="flex size-11 shrink-0 items-center justify-center rounded-md border border-primary bg-primary text-primary-foreground transition-colors duration-micro hover:bg-primary/90"
           >
             {playing ? <Pause className="size-5" /> : <Play className="ml-0.5 size-5" />}
           </button>
@@ -143,7 +143,7 @@ function AudioPlayer({ overview, onOpenSource }: { overview: AudioDetail; onOpen
           <button
             type="button"
             onClick={cycleRate}
-            className="rounded-lg border border-border/60 bg-card/70 px-2 py-1 font-mono text-[11px] font-semibold"
+            className="rounded-lg border border-border/60 bg-card/70 px-2 py-1 font-mono text-[11px] font-medium"
             aria-label="Playback speed"
           >
             {rate}×
@@ -161,7 +161,7 @@ function AudioPlayer({ overview, onOpenSource }: { overview: AudioDetail; onOpen
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_240px]">
         <section>
-          <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Transcript</h4>
+          <h4 className="mb-2 text-[10px] font-medium text-muted-foreground">Transcript</h4>
           <ol ref={transcriptRef} className="max-h-80 space-y-1 overflow-y-auto pr-1">
             {overview.transcript.map((line, index) => (
               <li key={index} data-line={index}>
@@ -175,8 +175,8 @@ function AudioPlayer({ overview, onOpenSource }: { overview: AudioDetail; onOpen
                 >
                   <span
                     className={cn(
-                      'mt-0.5 h-fit shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                      line.speaker === 0 ? 'bg-primary/15 text-primary' : 'bg-sky-500/15 text-sky-600 dark:text-sky-400',
+                      'mt-0.5 h-fit shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium',
+                      line.speaker === 0 ? 'bg-primary/15 text-primary' : 'bg-cool/15 text-cool dark:text-cool',
                     )}
                   >
                     Host {line.speaker + 1}
@@ -189,7 +189,7 @@ function AudioPlayer({ overview, onOpenSource }: { overview: AudioDetail; onOpen
           </ol>
         </section>
         <aside className="space-y-2">
-          <h4 className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Based on</h4>
+          <h4 className="text-[10px] font-medium text-muted-foreground">Based on</h4>
           <ul className="space-y-1">
             {overview.sources.map((source) => (
               <li key={source.documentId}>
@@ -207,7 +207,7 @@ function AudioPlayer({ overview, onOpenSource }: { overview: AudioDetail; onOpen
           <p className="pt-2 text-[10px] text-muted-foreground">
             {[overview.model, overview.voices.length ? `voices ${overview.voices.join(' & ')}` : null, overview.createdByEmail ? `by ${overview.createdByEmail}` : null]
               .filter(Boolean)
-              .join(' · ')}
+              .join(', ')}
           </p>
         </aside>
       </div>
@@ -222,17 +222,17 @@ function OverviewCard({ overview, selected, onSelect }: { overview: AudioSummary
       type="button"
       onClick={onSelect}
       className={cn(
-        'group flex w-full animate-fade-up items-center gap-3 rounded-2xl border p-3 text-left transition-all',
-        selected ? 'border-primary/60 bg-primary/5 shadow-sm' : 'border-border/60 bg-card/60 hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md',
+        'group flex w-full animate-fade-up items-center gap-3 rounded-2xl border p-3 text-left transition-colors',
+        selected ? 'border-primary/60 bg-primary/5' : 'border-border/60 bg-card/60 hover:border-primary/30',
       )}
     >
       <div
         className={cn(
-          'flex size-10 shrink-0 items-center justify-center rounded-xl',
-          overview.status === 'failed' ? 'bg-destructive/10' : running ? 'bg-brand-soft' : 'bg-brand-gradient shadow-md',
+          'flex size-10 shrink-0 items-center justify-center rounded-md border',
+          overview.status === 'failed' ? 'border-bad/40 bg-bad-soft' : running ? 'border-cool/40 bg-cool-soft' : 'border-rule-2 bg-paper-3',
         )}
       >
-        {overview.status === 'failed' ? <AlertTriangle className="size-4 text-destructive" /> : running ? <Equalizer /> : <Headphones className="size-4 text-white" />}
+        {overview.status === 'failed' ? <AlertTriangle className="size-4 text-destructive" /> : running ? <Equalizer /> : <Headphones className="size-4 text-ink-2" />}
       </div>
       <div className="min-w-0 flex-1">
         <p className="truncate text-sm font-medium">{overview.title}</p>
@@ -241,7 +241,7 @@ function OverviewCard({ overview, selected, onSelect }: { overview: AudioSummary
             ? (overview.progress ?? 'Queued')
             : overview.status === 'failed'
               ? 'Could not be created'
-              : `${FORMAT_LABEL[overview.format]} · ${overview.language} · ${clock(overview.durationSeconds)} · ${timeAgo(overview.createdAt)}`}
+              : `${FORMAT_LABEL[overview.format]}, ${overview.language}, ${clock(overview.durationSeconds)}, ${timeAgo(overview.createdAt)}`}
         </p>
       </div>
     </button>
@@ -293,7 +293,7 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
     setBusy(true)
     try {
       const { overview } = await apiJson<{ overview: AudioSummary }>('/api/audio', { method: 'POST', json: input })
-      toast({ title: 'Audio overview started', description: 'The hosts are reading your sources. This takes a few minutes — you can keep working.' })
+      toast({ title: 'Audio overview started', description: 'The hosts are reading your sources. This takes a few minutes; you can keep working.' })
       setOpenId(overview.id)
       await list.mutate()
       return true
@@ -326,34 +326,31 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-5 overflow-y-auto pr-1">
-      <form onSubmit={submit} className="relative shrink-0 overflow-hidden rounded-2xl border border-primary/25 bg-brand-soft p-5">
+      <form onSubmit={submit} className="relative shrink-0 border-b border-border pb-5">
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-xl bg-brand-gradient shadow-md">
-            <Headphones className="size-4 text-white" />
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-rule-2 bg-paper-3">
+            <Headphones className="size-4 text-ink-2" />
           </div>
           <div>
-            <h3 className="font-display text-sm font-semibold">Create an audio overview</h3>
-            <p className="text-[11px] text-muted-foreground">Two AI hosts talk through your sources — facts only from what you added.</p>
+            <h3 className="font-display text-sm font-medium">Create an audio overview</h3>
+            <p className="text-[11px] text-muted-foreground">Two AI hosts talk through your sources, with facts only from what you added.</p>
           </div>
         </div>
 
-        <fieldset className="grid grid-cols-2 gap-2 lg:grid-cols-4" disabled={!audioEnabled}>
-          <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Format</legend>
+        <fieldset className="grid grid-cols-2 overflow-hidden rounded-md border border-border bg-border [gap:1px] lg:grid-cols-4" disabled={!audioEnabled}>
+          <legend className="mb-1.5 text-xs font-medium text-muted-foreground">Format</legend>
           {FORMATS.map(({ id, label, description, icon: Icon }) => (
             <button
               key={id}
               type="button"
               aria-pressed={format === id}
               onClick={() => setFormat(id)}
-              className={cn(
-                'rounded-xl border p-3 text-left transition-all',
-                format === id ? 'border-primary/60 bg-card shadow-sm' : 'border-border/60 bg-card/40 hover:border-primary/30',
-              )}
+              className={cn('p-3 text-left transition-colors duration-micro', format === id ? 'bg-signal-soft' : 'bg-card hover:bg-secondary')}
             >
-              <span className="flex items-center gap-1.5 text-xs font-semibold">
-                <Icon className={cn('size-3.5 shrink-0', format === id ? 'text-primary' : 'text-muted-foreground')} /> {label}
+              <span className="flex items-center gap-1.5 text-xs font-medium">
+                <Icon className={cn('size-3.5 shrink-0', format === id ? 'text-signal' : 'text-muted-foreground')} /> {label}
               </span>
-              <span className="mt-1 block text-[11px] leading-snug text-muted-foreground">{description}</span>
+              <span className="mt-1 block text-xs leading-snug text-muted-foreground">{description}</span>
             </button>
           ))}
         </fieldset>
@@ -363,8 +360,8 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
           <div className="space-y-3">
             <div className="flex flex-wrap items-end gap-3">
               <fieldset disabled={!audioEnabled}>
-                <legend className="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Length</legend>
-                <div className="inline-flex rounded-xl border border-border/60 bg-card/50 p-0.5">
+                <legend className="mb-1.5 text-[10px] font-medium text-muted-foreground">Length</legend>
+                <div className="inline-flex overflow-hidden rounded-md border border-border">
                   {LENGTHS.map((option) => (
                     <button
                       key={option.id}
@@ -372,8 +369,8 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
                       aria-pressed={length === option.id}
                       onClick={() => setLength(option.id)}
                       className={cn(
-                        'rounded-lg px-3 py-1 text-[11px] transition-colors',
-                        length === option.id ? 'bg-card font-semibold shadow-sm' : 'text-muted-foreground hover:text-foreground',
+                        'h-8 px-3 text-xs transition-colors duration-micro [&:not(:first-child)]:border-l [&:not(:first-child)]:border-border',
+                        length === option.id ? 'bg-signal-soft font-medium text-foreground' : 'bg-card text-muted-foreground hover:text-foreground',
                       )}
                     >
                       {option.label} <span className="opacity-60">{option.hint}</span>
@@ -382,7 +379,7 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
                 </div>
               </fieldset>
               <div className="w-40">
-                <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="audio-language">
+                <label className="mb-1.5 block text-[10px] font-medium text-muted-foreground" htmlFor="audio-language">
                   Language
                 </label>
                 <Select id="audio-language" value={language} disabled={!audioEnabled} onChange={(event) => setLanguage(event.target.value as AudioLanguage)}>
@@ -395,7 +392,7 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
               </div>
             </div>
             <div>
-              <label className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground" htmlFor="audio-focus">
+              <label className="mb-1.5 block text-[10px] font-medium text-muted-foreground" htmlFor="audio-focus">
                 Focus (optional)
               </label>
               <Textarea
@@ -426,7 +423,7 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
       <div className="grid shrink-0 gap-5 lg:grid-cols-[300px_minmax(0,1fr)]">
         <section className="space-y-2">
           <div className="flex items-center justify-between">
-            <h3 className="font-display text-sm font-semibold">Your overviews</h3>
+            <h3 className="font-display text-sm font-medium">Your overviews</h3>
             <span className="text-[11px] text-muted-foreground">{overviews.length}</span>
           </div>
           {list.isLoading ? (
@@ -451,10 +448,10 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
             <div className="space-y-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <h3 className="font-display text-lg font-semibold">{open.title}</h3>
+                  <h3 className="font-display text-lg font-medium">{open.title}</h3>
                   <p className="text-xs text-muted-foreground">
-                    {FORMAT_LABEL[open.format]} · {open.language} · {timeAgo(open.createdAt)}
-                    {open.focus ? ` · focus: ${open.focus}` : ''}
+                    {FORMAT_LABEL[open.format]}, {open.language}, {timeAgo(open.createdAt)}
+                    {open.focus ? `, focus: ${open.focus}` : ''}
                   </p>
                 </div>
                 <div className="flex gap-1.5">
@@ -495,7 +492,7 @@ export function AudioStudio({ collections, user, audioEnabled, focusId, onFocusC
               ) : (
                 <div className="generating flex flex-col items-center justify-center rounded-2xl border border-primary/30 p-10 text-center">
                   <Equalizer className="h-10 [&>span]:w-1.5" />
-                  <p className="mt-4 text-sm font-semibold">{open.progress ?? 'Queued'}</p>
+                  <p className="mt-4 text-sm font-medium">{open.progress ?? 'Queued'}</p>
                   <p className="mt-1 max-w-sm text-xs text-muted-foreground">
                     Reading the sources, writing a script and recording both hosts. Longer overviews take a few minutes.
                   </p>

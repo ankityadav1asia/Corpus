@@ -45,14 +45,14 @@ function MemberRow({ member, isYou, manage }: MemberRowProps) {
           {member.name ?? member.email}
           {isYou && <span className="ml-1 text-muted-foreground">(you)</span>}
         </p>
-        {member.name && <p className="truncate font-mono text-[10px] text-muted-foreground">{member.email}</p>}
+        {member.name && <p className="truncate text-xs text-muted-foreground">{member.email}</p>}
       </div>
       {manage ? (
         <div className="w-28">
           <RoleSelect label={`Role of ${member.email}`} value={member.role} disabled={manage.busy} onChange={manage.onRoleChange} />
         </div>
       ) : (
-        <Badge variant="outline" className="font-mono text-[10px]">
+        <Badge variant="outline" className=" text-xs">
           {ROLE_LABELS[member.role]}
         </Badge>
       )}
@@ -84,7 +84,7 @@ function InviteForm({ workspaceId, onInvited }: { workspaceId: string; onInvited
       setEmail('')
       await onInvited()
       toast({
-        description: result.status === 'added' ? `${address} was added as ${ROLE_LABELS[role]}.` : `Invitation saved — it is accepted automatically when ${address} signs in.`,
+        description: result.status === 'added' ? `${address} was added as ${ROLE_LABELS[role]}.` : `Invitation saved. It is accepted automatically when ${address} signs in.`,
       })
     })
   }
@@ -120,13 +120,13 @@ function InviteForm({ workspaceId, onInvited }: { workspaceId: string; onInvited
 function PendingInvites({ invites, onRevoke }: { invites: readonly WorkspaceInvite[]; onRevoke: (email: string) => void }) {
   return (
     <div className="space-y-1.5">
-      <p className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">Pending invitations</p>
+      <p className=" text-xs text-muted-foreground">Pending invitations</p>
       {invites.map((pending) => (
         <div key={pending.email} className="flex items-center justify-between rounded-lg border border-dashed border-border/60 px-2.5 py-1.5 text-xs">
           <span className="truncate">
-            {pending.email} <span className="text-muted-foreground">· {ROLE_LABELS[pending.role]}</span>
+            {pending.email} <span className="text-muted-foreground">({ROLE_LABELS[pending.role]})</span>
           </span>
-          <button type="button" onClick={() => onRevoke(pending.email)} className="font-mono text-[10px] text-muted-foreground hover:text-destructive">
+          <button type="button" onClick={() => onRevoke(pending.email)} className=" text-xs text-muted-foreground hover:text-destructive">
             Revoke
           </button>
         </div>

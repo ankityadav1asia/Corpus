@@ -21,7 +21,7 @@ export function Tooltip({ label, side = 'top', align = 'center', children }: Too
       <span
         role="tooltip"
         className={cn(
-          'pointer-events-none absolute z-50 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-[11px] text-popover-foreground shadow-md group-focus-within/tooltip:block group-hover/tooltip:block',
+          'pointer-events-none absolute z-50 hidden whitespace-nowrap rounded-md border border-border bg-popover px-2 py-1 text-[11px] text-popover-foreground group-focus-within/tooltip:block group-hover/tooltip:block',
           side === 'top' ? 'bottom-full mb-1.5' : 'top-full mt-1.5',
           align === 'center' && 'left-1/2 -translate-x-1/2',
           align === 'start' && 'left-0',

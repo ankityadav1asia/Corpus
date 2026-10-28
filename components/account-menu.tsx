@@ -40,7 +40,7 @@ export function AccountMenu({ user, onOpenPalette, onOpenShortcuts, onOpenSettin
           <>
             <Avatar name={user.name} email={user.email} />
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-xs font-semibold">{displayName}</span>
+              <span className="block truncate text-xs font-medium">{displayName}</span>
               <span className="block truncate text-[10px] text-muted-foreground">{user.email}</span>
             </span>
             <ChevronsUpDown className="size-3.5 shrink-0 text-muted-foreground" />
@@ -55,7 +55,7 @@ export function AccountMenu({ user, onOpenPalette, onOpenShortcuts, onOpenSettin
               <div className="flex items-center gap-2.5 px-2.5 py-2">
                 <Avatar name={user.name} email={user.email} />
                 <span className="min-w-0">
-                  <span className="block truncate text-xs font-semibold">{displayName}</span>
+                  <span className="block truncate text-xs font-medium">{displayName}</span>
                   <span className="block truncate text-[10px] text-muted-foreground">{user.email}</span>
                 </span>
               </div>
@@ -63,7 +63,7 @@ export function AccountMenu({ user, onOpenPalette, onOpenShortcuts, onOpenSettin
             </>
           )}
           <div className="px-2.5 py-2">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Appearance</p>
+            <p className="text-[10px] font-medium text-muted-foreground">Appearance</p>
             <ThemeToggle className="mt-1.5" />
           </div>
           <MenuSeparator />

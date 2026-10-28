@@ -50,7 +50,7 @@ function CopyEndpoint({ value }: { value: string }) {
         }}
         className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground"
       >
-        {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+        {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
       </button>
     </div>
   )
@@ -106,13 +106,13 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
           <div key={integration.id} className="space-y-2 rounded-xl border border-border/60 bg-secondary/20 p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-xs font-semibold">
-                  {integration.name} <span className="font-normal text-muted-foreground">· {PROVIDERS[integration.provider].label}</span>
+                <p className="text-xs font-medium">
+                  {integration.name} <span className="font-normal text-muted-foreground">({PROVIDERS[integration.provider].label})</span>
                 </p>
                 <p className="truncate text-[11px] text-muted-foreground">
-                  {integration.account ?? 'Unknown account'} · answers from{' '}
+                  {integration.account ?? 'Unknown account'}, answers from{' '}
                   {integration.allNotebooks ? 'all notebooks' : (notebooks.find((notebook) => notebook.id === integration.collectionId)?.name ?? 'a deleted notebook')}
-                  {integration.lastUsedAt ? ` · last answered ${timeAgo(integration.lastUsedAt)}` : ' · not used yet'}
+                  {integration.lastUsedAt ? `, last answered ${timeAgo(integration.lastUsedAt)}` : ', not used yet'}
                 </p>
               </div>
               <button
@@ -130,7 +130,7 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
               </p>
             )}
             <div>
-              <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Request URL (Event Subscriptions)</p>
+              <p className="mb-1 text-[10px] font-medium text-muted-foreground">Request URL (Event Subscriptions)</p>
               <CopyEndpoint value={integration.endpoint} />
             </div>
           </div>
@@ -139,7 +139,7 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
 
       {adding ? (
         <form onSubmit={submit} className="space-y-2.5 rounded-xl border border-primary/30 bg-primary/5 p-3">
-          <p className="text-xs font-semibold">Connect {PROVIDERS[adding].label}</p>
+          <p className="text-xs font-medium">Connect {PROVIDERS[adding].label}</p>
           <ol className="list-decimal space-y-1 pl-4 text-[11px] text-muted-foreground">
             {PROVIDERS[adding].steps.map((step) => (
               <li key={step}>{step}</li>

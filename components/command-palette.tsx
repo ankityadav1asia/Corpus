@@ -108,7 +108,7 @@ export function CommandPalette({ open, onClose, commands }: CommandPaletteProps)
         ) : (
           groups.map(({ group, items }) => (
             <div key={group} className="mb-1">
-              <p className="px-3 pb-1 pt-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{group}</p>
+              <p className="px-3 pb-1 pt-2 text-[10px] font-medium text-muted-foreground">{group}</p>
               {items.map(({ command, index }) => {
                 const Icon = command.icon
                 return (

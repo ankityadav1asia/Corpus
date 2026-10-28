@@ -92,7 +92,7 @@ export function ShareDialog({ open, onClose, kind, targetId, title, canShare }: 
       open={open}
       onClose={onClose}
       title={`Share ${kind === 'conversation' ? 'chat' : 'report'}`}
-      description={`“${title}” — a read-only snapshot as it is now. Later changes are not shared.`}
+      description={`“${title}”: a read-only snapshot as it is now. Later changes are not shared.`}
     >
       <div className="space-y-4 p-5">
         {links.isLoading ? (
@@ -135,7 +135,7 @@ export function ShareDialog({ open, onClose, kind, targetId, title, canShare }: 
                 </div>
                 <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-muted-foreground">
                   <Eye className="size-3" /> {link.viewCount} view{link.viewCount === 1 ? '' : 's'}
-                  {link.lastViewedAt && ` · last opened ${timeAgo(link.lastViewedAt)}`} · created {timeAgo(link.createdAt)}
+                  {link.lastViewedAt && `, last opened ${timeAgo(link.lastViewedAt)}`}, created {timeAgo(link.createdAt)}
                   {link.createdByEmail && ` by ${link.createdByEmail}`}
                 </p>
               </li>

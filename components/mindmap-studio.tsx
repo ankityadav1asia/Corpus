@@ -63,7 +63,7 @@ export function MindMapStudio({ collections, user, enabled, focusId, onFocusCons
       const { mindMap } = await apiJson<{ mindMap: MindMapSummary }>('/api/mindmaps', { method: 'POST', json: input })
       setOpenId(mindMap.id)
       await list.mutate()
-      toast({ description: 'Building the mind map — usually under a minute.' })
+      toast({ description: 'Building the mind map, usually in under a minute.' })
     } catch (error) {
       toast({ variant: 'destructive', description: errorMessage(error) })
     } finally {
@@ -91,21 +91,21 @@ export function MindMapStudio({ collections, user, enabled, focusId, onFocusCons
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-5 overflow-y-auto pr-1">
-      <form onSubmit={submit} className="relative shrink-0 overflow-hidden rounded-2xl border border-primary/25 bg-brand-soft p-5">
+      <form onSubmit={submit} className="relative shrink-0 border-b border-border pb-5">
         <div className="mb-4 flex items-center gap-2">
-          <div className="flex size-8 items-center justify-center rounded-xl bg-brand-gradient shadow-md">
-            <Network className="size-4 text-white" />
+          <div className="flex size-8 shrink-0 items-center justify-center rounded-md border border-rule-2 bg-paper-3">
+            <Network className="size-4 text-ink-2" />
           </div>
           <div>
-            <h3 className="font-display text-sm font-semibold">Build a mind map</h3>
-            <p className="text-[11px] text-muted-foreground">See how the topics in your sources connect — then click any topic to ask about it.</p>
+            <h3 className="font-display text-sm font-medium">Build a mind map</h3>
+            <p className="text-[11px] text-muted-foreground">See how the topics in your sources connect, then click any topic to ask about it.</p>
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
           <SourcePicker collections={collections} value={selection} onChange={setSelection} disabled={!enabled} />
           <div className="flex flex-col justify-between gap-3">
             <div>
-              <label htmlFor="mindmap-focus" className="mb-1.5 block text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+              <label htmlFor="mindmap-focus" className="mb-1.5 block text-[10px] font-medium text-muted-foreground">
                 Focus (optional)
               </label>
               <Input
@@ -137,8 +137,8 @@ export function MindMapStudio({ collections, user, enabled, focusId, onFocusCons
                   type="button"
                   onClick={() => setOpenId(map.id)}
                   className={cn(
-                    'flex w-60 shrink-0 animate-fade-up items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition-all',
-                    map.id === openId ? 'border-primary/60 bg-primary/5 shadow-sm' : 'border-border/60 bg-card/60 hover:border-primary/30',
+                    'flex w-60 shrink-0 animate-fade-up items-center gap-2.5 rounded-2xl border px-3 py-2.5 text-left transition-colors',
+                    map.id === openId ? 'border-primary/60 bg-primary/5' : 'border-border/60 bg-card/60 hover:border-primary/30',
                   )}
                 >
                   {map.status === 'failed' ? (
@@ -151,7 +151,7 @@ export function MindMapStudio({ collections, user, enabled, focusId, onFocusCons
                   <span className="min-w-0">
                     <span className="block truncate text-xs font-medium">{map.title}</span>
                     <span className="block truncate text-[10px] text-muted-foreground">
-                      {running ? (map.progress ?? 'Queued') : map.status === 'failed' ? 'Could not be built' : `${map.nodeCount ?? 0} topics · ${timeAgo(map.createdAt)}`}
+                      {running ? (map.progress ?? 'Queued') : map.status === 'failed' ? 'Could not be built' : `${map.nodeCount ?? 0} topics, ${timeAgo(map.createdAt)}`}
                     </span>
                   </span>
                 </button>
@@ -168,10 +168,10 @@ export function MindMapStudio({ collections, user, enabled, focusId, onFocusCons
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <h3 className="truncate font-display text-lg font-semibold">{open.title}</h3>
+                <h3 className="truncate font-display text-lg font-medium">{open.title}</h3>
                 <p className="text-[11px] text-muted-foreground">
                   {open.nodeCount} topics from {open.sources.length} source{open.sources.length === 1 ? '' : 's'}
-                  {open.focus ? ` · focus: ${open.focus}` : ''}
+                  {open.focus ? `, focus: ${open.focus}` : ''}
                 </p>
               </div>
               {canManageOwned(role, open.createdByEmail, user.email) && (
@@ -206,7 +206,7 @@ export function MindMapStudio({ collections, user, enabled, focusId, onFocusCons
         ) : (
           <div className="generating flex h-[420px] flex-col items-center justify-center rounded-2xl border border-primary/30 text-center">
             <Network className="size-10 animate-pulse text-primary" />
-            <p className="mt-4 text-sm font-semibold">{open.progress ?? 'Queued'}</p>
+            <p className="mt-4 text-sm font-medium">{open.progress ?? 'Queued'}</p>
             <p className="mt-1 max-w-sm text-xs text-muted-foreground">Reading each source and arranging its topics into a map.</p>
           </div>
         )}

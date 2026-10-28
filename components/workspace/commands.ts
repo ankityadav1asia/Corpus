@@ -115,7 +115,7 @@ export function buildOnboardingSteps(deps: {
   inviteTeam: () => void
 }): OnboardingStep[] {
   return [
-    { id: 'source', label: 'Add a source', description: 'A file up to 50 MB, a web page, a video, notes — or connect an app', done: deps.hasDocuments, action: deps.openSources },
+    { id: 'source', label: 'Add a source', description: 'A file up to 50 MB, a web page, a video or notes, or connect an app', done: deps.hasDocuments, action: deps.openSources },
     { id: 'ask', label: 'Ask a question', description: 'Answers cite the passages they come from', done: deps.hasConversations, action: deps.focusComposer },
     { id: 'report', label: 'Create a report', description: 'Executive summaries, comparisons and slide outlines', done: deps.hasReports, action: () => deps.showTab('reports') },
     { id: 'team', label: 'Invite your team', description: 'Share a workspace with Admin, Editor and Viewer roles', done: deps.hasTeam, action: deps.inviteTeam },
