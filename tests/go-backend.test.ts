@@ -30,6 +30,12 @@ describe('Go backend routing', () => {
     }
   })
 
+  it('every path the Go router serves is rewritten to it', () => {
+    const server = readFileSync(path.join(process.cwd(), 'backend', 'api', 'server.go'), 'utf8')
+    const registered = [...server.matchAll(/mux\.Handle\("[A-Z]+ ([^"]+)"/g)].map((match) => match[1]!.replace(/\{(\w+)\}/g, ':$1'))
+    for (const apiPath of new Set(registered)) assert.ok(GO_API_PATHS.includes(apiPath), `${apiPath} is served by Go but not rewritten in next.config.mjs`)
+  })
+
   it('no Next.js route file is left for a path the Go API serves', () => {
     for (const apiPath of GO_API_PATHS) {
       const file = path.join(
