@@ -340,7 +340,7 @@ func TestChatSurfacesVendorFailuresAndKeepsThePartialAnswer(t *testing.T) {
 		t.Fatalf("last event = %v", last)
 	}
 	partial, err := e.db.QueryString(context.Background(), `SELECT content FROM app.messages m JOIN app.conversations c ON c.id = m.conversation_id WHERE c.owner_id = $1 AND m.role = 'assistant'`, alice.id)
-	if err != nil || partial != "Answer from " {
+	if err != nil || partial != "Answer from" { // QueryString trims
 		t.Fatalf("partial answer %q %v", partial, err)
 	}
 	status, _ := e.db.QueryString(context.Background(), `SELECT status FROM app.query_logs WHERE owner_id = $1`, alice.id)
