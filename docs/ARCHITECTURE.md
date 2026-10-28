@@ -346,7 +346,10 @@ came from.
 | Speech | `gemini-2.5-flash-preview-tts`, two voices in one request | `/audio/speech` per line (Kokoro, openedai-speech) |
 | OCR | Tesseract (local) or the vision model | same |
 
-Chat and embeddings can come from different providers (`combineProviders`). Reasoning output is
+Chat can also be Claude (`CHAT_PROVIDER=anthropic`: the Anthropic SDKs in `server/ai/anthropic.ts` and
+`backend/ai/anthropic.go`; low effort for standard answers and helper calls, medium for deep answers
+and reports; cached system prompt; server-side refusal fallback). Chat and embeddings can come from
+different providers (`combineProviders`). Reasoning output is
 removed from answers (Gemma `thought` parts, `<think>` blocks of Qwen / DeepSeek, also while
 streaming). Every chunk stores its `embedding_model`; vector search compares only vectors of the
 active model (keyword search still finds the others), vectors shorter than 3 072 dimensions are

@@ -212,6 +212,20 @@ Every setting is declared and validated in [server/env.ts](server/env.ts); [Conf
 - Without an email provider, `npm run dev` prints sign-in codes to the server console.
 - To try the app without a database server, set `POSTGRES_URL=pglite:./.data/pglite` (Postgres + pgvector in the Node process, for local development only).
 
+### Answering with Claude
+
+```bash
+# Claude answers; Gemini keeps embeddings, vision, transcription and speech (GOOGLE_API_KEY)
+CHAT_PROVIDER=anthropic
+ANTHROPIC_API_KEY=sk-ant-...
+# Optional: ANTHROPIC_CHAT_MODEL (default claude-opus-5-5), ANTHROPIC_FAST_MODEL for helper calls
+```
+
+Claude's current models always think and take no sampling settings, so standard answers and helper
+calls (query planning, re-ranking, judging) run at low effort and deep answers and reports at medium.
+The system prompt is cached, and a declined request is answered by Anthropic's recommended fallback
+model in the same call.
+
 ### Running on open-source models
 
 ```bash
@@ -346,6 +360,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
 - **Who can sign in:** `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`. Invitations do not bypass them.
 - **Models**
   - Gemini: `GEMINI_*_MODEL`.
+  - Claude for answers: `CHAT_PROVIDER=anthropic` with `ANTHROPIC_API_KEY`; optional `ANTHROPIC_CHAT_MODEL` (default `claude-opus-5-5`) and `ANTHROPIC_FAST_MODEL`.
   - Open-source: set `CHAT_PROVIDER`, `EMBEDDING_PROVIDER`, `VISION_PROVIDER`, `TRANSCRIPTION_PROVIDER` or `TTS_PROVIDER` to `openai-compatible` and fill in `OPENAI_COMPATIBLE_*`.
   - OCR: `OCR_ENGINE` (`tesseract`, `vision` or `none`) and `OCR_LANGUAGES`.
 - **Re-ranking and jobs:** `RERANKER` (`auto`, `llm`, `cohere` or `none`) with `COHERE_API_KEY`. `CRON_SECRET` enables `/api/jobs/run` (Vercel Cron sends it).

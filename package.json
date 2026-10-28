@@ -28,6 +28,7 @@
     "db:pglite-server": "node --conditions=react-server --import tsx scripts/pglite-server.ts"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.133.0",
     "@breezystack/lamejs": "^1.2.7",
     "@google/generative-ai": "^0.24.1",
     "@neondatabase/serverless": "^0.9.5",

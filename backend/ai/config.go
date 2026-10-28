@@ -16,6 +16,8 @@ import (
 const (
 	defaultChatModel      = "gemini-3.6-flash"
 	defaultEmbeddingModel = "gemini-embedding-001"
+	// defaultAnthropicModel is Claude Opus 5.5, unless ANTHROPIC_CHAT_MODEL names another Claude model.
+	defaultAnthropicModel = "claude-opus-5-5"
 )
 
 type getenv func(string) string
@@ -37,10 +39,11 @@ func geminiAPIKey(get getenv) string {
 }
 
 type backend struct {
-	gemini  bool
-	apiKey  string
-	baseURL string
-	model   string
+	gemini    bool
+	anthropic bool
+	apiKey    string
+	baseURL   string
+	model     string
 }
 
 func chosen(get getenv, name string) bool {
@@ -73,6 +76,17 @@ func geminiBackend(get getenv, model, label string) (backend, error) {
 }
 
 func chatBackend(get getenv) (backend, error) {
+	if strings.ToLower(value(get, "CHAT_PROVIDER")) == "anthropic" {
+		key := value(get, "ANTHROPIC_API_KEY")
+		if key == "" {
+			return backend{}, apperr.NotConfigured("CHAT_PROVIDER=anthropic requires ANTHROPIC_API_KEY.")
+		}
+		model := value(get, "ANTHROPIC_CHAT_MODEL")
+		if model == "" {
+			model = defaultAnthropicModel
+		}
+		return backend{anthropic: true, apiKey: key, model: model}, nil
+	}
 	if chosen(get, "CHAT_PROVIDER") {
 		return compatible(get, value(get, "OPENAI_COMPATIBLE_CHAT_MODEL"), "OPENAI_COMPATIBLE_CHAT_MODEL", "CHAT_PROVIDER", "")
 	}
@@ -95,6 +109,9 @@ func embeddingBackend(get getenv) (backend, error) {
 }
 
 func fastModel(get getenv) string {
+	if strings.ToLower(value(get, "CHAT_PROVIDER")) == "anthropic" {
+		return value(get, "ANTHROPIC_FAST_MODEL")
+	}
 	if chosen(get, "CHAT_PROVIDER") {
 		return value(get, "OPENAI_COMPATIBLE_FAST_MODEL")
 	}
@@ -115,7 +132,9 @@ func build(get getenv) (Provider, error) {
 		return NewGemini(GeminiConfig{APIKey: chat.apiKey, ChatModel: chat.model, EmbeddingModel: embeddings.model, FastModel: fast}), nil
 	}
 	var chatProvider, embeddingProvider Provider
-	if chat.gemini {
+	if chat.anthropic {
+		chatProvider = NewAnthropicChat(AnthropicConfig{APIKey: chat.apiKey, Model: chat.model, FastModel: fast})
+	} else if chat.gemini {
 		chatProvider = NewGemini(GeminiConfig{APIKey: chat.apiKey, ChatModel: chat.model, FastModel: fast})
 	} else {
 		chatProvider = NewOpenAIChat(OpenAIConfig{BaseURL: chat.baseURL, APIKey: chat.apiKey, Model: chat.model, FastModel: fast})

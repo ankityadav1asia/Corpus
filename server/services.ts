@@ -1,5 +1,6 @@
 import 'server-only'
 
+import { createAnthropicChat } from '@/server/ai/anthropic'
 import { createGeminiProvider } from '@/server/ai/gemini'
 import { DEFAULT_GEMINI_VOICES, createGeminiSpeech, createGeminiTranscriber, createGeminiVision } from '@/server/ai/gemini-media'
 import type { SpeechSynthesizer, Transcriber, VisionModel } from '@/server/ai/media'
@@ -22,6 +23,7 @@ import {
   getSpeechBackend,
   getTranscriptionBackend,
   getVisionBackend,
+  type ChatBackend,
   type ModelBackend,
 } from '@/server/env'
 import { createTesseractOcr, createVisionOcr, type OcrEngine } from '@/server/media/ocr'
@@ -62,14 +64,16 @@ function compatible(backend: Extract<ModelBackend, { provider: 'openai-compatibl
 }
 
 /** Chat and embeddings can come from different back ends (e.g. an open-source chat model with Gemini embeddings). */
-export function createAiProvider(chat: ModelBackend, embeddings: ModelBackend, fastModel: string | null = null): AiProvider {
+export function createAiProvider(chat: ChatBackend, embeddings: ModelBackend, fastModel: string | null = null): AiProvider {
   if (chat.provider === 'gemini' && embeddings.provider === 'gemini' && chat.apiKey === embeddings.apiKey) {
     return createGeminiProvider({ apiKey: chat.apiKey, chatModel: chat.model, embeddingModel: embeddings.model, fastModel })
   }
   const chatPart =
     chat.provider === 'gemini'
       ? createGeminiProvider({ apiKey: chat.apiKey, chatModel: chat.model, embeddingModel: 'unused', fastModel })
-      : createOpenAiCompatibleChat({ ...compatible(chat), fastModel })
+      : chat.provider === 'anthropic'
+        ? createAnthropicChat({ apiKey: chat.apiKey, model: chat.model, fastModel })
+        : createOpenAiCompatibleChat({ ...compatible(chat), fastModel })
   const embeddingPart =
     embeddings.provider === 'gemini'
       ? createGeminiProvider({ apiKey: embeddings.apiKey, chatModel: 'unused', embeddingModel: embeddings.model })
