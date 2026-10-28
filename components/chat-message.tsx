@@ -1,23 +1,6 @@
 'use client'
 
-import {
-  AlertCircle,
-  Check,
-  ChevronDown,
-  ChevronUp,
-  Copy,
-  GitBranch,
-  Loader2,
-  RotateCcw,
-  SearchX,
-  Send,
-  Sparkles,
-  ThumbsDown,
-  ThumbsUp,
-  Volume2,
-  VolumeX,
-  Wand2,
-} from 'lucide-react'
+import { AlertCircle, Check, ChevronDown, ChevronUp, Copy, GitBranch, Loader2, RotateCcw, SearchX, Send, Sparkles, ThumbsDown, ThumbsUp, Volume2, VolumeX } from 'lucide-react'
 import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
 
 import { CitationList } from '@/components/citation-list'
@@ -35,8 +18,6 @@ export interface ChatMessageActions {
   onBranch?: (messageId: string) => void
   /** Rate an answer: 1, -1, or 0 to clear. */
   onFeedback?: (messageId: string, rating: 1 | -1 | 0, comment?: string) => Promise<void>
-  /** Turn the question behind this answer into an image. */
-  onVisualize?: () => void
   /** Ask the question behind this answer again. */
   onRetry?: () => void
   onOpenSource?: (documentId: string, chunkId: string | null) => void
@@ -221,13 +202,12 @@ interface AnswerActionsProps {
   message: UiMessage
   /** Present when the answer can be rated. */
   onRate?: (rating: 1 | -1) => void
-  onVisualize?: () => void
   onRetry?: () => void
   onBranch?: () => void
 }
 
-/** Copy, read aloud, rate, visualize, ask again and branch. */
-function AnswerActions({ message, onRate, onVisualize, onRetry, onBranch }: AnswerActionsProps) {
+/** Copy, read aloud, rate, ask again and branch. */
+function AnswerActions({ message, onRate, onRetry, onBranch }: AnswerActionsProps) {
   const speech = useReadAloud(message.content)
   const rating = message.feedback?.rating
   return (
@@ -247,11 +227,6 @@ function AnswerActions({ message, onRate, onVisualize, onRetry, onBranch }: Answ
             <ThumbsDown className={cn('size-3.5', rating === -1 && 'fill-current')} />
           </ActionButton>
         </>
-      )}
-      {onVisualize && (
-        <ActionButton label="Visualize as an image" onClick={onVisualize}>
-          <Wand2 className="size-3.5" />
-        </ActionButton>
       )}
       {onRetry && (
         <ActionButton label="Ask again" onClick={onRetry}>
@@ -301,7 +276,7 @@ function FeedbackComment({ onSubmit }: { onSubmit: (comment: string) => Promise<
   )
 }
 
-export function ChatMessage({ message, user, onBranch, onFeedback, onVisualize, onRetry, onOpenSource }: ChatMessageProps) {
+export function ChatMessage({ message, user, onBranch, onFeedback, onRetry, onOpenSource }: ChatMessageProps) {
   const [commenting, setCommenting] = useState(false)
   const done = message.status === 'done'
   const branch = onBranch && message.persisted && done ? () => onBranch(message.id) : undefined
@@ -341,7 +316,6 @@ export function ChatMessage({ message, user, onBranch, onFeedback, onVisualize, 
           <AnswerActions
             message={message}
             onRate={onFeedback && message.persisted && done && !insufficient ? (rating) => void rate(rating) : undefined}
-            onVisualize={done && !insufficient ? onVisualize : undefined}
             onRetry={done ? onRetry : undefined}
             onBranch={branch}
           />

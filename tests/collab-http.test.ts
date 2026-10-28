@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict'
-import { createHmac, generateKeyPairSync, sign, type KeyObject } from 'node:crypto'
+import { createHmac } from 'node:crypto'
 import { after, before, describe, it } from 'node:test'
 
 import { NextRequest } from 'next/server'
@@ -8,7 +8,6 @@ import * as chatRoute from '@/app/api/chat/route'
 import * as documentFileRoute from '@/app/api/corpus/documents/[id]/file/route'
 import * as documentRoute from '@/app/api/corpus/documents/[id]/route'
 import * as slackEventsRoute from '@/app/api/integrations/slack/[id]/events/route'
-import * as teamsMessagesRoute from '@/app/api/integrations/teams/[id]/messages/route'
 import * as uploadRoute from '@/app/api/learn/upload/route'
 import * as followupsRoute from '@/app/api/messages/[id]/followups/route'
 import * as publicShareRoute from '@/app/api/public/shares/[token]/route'
@@ -35,7 +34,6 @@ import { makePdf } from './helpers/pdf'
 
 const SECRET = 'q'.repeat(48)
 const ORIGIN = 'http://localhost:3000'
-const TEAMS_APP_ID = '11111111-2222-4333-8444-555555555555'
 const SLACK_SIGNING = 'slack-signing-secret-for-tests'
 
 let t: TestDb
@@ -50,10 +48,8 @@ let ed: Actor // editor
 let val: Actor // viewer
 let team: { workspaceId: string; notebookId: string }
 
-/* ── Fake Slack / Microsoft endpoints ─────────────────────────────────────── */
+/* ── Fake Slack endpoints ─────────────────────────────────────────────────── */
 
-let signingKey: KeyObject
-let publicJwk: { n: string; e: string }
 const outbound: Array<{ url: string; body: string; auth: string | null }> = []
 
 const fakeFetch: typeof fetch = async (input, init) => {
@@ -65,19 +61,7 @@ const fakeFetch: typeof fetch = async (input, init) => {
   if (url === 'https://slack.com/api/auth.test')
     return auth === 'Bearer xoxb-good' ? reply({ ok: true, team: 'Acme', user: 'corpus' }) : reply({ ok: false, error: 'invalid_auth' })
   if (url === 'https://slack.com/api/chat.postMessage') return reply({ ok: true })
-  if (url === 'https://login.botframework.com/v1/.well-known/openidconfiguration') return reply({ jwks_uri: 'https://login.botframework.com/v1/.well-known/keys' })
-  if (url === 'https://login.botframework.com/v1/.well-known/keys') return reply({ keys: [{ kid: 'test-key', kty: 'RSA', ...publicJwk, endorsements: ['msteams'] }] })
-  if (url.startsWith('https://login.microsoftonline.com/'))
-    return body.includes('client_secret=right') ? reply({ access_token: 'bot-token', expires_in: 3600 }) : reply({ error: 'invalid_client' }, 401)
-  if (url.startsWith('https://smba.trafficmanager.net/')) return reply({ id: 'reply-1' })
   return reply({ error: 'unexpected' }, 404)
-}
-
-function botFrameworkToken(claims: Record<string, unknown>): string {
-  const header = Buffer.from(JSON.stringify({ alg: 'RS256', kid: 'test-key', typ: 'JWT' })).toString('base64url')
-  const payload = Buffer.from(JSON.stringify(claims)).toString('base64url')
-  const signature = sign('RSA-SHA256', Buffer.from(`${header}.${payload}`), signingKey).toString('base64url')
-  return `${header}.${payload}.${signature}`
 }
 
 /* ── Harness ──────────────────────────────────────────────────────────────── */
@@ -118,7 +102,7 @@ async function data<T>(res: Response | Promise<Response>): Promise<T> {
   return (await (await res).json()) as T
 }
 
-const jobs = () => runJobs({ repos, ai: () => ai, reranker: () => createLlmReranker(ai), images: () => null, secret: () => SECRET, fetch: fakeFetch }, { maxJobs: 20 })
+const jobs = () => runJobs({ repos, ai: () => ai, reranker: () => createLlmReranker(ai), secret: () => SECRET, fetch: fakeFetch }, { maxJobs: 20 })
 
 async function actor(email: string): Promise<Actor> {
   const user = await createUser(repos, email)
@@ -131,11 +115,6 @@ before(async () => {
   delete process.env.APP_URL
   resetEnvCache()
   setJobAutorun(false)
-  const keys = generateKeyPairSync('rsa', { modulusLength: 2048 })
-  signingKey = keys.privateKey
-  const jwk = keys.publicKey.export({ format: 'jwk' }) as { n: string; e: string }
-  publicJwk = { n: jwk.n, e: jwk.e }
-
   t = await createTestDb()
   repos = createRepositories(t.db)
   ai = createFakeAi()
@@ -144,7 +123,6 @@ before(async () => {
     repos,
     ai: () => ai,
     reranker: () => createLlmReranker(ai),
-    images: () => null,
     vision: () => null,
     transcriber: () => null,
     speech: () => null,
@@ -469,58 +447,5 @@ describe('Slack bot', () => {
       ).status,
       404,
     )
-  })
-})
-
-describe('Microsoft Teams bot', () => {
-  let integration: IntegrationSummary
-  const serviceUrl = 'https://smba.trafficmanager.net/amer/'
-  const activity = { type: 'message', id: 'act-1', serviceUrl, channelId: 'msteams', conversation: { id: 'conv-1' }, text: '<at>Corpus</at> What does photosynthesis convert?' }
-  const claims = (overrides: Record<string, unknown> = {}) => ({
-    iss: 'https://api.botframework.com',
-    aud: TEAMS_APP_ID,
-    exp: Math.floor(Date.now() / 1000) + 600,
-    nbf: Math.floor(Date.now() / 1000) - 10,
-    serviceurl: serviceUrl,
-    ...overrides,
-  })
-
-  before(async () => {
-    const body = { provider: 'teams', name: 'Teams bot', collectionId: null, appId: TEAMS_APP_ID, appPassword: 'right', tenantId: null }
-    const path = `/api/workspaces/${team.workspaceId}/integrations`
-    assert.equal(
-      (await call(integrationsRoute.POST, path, { method: 'POST', as: ada, workspace: null, body: { ...body, appPassword: 'wrong' }, params: { id: team.workspaceId } })).status,
-      400,
-    )
-    integration = (
-      await data<{ integration: IntegrationSummary }>(call(integrationsRoute.POST, path, { method: 'POST', as: ada, workspace: null, body, params: { id: team.workspaceId } }))
-    ).integration
-  })
-
-  it('accepts only Bot Framework tokens for this bot and service URL, then replies in the conversation', async () => {
-    const path = `/api/integrations/teams/${integration.id}/messages`
-    const params = { id: integration.id }
-    const post = (token: string, payload: unknown = activity) =>
-      call(teamsMessagesRoute.POST, path, { method: 'POST', as: null, workspace: null, raw: JSON.stringify(payload), headers: { authorization: `Bearer ${token}` }, params })
-
-    assert.equal((await post(botFrameworkToken(claims({ aud: 'someone-else' })))).status, 401)
-    assert.equal((await post(botFrameworkToken(claims({ exp: Math.floor(Date.now() / 1000) - 3600 })))).status, 401)
-    assert.equal((await post(botFrameworkToken(claims({ serviceurl: 'https://smba.trafficmanager.net/other/' })))).status, 401)
-    assert.equal((await post(botFrameworkToken(claims({ serviceurl: undefined })))).status, 401, 'tokens must name their service URL')
-    assert.equal((await post(botFrameworkToken(claims()), { ...activity, channelId: 'slack' })).status, 401, 'the key is only endorsed for Teams')
-    assert.equal((await post(`${botFrameworkToken(claims())}x`)).status, 401)
-
-    await t.db.query(`DELETE FROM app.jobs`)
-    assert.equal((await post(botFrameworkToken(claims()))).status, 200)
-    outbound.length = 0
-    assert.deepEqual(await jobs(), { processed: 1, failed: 0 })
-    const typing = outbound.find((request) => request.url === `${serviceUrl.replace(/\/$/, '')}/v3/conversations/conv-1/activities`)
-    assert.equal(JSON.parse(typing!.body).type, 'typing')
-    const reply = outbound.find((request) => request.url.endsWith('/v3/conversations/conv-1/activities/act-1'))
-    assert.ok(reply)
-    assert.equal(reply.auth, 'Bearer bot-token')
-    const message = JSON.parse(reply.body) as { text: string; textFormat: string; replyToId: string }
-    assert.equal(message.textFormat, 'markdown')
-    assert.match(message.text, /Answer from sources \[1\]\.[\s\S]*\*\*Sources\*\*/)
   })
 })

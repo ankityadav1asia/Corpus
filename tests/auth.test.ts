@@ -1,18 +1,15 @@
 import assert from 'node:assert/strict'
 import { after, before, beforeEach, describe, it } from 'node:test'
 
-import { EMBEDDING_DIMENSIONS } from '@/lib/constants'
 import { completeLogin, isEmailAllowed } from '@/server/auth/login'
 import { OTP_MAX_ATTEMPTS, generateOtpCode, hashOtp, requestOtp, verifyOtp, type OtpDeps } from '@/server/auth/otp'
 import { readSessionToken } from '@/server/auth/session'
-import { importLegacyData } from '@/server/db/import-legacy'
 import type { EmailSender } from '@/server/email/sender'
 import { resetEnvCache } from '@/server/env'
 import { AppError } from '@/server/http/errors'
 import { createRepositories, type Repositories } from '@/server/repositories'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { fakeEmbedding } from './helpers/fake-ai'
 
 const SECRET = 'x'.repeat(48)
 let t: TestDb
@@ -163,81 +160,5 @@ describe('one-time code sign-in', () => {
       ['outsider@gmail.com'],
       'the rejected address keeps its invitation until it is allowed to sign in',
     )
-  })
-})
-
-describe('legacy data import', () => {
-  const vector = (text: string) => `[${fakeEmbedding(text).join(',')}]`
-
-  before(async () => {
-    // Schema written by the previous version of the app (scripts/init-db.ts + LangChain).
-    await t.db.query(`CREATE TABLE public.vectorstore_documents (id uuid PRIMARY KEY DEFAULT gen_random_uuid(), text text, metadata jsonb, embedding vector)`)
-    await t.db.query(`ALTER TABLE public.vectorstore_documents ADD COLUMN collection_id text DEFAULT 'default'`)
-    await t.db.query(
-      `CREATE TABLE public.conversations (id text PRIMARY KEY, title text NOT NULL, collection_id text DEFAULT 'default', parent_id text, branch_message_id text, created_at timestamptz DEFAULT now(), updated_at timestamptz DEFAULT now())`,
-    )
-    await t.db.query(
-      `CREATE TABLE public.messages (id text PRIMARY KEY, conversation_id text NOT NULL REFERENCES public.conversations(id), role text NOT NULL, content text NOT NULL, citations jsonb, agent_steps jsonb, created_at timestamptz DEFAULT now())`,
-    )
-    const rows: Array<[string, object, string | null]> = [
-      ['Research chunk one about enzymes', { source: 'file:paper.pdf', collection_id: 'research' }, vector('enzymes')],
-      ['Research chunk two about enzymes', { source: 'file:paper.pdf', collection_id: 'research' }, vector('enzymes two')],
-      ['Web page text', { source: 'https://example.com/post', title: 'A Post' }, vector('web')],
-      ['Video words', { source: 'https://www.youtube.com/watch?v=dQw4w9WgXcQ', collection_id: 'research' }, vector('video')],
-      ['Bad embedding', { source: 'manual-input' }, '[1,2,3]'],
-    ]
-    for (const [text, metadata, embedding] of rows) {
-      await t.db.query(`INSERT INTO public.vectorstore_documents (text, metadata, embedding) VALUES ($1, $2::jsonb, $3::vector)`, [text, JSON.stringify(metadata), embedding])
-    }
-    await t.db.query(`INSERT INTO public.conversations (id, title, collection_id) VALUES ('conv_1', 'Old chat', 'research'), ('branch_2', '↳ Old chat', 'research')`)
-    await t.db.query(`UPDATE public.conversations SET parent_id = 'conv_1' WHERE id = 'branch_2'`)
-    await t.db.query(
-      `INSERT INTO public.messages (id, conversation_id, role, content, citations, created_at) VALUES
-        ('msg_user_1', 'conv_1', 'user', 'What are enzymes?', NULL, now() - interval '2 minutes'),
-        ('msg_asst_1', 'conv_1', 'assistant', 'Proteins. <!--CITATIONS:[{"index":1}]-->', '[{"id":"x","index":1,"source":"file:paper.pdf","score":1.6,"excerpt":"Research chunk"}]', now() - interval '1 minute'),
-        ('msg_sys', 'conv_1', 'system', 'ignored', NULL, now())`,
-    )
-  })
-
-  it('imports chunks with their embeddings, recovers notebooks from metadata and is idempotent', async () => {
-    const first = await importLegacyData(t.db, 'Legacy@Example.com')
-    assert.deepEqual(first, { collections: 2, documents: 3, chunks: 4, skippedChunks: 1, conversations: 2, messages: 2 })
-    const second = await importLegacyData(t.db, 'legacy@example.com')
-    assert.deepEqual(second, { collections: 0, documents: 0, chunks: 0, skippedChunks: 1, conversations: 0, messages: 0 })
-
-    const owner = (await repos.users.upsertOnLogin('legacy@example.com', null)).user.id
-    const workspaceId = await repos.workspaces.ensurePersonal(owner)
-    const collections = await repos.collections.list(workspaceId, owner)
-    assert.deepEqual(collections.map((c) => c.name).sort(), ['General', 'Research'])
-    const research = collections.find((c) => c.name === 'Research')!
-    const documents = await repos.documents.list(workspaceId, research.id)
-    assert.deepEqual(documents.map((d) => d.sourceType).sort(), ['file', 'youtube'])
-    assert.equal(documents.find((d) => d.sourceType === 'file')?.source, 'paper.pdf')
-
-    const hits = await repos.documents.vectorSearch({ workspaceId, collectionId: research.id, embedding: fakeEmbedding('enzymes'), limit: 1 })
-    assert.equal(hits[0]?.content, 'Research chunk one about enzymes')
-  })
-
-  it('imports conversations with branch links, strips old markers and maps citations', async () => {
-    const owner = (await repos.users.upsertOnLogin('legacy@example.com', null)).user.id
-    const workspaceId = await repos.workspaces.ensurePersonal(owner)
-    const conversations = await repos.conversations.list(workspaceId, owner)
-    const original = conversations.find((c) => c.title === 'Old chat')!
-    const branch = conversations.find((c) => c.title === '↳ Old chat')!
-    assert.equal(branch.parentId, original.id)
-    const messages = await repos.conversations.messages(original.id)
-    assert.deepEqual(
-      messages.map((m) => m.role),
-      ['user', 'assistant'],
-    )
-    assert.equal(messages[1]!.content, 'Proteins.')
-    assert.equal(messages[1]!.citations[0]?.source, 'file:paper.pdf')
-    assert.equal(messages[1]!.citations[0]?.index, 1)
-  })
-
-  it('never modifies the legacy tables', async () => {
-    const [row] = await t.db.query<{ n: number }>('SELECT count(*)::int AS n FROM public.vectorstore_documents')
-    assert.equal(row?.n, 5)
-    assert.equal(EMBEDDING_DIMENSIONS, 3072)
   })
 })

@@ -10,7 +10,6 @@ import { conversationsRepository } from '@/server/repositories/conversations'
 import { documentsRepository } from '@/server/repositories/documents'
 import { evaluationsRepository } from '@/server/repositories/evaluations'
 import { feedbackRepository } from '@/server/repositories/feedback'
-import { imagesRepository } from '@/server/repositories/images'
 import { integrationsRepository } from '@/server/repositories/integrations'
 import { jobsRepository } from '@/server/repositories/jobs'
 import { mediaRepository } from '@/server/repositories/media'
@@ -38,7 +37,6 @@ export function createRepositories(db: Db) {
     analytics: analyticsRepository(db),
     evaluations: evaluationsRepository(db),
     reports: reportsRepository(db),
-    images: imagesRepository(db),
     audio: audioRepository(db),
     mindMaps: mindMapsRepository(db),
     connectors: connectorsRepository(db),

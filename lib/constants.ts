@@ -39,11 +39,6 @@ export const LIMITS = {
   evalQuestionChars: 1_000,
   evalReferenceChars: 4_000,
   evalCasesPerWorkspace: 200,
-  imagePromptChars: 1_000,
-  /** Largest generated image that is stored. */
-  imageBytes: 12 * 1024 * 1024,
-  imagesPerWorkspace: 500,
-  documentsPerImage: 5,
   feedbackCommentChars: 1_000,
   /** Scanned PDF pages read with OCR per document. */
   ocrPages: 300,
@@ -67,7 +62,7 @@ export const EMBEDDING_DIMENSIONS = 3072
 /** How connected apps are named in the UI, notifications and sync messages. */
 export const CONNECTOR_LABELS: Record<ConnectorProvider, string> = { google_drive: 'Google Drive', notion: 'Notion', github: 'GitHub', website: 'Website' }
 
-export const WORKSPACE_TABS = ['chat', 'reports', 'audio', 'mindmaps', 'images', 'explorer', 'analytics'] as const
+export const WORKSPACE_TABS = ['chat', 'reports', 'audio', 'mindmaps', 'explorer', 'analytics'] as const
 export type WorkspaceTab = (typeof WORKSPACE_TABS)[number]
 
 export const CHAT_MODES = ['standard', 'deep'] as const
@@ -79,13 +74,6 @@ export type Role = (typeof ROLES)[number]
 
 export const REPORT_TEMPLATES = ['executive_summary', 'comparison_table', 'slide_outline'] as const
 export type ReportTemplate = (typeof REPORT_TEMPLATES)[number]
-
-/** Visual styles for knowledge-grounded image generation. */
-export const IMAGE_STYLES = ['infographic', 'diagram', 'illustration', 'photo', 'sketch', 'render3d'] as const
-export type ImageStyle = (typeof IMAGE_STYLES)[number]
-
-export const IMAGE_ASPECT_RATIOS = ['1:1', '16:9', '9:16', '4:3', '3:4'] as const
-export type ImageAspectRatio = (typeof IMAGE_ASPECT_RATIOS)[number]
 
 /** NotebookLM-style audio overviews: a conversation between two hosts about the selected sources. */
 export const AUDIO_FORMATS = ['deep_dive', 'brief', 'critique', 'debate'] as const

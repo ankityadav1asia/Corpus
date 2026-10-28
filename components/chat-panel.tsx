@@ -20,7 +20,7 @@ const SUGGESTIONS = [
   'Where do the sources disagree?',
 ]
 
-interface ChatPanelProps extends Omit<ChatMessageActions, 'onVisualize' | 'onRetry'> {
+interface ChatPanelProps extends Omit<ChatMessageActions, 'onRetry'> {
   messages: UiMessage[]
   isStreaming: boolean
   disabled: boolean
@@ -32,8 +32,6 @@ interface ChatPanelProps extends Omit<ChatMessageActions, 'onVisualize' | 'onRet
   onSend: (text: string) => void
   onStop: () => void
   onAddSources: () => void
-  /** Turn a question into a knowledge-grounded image. */
-  onVisualize: (question: string) => void
   /** Shown under the welcome message (getting-started steps). */
   onboarding?: ReactNode
 }
@@ -147,7 +145,7 @@ export function ChatPanel(props: ChatPanelProps) {
               <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-muted-foreground">
                 {chunkCount > 0
                   ? `${chunkCount.toLocaleString()} passage${chunkCount === 1 ? '' : 's'} indexed in ${scopeLabel}. Answers cite their sources — and say so when the sources don't cover a question.`
-                  : 'Add files up to 50 MB — documents, scans, images, audio, video — web pages, YouTube videos or notes, or connect Google Drive, Notion and GitHub. Then ask questions and create reports, audio overviews, mind maps and images grounded in them.'}
+                  : 'Add files up to 50 MB — documents, scans, images, audio, video — web pages, YouTube videos or notes, or connect Google Drive, Notion and GitHub. Then ask questions and create reports, audio overviews and mind maps grounded in them.'}
               </p>
               {chunkCount === 0 ? (
                 <Button type="button" variant="brand" className="mt-6" onClick={props.onAddSources}>
@@ -184,7 +182,6 @@ export function ChatPanel(props: ChatPanelProps) {
                   onBranch={isStreaming ? undefined : props.onBranch}
                   onFeedback={props.onFeedback}
                   onOpenSource={props.onOpenSource}
-                  onVisualize={question ? () => props.onVisualize(question) : undefined}
                   onRetry={question && index === lastAssistant && !isStreaming ? () => props.onSend(question) : undefined}
                 />
               )

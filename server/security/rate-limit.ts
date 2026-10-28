@@ -14,7 +14,6 @@ export const RATE_LIMITS = {
   reports: { limit: 10, windowSeconds: 3600 },
   benchmarks: { limit: 5, windowSeconds: 3600 },
   invites: { limit: 30, windowSeconds: 3600 },
-  images: { limit: 20, windowSeconds: 3600 },
   audio: { limit: 10, windowSeconds: 3600 },
   mindmaps: { limit: 30, windowSeconds: 3600 },
   connectorSync: { limit: 60, windowSeconds: 3600 },

@@ -133,11 +133,7 @@ function LeaveOrDelete({ workspace, user, isAdmin, onGone }: { workspace: Worksp
 function AdminSections({ workspaceId }: { workspaceId: string }) {
   return (
     <>
-      <Section
-        title="Chat apps"
-        icon={<MessageSquareShare className="size-4 text-primary" />}
-        description="Slack and Microsoft Teams bots that answer questions from this workspace, with citations."
-      >
+      <Section title="Chat apps" icon={<MessageSquareShare className="size-4 text-primary" />} description="Slack bots that answer questions from this workspace, with citations.">
         <IntegrationsPanel workspaceId={workspaceId} />
       </Section>
       <Section title="Public links" icon={<Link2 className="size-4 text-primary" />} description="Read-only links to chats and reports that anyone with the link can open.">

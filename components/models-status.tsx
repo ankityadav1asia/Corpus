@@ -19,7 +19,6 @@ const ROWS: Array<{ key: keyof ModelsStatus['models']; label: string; hint: stri
   { key: 'ocr', label: 'OCR', hint: 'Text in scanned PDFs and images' },
   { key: 'transcription', label: 'Transcription', hint: 'Audio and video sources' },
   { key: 'speech', label: 'Speech', hint: 'Voices of audio overviews' },
-  { key: 'image', label: 'Image generation', hint: 'Image studio' },
 ]
 
 function providerLabel(info: ModelInfo): string {

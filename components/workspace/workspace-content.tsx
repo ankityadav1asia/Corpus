@@ -7,7 +7,6 @@ import { AnalyticsDashboard } from '@/components/analytics-dashboard'
 import { AudioStudio } from '@/components/audio-studio'
 import { ChatPanel } from '@/components/chat-panel'
 import { ChunkExplorer } from '@/components/chunk-explorer'
-import { ImageStudio } from '@/components/image-studio'
 import { MindMapStudio } from '@/components/mindmap-studio'
 import { ReportsPanel } from '@/components/reports-panel'
 import type { useRagChat } from '@/hooks/use-rag-chat'
@@ -49,17 +48,14 @@ export interface WorkspaceContentProps {
   scopeLabel: string
   chunkCount: number
   totals: StatsResponse['totals'] | undefined
-  features: { ai: boolean; schema: boolean; images: boolean; audio: boolean }
+  features: { ai: boolean; schema: boolean; audio: boolean }
   /** An item to open on its tab (from a notification), and a way to say it was opened. */
   focus: { tab: WorkspaceTab; id: string } | null
   onFocusConsumed: () => void
-  imageDraft: { prompt: string; collectionId: string | null } | null
-  onImageDraftConsumed: () => void
   onboarding: ReactNode
   onSend: (text: string) => void
   onBranch: (messageId: string) => void
   onFeedback: (messageId: string, rating: 1 | -1 | 0, comment?: string) => Promise<void>
-  onVisualize: (question: string) => void
   onAskInChat: (question: string) => void
   onOpenSource: (documentId: string, chunkId?: string | null) => void
   onAddSources: () => void
@@ -100,7 +96,6 @@ export function WorkspaceContent(props: WorkspaceContentProps) {
           onStop={props.chat.stop}
           onBranch={props.onBranch}
           onFeedback={props.onFeedback}
-          onVisualize={props.onVisualize}
           onOpenSource={props.onOpenSource}
           onAddSources={props.onAddSources}
           onboarding={props.onboarding}
@@ -110,19 +105,6 @@ export function WorkspaceContent(props: WorkspaceContentProps) {
       return panel(<ChunkExplorer collections={collections} selected={props.selected} onChanged={props.onCorpusChanged} />)
     case 'reports':
       return panel(<ReportsPanel collections={collections} user={user} focusId={focusId('reports')} onFocusConsumed={props.onFocusConsumed} />)
-    case 'images':
-      return panel(
-        <ImageStudio
-          collections={collections}
-          user={user}
-          imagesEnabled={features.images && enabled}
-          draft={props.imageDraft}
-          onDraftConsumed={props.onImageDraftConsumed}
-          focusId={focusId('images')}
-          onFocusConsumed={props.onFocusConsumed}
-          onOpenSource={props.onOpenSource}
-        />,
-      )
     case 'audio':
       return panel(
         <AudioStudio
