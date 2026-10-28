@@ -11,7 +11,8 @@ is signed in for the Go routes too.
 |---|---|
 | `../api/go.go` | the Vercel Go Function: builds the handler once per instance and serves every Go path |
 | `cmd/dev` | the same handler on a local port, for development |
-| `api` | route wrappers (session, workspace access, CSRF origin check), handlers; `admin.go`/`settings.go` (group 2), `conversations.go` (group 3), `chat.go` (group 4a), `studio.go` (group 4b) |
+| `api` | route wrappers (session, workspace access, CSRF origin check), handlers; `admin.go`/`settings.go` (group 2), `conversations.go` (group 3), `chat.go` (group 4a), `studio.go` (group 4b), `usage.go` (AI usage metering and `GET /api/usage`) |
+| `monitoring` | Sentry reporting of logged errors and recovered panics, when a DSN is set |
 | `ai` | model vendors over REST: Gemini (streaming, embeddings, thinking control, retry hints, daily quotas) and OpenAI-compatible servers; configuration from the same variables as `server/env.ts` |
 | `rag` | prompts, query planning, Reciprocal Rank Fusion, re-ranking (LLM grader or Cohere), guardrail, follow-ups and the answer judge, checked against outputs of the TypeScript code (`testdata/golden.json`, `npm run go:fixtures`) |
 | `auth` | session cookie verification (HMAC-SHA256, key rotation, revocation), the role-permission table, workspace access |

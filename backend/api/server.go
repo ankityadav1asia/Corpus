@@ -36,6 +36,7 @@ type Server struct {
 	chats    ConversationStore
 	asking   ChatStore
 	studio   StudioStore
+	usage    UsageStore
 	sessions *auth.Sessions
 }
 
@@ -50,6 +51,9 @@ func New(cfg config.Config, db Store) *Server {
 		s.chats, _ = db.(ConversationStore)
 		s.asking, _ = db.(ChatStore)
 		s.studio, _ = db.(StudioStore)
+		if s.usage, _ = db.(UsageStore); s.usage != nil {
+			meterInto(s.usage)
+		}
 	}
 	return s
 }
@@ -99,6 +103,8 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("POST /api/mindmaps", s.workspace(s.studioOnly(s.createMindMap)))
 	mux.Handle("GET /api/mindmaps/{id}", s.workspace(s.studioOnly(s.mindMapDetail)))
 	mux.Handle("DELETE /api/mindmaps/{id}", s.workspace(s.studioOnly(s.deleteMindMap)))
+	// Workspace usage (AI tokens, questions, storage), for admins.
+	mux.Handle("GET /api/usage", s.workspace(s.usageSummary))
 	return mux
 }
 

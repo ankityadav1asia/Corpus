@@ -20,6 +20,7 @@ import { sealedValuesRepository } from '@/server/repositories/sealed'
 import { sessionsRepository } from '@/server/repositories/sessions'
 import { sharesRepository } from '@/server/repositories/shares'
 import { uploadsRepository } from '@/server/repositories/uploads'
+import { usageRepository } from '@/server/repositories/usage'
 import { usersRepository } from '@/server/repositories/users'
 import { workspacesRepository } from '@/server/repositories/workspaces'
 
@@ -49,6 +50,7 @@ export function createRepositories(db: Db) {
     otp: otpRepository(db),
     rateLimits: rateLimitRepository(db),
     sealed: sealedValuesRepository(db),
+    usage: usageRepository(db),
   }
 }
 

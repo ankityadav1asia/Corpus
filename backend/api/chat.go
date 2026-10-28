@@ -264,7 +264,7 @@ func (s *Server) chat(req *request) error {
 	if err != nil {
 		return err
 	}
-	ctx := req.r.Context()
+	ctx := metered(req.r.Context(), req.access, "chat")
 	if err := s.rateLimit(ctx, "chat:user:"+req.access.UserID, chatPerMinute, 60); err != nil {
 		return err
 	}
@@ -472,7 +472,7 @@ func (s *Server) followups(req *request) error {
 	if err != nil {
 		return err
 	}
-	ctx := req.r.Context()
+	ctx := metered(req.r.Context(), req.access, "followups")
 	source, err := s.asking.FollowupSource(ctx, id)
 	if err != nil {
 		return err

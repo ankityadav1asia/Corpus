@@ -16,6 +16,7 @@ import (
 	"github.com/ankityadav1asia/Corpus/backend/api"
 	"github.com/ankityadav1asia/Corpus/backend/config"
 	"github.com/ankityadav1asia/Corpus/backend/logx"
+	"github.com/ankityadav1asia/Corpus/backend/monitoring"
 	"github.com/ankityadav1asia/Corpus/backend/store"
 )
 
@@ -27,6 +28,7 @@ func main() {
 }
 
 func run() error {
+	monitoring.FromEnv()
 	cfg := config.Load()
 	if problems := cfg.StartupProblems(); len(problems) > 0 {
 		return errors.New("Configuration: " + strings.Join(problems, " "))
@@ -49,7 +51,7 @@ func run() error {
 
 	server := &http.Server{
 		Addr:              ":" + cfg.Port,
-		Handler:           api.New(cfg, db).Handler(),
+		Handler:           monitoring.Recover(api.New(cfg, db).Handler()),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       60 * time.Second,
 		WriteTimeout:      300 * time.Second,

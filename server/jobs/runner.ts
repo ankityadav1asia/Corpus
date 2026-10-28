@@ -1,5 +1,6 @@
 import { queueDueSyncs } from '@/server/connectors/sync'
 import { AiProviderError, DAILY_QUOTA_MESSAGE } from '@/server/ai/provider'
+import { withUsageScope } from '@/server/ai/usage'
 import type { JobContext } from '@/server/jobs/context'
 import { JOBS } from '@/server/jobs/definitions'
 import { PermanentJobError } from '@/server/jobs/errors'
@@ -86,7 +87,9 @@ export async function runJobs(
     const job = await context.repos.jobs.claim(options.types ?? JOB_TYPES)
     if (!job) break
     try {
-      await JOBS[job.type].run(job.payload, context, deadline)
+      // Model calls made by the job are billed to the workspace and member it works for.
+      const owner = await context.repos.usage.jobOwner(job.type, job.payload).catch(() => ({ workspaceId: null, userId: null }))
+      await withUsageScope({ feature: job.type, ...owner }, () => JOBS[job.type].run(job.payload, context, deadline))
       await context.repos.jobs.complete(job.id)
       processed++
     } catch (error) {

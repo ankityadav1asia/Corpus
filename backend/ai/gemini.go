@@ -76,6 +76,7 @@ type candidateResponse struct {
 	Candidates []struct {
 		Content content `json:"content"`
 	} `json:"candidates"`
+	UsageMetadata *geminiUsage `json:"usageMetadata"`
 }
 
 // answerText joins the answer parts; reasoning parts marked thought are never shown or parsed.
@@ -253,6 +254,8 @@ func (g *gemini) embedBatch(ctx context.Context, texts []string, task string) ([
 			}
 			vectors[i] = embedding.Values
 		}
+		// The embedding API does not count tokens.
+		record(ctx, Usage{Model: g.cfg.EmbeddingModel, Kind: "embed", InputTokens: EstimateTokens(texts...), Estimated: true})
 		return vectors, nil
 	})
 }
@@ -292,12 +295,18 @@ func (g *gemini) StreamChat(ctx context.Context, system string, turns []Turn, fa
 		return err
 	}
 	defer res.Body.Close()
-	return readSSE(res.Body, func(data string) error {
+	var answer strings.Builder
+	var usage *geminiUsage
+	err = readSSE(res.Body, func(data string) error {
 		var chunk candidateResponse
 		if json.Unmarshal([]byte(data), &chunk) != nil {
 			return nil
 		}
+		if chunk.UsageMetadata != nil {
+			usage = chunk.UsageMetadata // the last chunk carries the totals
+		}
 		if text := answerText(chunk); text != "" {
+			answer.WriteString(text)
 			return emit(text)
 		}
 		return nil
@@ -307,6 +316,14 @@ func (g *gemini) StreamChat(ctx context.Context, system string, turns []Turn, fa
 		}
 		return &Error{Message: "Gemini request failed", Retryable: false}
 	})
+	if err == nil {
+		prompt := []string{system}
+		for _, turn := range turns {
+			prompt = append(prompt, turn.Content)
+		}
+		recordGemini(ctx, model, usage, prompt, answer.String())
+	}
+	return err
 }
 
 func (g *gemini) Complete(ctx context.Context, input Completion) (string, error) {
@@ -335,7 +352,9 @@ func (g *gemini) Complete(ctx context.Context, input Completion) (string, error)
 		if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
 			return "", &Error{Message: "Gemini request failed", Retryable: true}
 		}
-		return answerText(parsed), nil
+		text := answerText(parsed)
+		recordGemini(ctx, model, parsed.UsageMetadata, []string{input.System, input.Prompt}, text)
+		return text, nil
 	})
 }
 

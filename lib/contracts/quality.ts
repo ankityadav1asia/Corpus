@@ -72,3 +72,23 @@ export interface AnalyticsResponse {
     createdAt: string
   }>
 }
+
+/** Calls and tokens of one group of model calls; estimatedCalls were counted from text, not by the vendor. */
+export interface TokenCount {
+  calls: number
+  inputTokens: number
+  outputTokens: number
+  estimatedCalls: number
+}
+
+/** GET /api/usage (workspace admins): the last `days` days, today included (UTC). */
+export interface UsageSummary {
+  days: number
+  totals: TokenCount & { questions: number; failedAnswers: number; activeMembers: number }
+  daily: Array<{ date: string; inputTokens: number; outputTokens: number; questions: number }>
+  byFeature: Array<TokenCount & { feature: string }>
+  byModel: Array<TokenCount & { model: string; kind: 'generate' | 'embed' }>
+  byMember: Array<TokenCount & { userId: string | null; email: string | null }>
+  storage: { notebooks: number; documents: number; chunks: number; bytes: number }
+  studio: { reports: number; mindMaps: number; audio: number }
+}

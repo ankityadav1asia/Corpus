@@ -91,14 +91,23 @@ func (o openAI) completion(ctx context.Context, body map[string]any) (string, er
 				Content *string `json:"content"`
 			} `json:"message"`
 		} `json:"choices"`
+		Usage *openAIUsage `json:"usage"`
 	}
 	if err := json.NewDecoder(res.Body).Decode(&parsed); err != nil {
 		return "", &Error{Message: "Model request failed", Retryable: true}
 	}
-	if len(parsed.Choices) == 0 || parsed.Choices[0].Message.Content == nil {
-		return "", nil
+	text := ""
+	if len(parsed.Choices) > 0 && parsed.Choices[0].Message.Content != nil {
+		text = *parsed.Choices[0].Message.Content
 	}
-	return StripThinking(*parsed.Choices[0].Message.Content), nil
+	var prompt []string
+	sent, _ := body["messages"].([]map[string]string)
+	for _, message := range sent {
+		prompt = append(prompt, message["content"])
+	}
+	model, _ := body["model"].(string)
+	recordOpenAI(ctx, model, parsed.Usage, prompt, text)
+	return StripThinking(text), nil
 }
 
 // openAIChat is the chat half of an OpenAI-compatible provider.
@@ -113,6 +122,8 @@ func (o openAIChat) StreamChat(ctx context.Context, system string, turns []Turn,
 	}
 	defer res.Body.Close()
 	filter := &ThinkFilter{}
+	var answer strings.Builder
+	var usage *openAIUsage
 	err = readSSE(res.Body, func(data string) error {
 		var chunk struct {
 			Choices []struct {
@@ -120,10 +131,18 @@ func (o openAIChat) StreamChat(ctx context.Context, system string, turns []Turn,
 					Content *string `json:"content"`
 				} `json:"delta"`
 			} `json:"choices"`
+			Usage *openAIUsage `json:"usage"`
 		}
-		if json.Unmarshal([]byte(data), &chunk) != nil || len(chunk.Choices) == 0 || chunk.Choices[0].Delta.Content == nil {
+		if json.Unmarshal([]byte(data), &chunk) != nil {
 			return nil // keep-alive comments and malformed lines
 		}
+		if chunk.Usage != nil {
+			usage = chunk.Usage
+		}
+		if len(chunk.Choices) == 0 || chunk.Choices[0].Delta.Content == nil {
+			return nil
+		}
+		answer.WriteString(*chunk.Choices[0].Delta.Content)
 		if visible := filter.Push(*chunk.Choices[0].Delta.Content); visible != "" {
 			return emit(visible)
 		}
@@ -137,6 +156,11 @@ func (o openAIChat) StreamChat(ctx context.Context, system string, turns []Turn,
 	if err != nil {
 		return err
 	}
+	prompt := []string{system}
+	for _, turn := range turns {
+		prompt = append(prompt, turn.Content)
+	}
+	recordOpenAI(ctx, o.cfg.Model, usage, prompt, answer.String())
 	if rest := filter.Flush(); rest != "" {
 		return emit(rest)
 	}
@@ -196,6 +220,7 @@ func (o openAIEmbeddings) embed(ctx context.Context, texts []string) ([][]float6
 				Embedding []float64 `json:"embedding"`
 				Index     int       `json:"index"`
 			} `json:"data"`
+			Usage *openAIUsage `json:"usage"`
 		}
 		decodeErr := json.NewDecoder(res.Body).Decode(&parsed)
 		res.Body.Close()
@@ -212,6 +237,11 @@ func (o openAIEmbeddings) embed(ctx context.Context, texts []string) ([][]float6
 				return nil, err
 			}
 			out = append(out, vector)
+		}
+		if parsed.Usage != nil && parsed.Usage.PromptTokens != nil {
+			record(ctx, Usage{Model: o.EmbeddingModel(), Kind: "embed", InputTokens: *parsed.Usage.PromptTokens})
+		} else {
+			record(ctx, Usage{Model: o.EmbeddingModel(), Kind: "embed", InputTokens: EstimateTokens(batch...), Estimated: true})
 		}
 	}
 	return out, nil

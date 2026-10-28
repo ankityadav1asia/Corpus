@@ -18,6 +18,8 @@ const PUBLIC_PATHS = new Set([
   '/api/auth/oauth/callback',
   // Authenticated by a bearer CRON_SECRET inside the handler (404 when not configured).
   '/api/jobs/run',
+  // Browser error reports for Sentry, also from the sign-in page; forwarded only to the configured project.
+  '/api/monitoring',
 ])
 
 /**
