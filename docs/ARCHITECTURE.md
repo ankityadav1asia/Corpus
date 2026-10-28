@@ -26,6 +26,8 @@ Tesseract.
 app/                        Next.js routes (thin: validate → authorise → call a service)
   page.tsx                  server component: checks the session, renders <Workspace/>
   api/**/route.ts           route handlers, all wrapped by server/http/route.ts
+api/go.go                   Vercel Go Function for the API paths moved to Go (GO_API_PATHS in next.config.mjs)
+backend/                    Go API: handlers, session and role checks, SQL (pgx) — backend/README.md
 middleware.ts               edge: public allowlist, session signature check, per-request CSP nonce
 instrumentation.ts          refuses to start a production server with missing or unsafe configuration
 server/                     server-only code (never bundled for the browser)
@@ -36,7 +38,8 @@ server/                     server-only code (never bundled for the browser)
   auth/                     sessions (server-side, revocable), OAuth, OTP, allowlist, permissions.ts (RBAC), access.ts
   db/                       Neon + PGlite adapters, versioned migrations
   repositories/             all SQL — parameterised and workspace-scoped (documents, chunks, media, jobs, sessions, …)
-  rag/                      splitter, query-transform, retrieval, rerank, guardrail, prompt, chat-service, re-embed
+  rag/                      splitter, query-transform, retrieval, rerank, guardrail, prompt, re-embed (used by the Slack bot,
+                            benchmarks and ingestion; asking itself runs in Go: backend/api/chat.go, backend/rag)
   corpus/                   chunk editor (edit / append / delete with re-embedding)
   evaluation/               LLM-as-judge metrics, live-answer and benchmark scoring
   reports/                  map-reduce synthesis (executive summary, comparison table, slide outline)
@@ -60,7 +63,7 @@ scripts/                    init-db (migrate), worker, reseal-secrets, seed;
                             vercel-build (migrations on production builds, then next build)
 tests/                      node:test suites (unit, PGlite integration, HTTP route tests)
 vercel.json                 Vercel: region cle1 (next to Neon), Fluid compute, build command, daily cron — docs/DEPLOYMENT.md
-.github/                    CI (typecheck, lint, tests, build, audit) and Dependabot
+.github/                    CI (typecheck, lint, tests, build, audit; Go: gofmt, vet, tests against PostgreSQL) and Dependabot
 ```
 
 ## Layers
@@ -120,11 +123,14 @@ sign-in allowlist still applies).
 
 ## Question answering pipeline
 
+Asking runs in the Go API (`backend/api/chat.go` with `backend/rag` and `backend/ai`); the prompts,
+fusion, guardrail and parsers reproduce the TypeScript originals exactly (`backend/rag/testdata/golden.json`).
+
 ```mermaid
 sequenceDiagram
   participant UI as useRagChat
   participant R as POST /api/chat
-  participant C as chat-service
+  participant C as backend/rag (Go)
   participant DB as Postgres
   participant G as Model (Gemini or open-source)
   UI->>R: { message, conversationId?, collectionId?, mode } + X-Workspace-Id
@@ -186,7 +192,7 @@ Heavy work runs outside the request in a durable queue (`app.jobs`):
 - Retries back off 10 s → 20 s → 40 s…; when Gemini returns 429 with a `RetryInfo` delay, the job waits at least that long, and the adapter stops burning quota on immediate retries. A **daily** quota error, invalid input or a `PermanentJobError` fails the job at once with a readable message instead of retrying. Waiting items show why (“AI service busy — retrying in ~40s”).
 - Jobs return `'more'` when their time budget runs out; a follow-up job continues from the stored progress (chunks, OCR pages, audio segments, sync state).
 - Duplicate work is refused while the same job is active (`hasActive`), e.g. a second “Sync now”.
-- **Who runs jobs:** after each response that queued work (Next.js `after()`), the endpoints the UI polls while waiting (sources, conversation, reports, audio, mind maps, connectors, benchmark runs), `npm run worker` (a polling loop), and `/api/jobs/run` for a scheduler (Bearer `CRON_SECRET`; Vercel Cron calls it, see `vercel.json`). Each pass also queues connector syncs that are due. One runner per server instance at a time. With a dedicated worker, `WEB_RUNS_JOBS=false` keeps OCR, transcription and audio out of the web process.
+- **Who runs jobs:** after each response that queued work (Next.js `after()`), the endpoints the UI polls while waiting (sources, audio, connectors, benchmark runs; for reports and mind maps, which the Go API queues, the browser calls `POST /api/jobs/nudge` while it polls; the Go conversation endpoint runs a pending answer evaluation itself), `npm run worker` (a polling loop), and `/api/jobs/run` for a scheduler (Bearer `CRON_SECRET`; Vercel Cron calls it, see `vercel.json`). Each pass also queues connector syncs that are due. One runner per server instance at a time. With a dedicated worker, `WEB_RUNS_JOBS=false` keeps OCR, transcription and audio out of the web process.
 - A runner claims only the job types its version knows, so during a rollout an older worker leaves new types to newer code.
 
 ## Speed
@@ -260,7 +266,7 @@ owner to reconnect. Removing a source can keep or delete its documents.
 
 ## Answers: follow-ups, charts, PDFs, voice
 
-- **Follow-up questions** (`server/rag/followups.ts`, `POST /api/messages/:id/followups`): three short next questions from the question, answer and source titles (fast helper call, 10 s deadline). Generated once per answer and stored on the message (`messages.followups`), shown as chips under the latest answer; failures return an empty list.
+- **Follow-up questions** (`backend/rag/llm.go`, `POST /api/messages/:id/followups`, Go): three short next questions from the question, answer and source titles (fast helper call, 10 s deadline). Generated once per answer and stored on the message (`messages.followups`), shown as chips under the latest answer; failures return an empty list.
 - **Inline charts**: the system prompt lets the model add one ```` ```chart ```` block with `{type: bar|line|pie, title, unit, labels, series}` when it compares three or more numbers from the passages. The JSON is untrusted: `lib/chart.ts` validates and bounds it (24 labels, 6 series, numbers only), and `components/chart-block.tsx` draws SVG (no chart library, theme colours, data table toggle). Invalid charts show as code; streaming ones as a placeholder.
 - **PDF viewer**: uploaded (and connector-imported) PDFs are kept in `document_files` (2 MB parts). The source viewer opens the original with pdf.js, finds the cited passage by its letters and digits across the pages' text items (`lib/pdf-match.ts`, robust to spacing and hyphenation), jumps to that page and highlights the items. pdf.js and its worker are served from `public/` (copied from the installed package by `scripts/copy-pdf-worker.mjs`) and loaded outside webpack, whose transform of pdf.js fails at runtime.
 - **Voice chat** (`components/voice-mode.tsx`): browser speech recognition (Chrome, Edge, Safari) hears the question, it is sent like a typed one, and the answer is spoken with speech synthesis sentence by sentence while it streams (`lib/speech-text.ts` strips citations, links, Markdown and charts). Tapping interrupts. Languages include English (India) and Hindi.
@@ -488,7 +494,7 @@ OCR tests run real Tesseract on generated scans):
 - `tests/quality-units.test.ts` — judge parsing and metrics, slide-outline validation, settings merge, retry policy
 - `tests/repositories.test.ts` — every repository on PGlite: workspaces, last-admin race, invites, chunk editing, job queue
 - `tests/services.test.ts` — ingestion, chat pipeline and guardrail short-circuit, evaluation, benchmarks, reports, chunk editor permissions
-- `tests/http.test.ts` — real route handlers + middleware: auth, CSRF, role matrix, IDOR, workspaces API, reports, cron endpoint
+- `tests/http.test.ts` — real route handlers + middleware: auth, CSRF, role matrix, IDOR, cron and nudge endpoints
 - `tests/migrations.test.ts` — upgrading real v1 data to the latest schema
 - `tests/platform.test.ts`, `tests/platform-http.test.ts` — background indexing and retries, feedback, notifications, audit log, pins
 - `tests/models-units.test.ts` — OpenAI-compatible chat / embeddings / streaming think-filter, per-capability configuration, multimodal adapters, WAV / MP3, OCR

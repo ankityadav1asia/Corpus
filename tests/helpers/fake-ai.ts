@@ -4,7 +4,6 @@ import { AiProviderError, type AiProvider, type ChatTurn, type CompletionInput }
 import { JUDGE_SYSTEM } from '@/server/evaluation/judge'
 import { HYDE_SYSTEM, STEP_BACK_SYSTEM } from '@/server/rag/query-transform'
 import type { OcrEngine } from '@/server/media/ocr'
-import { FOLLOWUP_SYSTEM } from '@/server/rag/followups'
 import { LLM_RERANK_SYSTEM } from '@/server/rag/rerank'
 
 /** Deterministic bag-of-words embedding: texts sharing words get high cosine similarity. */
@@ -81,7 +80,6 @@ export interface FakeAi extends AiProvider {
 export const isRerank = (input: CompletionInput) => input.system === LLM_RERANK_SYSTEM
 export const isJudge = (input: CompletionInput) => input.system === JUDGE_SYSTEM
 export const isMultiQuery = (input: CompletionInput) => input.system.startsWith('You generate search queries')
-export const isFollowups = (input: CompletionInput) => input.system === FOLLOWUP_SYSTEM
 
 export const isMindMap = (input: CompletionInput) => input.system.startsWith('Build a mind map')
 export const isAudioScript = (input: CompletionInput) => input.system.startsWith('You write the script of an audio overview')
@@ -133,7 +131,6 @@ function defaultCompletion(input: CompletionInput, options: FakeAiOptions): stri
   if (input.system === HYDE_SYSTEM) return options.hyde ?? 'A hypothetical passage that explains the topic in several plausible sentences.'
   if (isRerank(input)) return fakeRerankOutput(input.prompt)
   if (isJudge(input)) return fakeJudgeOutput(input.prompt)
-  if (isFollowups(input)) return '{"questions": ["How does it compare over time?", "Which numbers matter most?", "Who is affected?"]}'
   if (input.json) {
     return JSON.stringify({ title: 'Deck', subtitle: 'Generated', slides: [{ title: 'Overview', bullets: ['First point [1]', 'Second point'], notes: 'Say hello' }] })
   }

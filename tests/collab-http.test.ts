@@ -4,12 +4,10 @@ import { after, before, describe, it } from 'node:test'
 
 import { NextRequest } from 'next/server'
 
-import * as chatRoute from '@/app/api/chat/route'
 import * as documentFileRoute from '@/app/api/corpus/documents/[id]/file/route'
 import * as documentRoute from '@/app/api/corpus/documents/[id]/route'
 import * as slackEventsRoute from '@/app/api/integrations/slack/[id]/events/route'
 import * as uploadRoute from '@/app/api/learn/upload/route'
-import * as followupsRoute from '@/app/api/messages/[id]/followups/route'
 import * as publicShareRoute from '@/app/api/public/shares/[token]/route'
 import * as shareRoute from '@/app/api/shares/[id]/route'
 import * as sharesRoute from '@/app/api/shares/route'
@@ -27,7 +25,7 @@ import { createRepositories, type Repositories } from '@/server/repositories'
 import { setServicesForTests, type Services } from '@/server/services'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { createFakeAi, isFollowups, isRerank, type FakeAi } from './helpers/fake-ai'
+import { createFakeAi, type FakeAi } from './helpers/fake-ai'
 import { addDocument, createTeam, createUser, type TestUser } from './helpers/fixtures'
 import { sessionToken } from './helpers/session'
 import { makePdf } from './helpers/pdf'
@@ -154,52 +152,9 @@ after(async () => {
   await t.close()
 })
 
-async function readStream(res: Response): Promise<Array<Record<string, unknown>>> {
-  const text = await res.text()
-  return text
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as Record<string, unknown>)
-}
-
 /* ── Tests ────────────────────────────────────────────────────────────────── */
 
-describe('faster answers', () => {
-  it('skips thinking for the answer in standard mode and for every helper call', async () => {
-    ai.calls.chat.length = 0
-    ai.calls.complete.length = 0
-    const events = await readStream(await call(chatRoute.POST, '/api/chat', { method: 'POST', as: ed, body: { message: 'What does photosynthesis convert?', mode: 'standard' } }))
-    assert.equal(events.at(-1)?.type, 'done')
-    assert.equal(ai.calls.chat.at(-1)?.fast, true)
-    assert.ok(ai.calls.complete.filter(isRerank).every((input) => input.fast === true))
-
-    const answered = ai.calls.chat.length
-    await readStream(await call(chatRoute.POST, '/api/chat', { method: 'POST', as: ed, body: { message: 'What does photosynthesis convert?', mode: 'deep' } }))
-    assert.equal(ai.calls.chat.length, answered + 1)
-    assert.equal(ai.calls.chat.at(-1)?.fast, false, 'deep mode keeps the model’s thinking')
-    assert.ok(ai.calls.complete.length > 1 && ai.calls.complete.every((input) => input.fast === true), 'planning and re-ranking use the fast path')
-  })
-})
-
-describe('follow-up questions', () => {
-  it('suggests them once per answer, stores them, and only for the author', async () => {
-    const events = await readStream(await call(chatRoute.POST, '/api/chat', { method: 'POST', as: ed, body: { message: 'What does photosynthesis convert?', mode: 'standard' } }))
-    const answerId = String(events.find((event) => event.type === 'done')!.assistantMessageId)
-    const before = ai.calls.complete.filter(isFollowups).length
-
-    const first = await data<{ followups: string[] }>(call(followupsRoute.POST, `/api/messages/${answerId}/followups`, { method: 'POST', as: ed, params: { id: answerId } }))
-    assert.equal(first.followups.length, 3)
-    const again = await data<{ followups: string[] }>(call(followupsRoute.POST, `/api/messages/${answerId}/followups`, { method: 'POST', as: ed, params: { id: answerId } }))
-    assert.deepEqual(again.followups, first.followups)
-    assert.equal(ai.calls.complete.filter(isFollowups).length, before + 1, 'generated once, then read back')
-    assert.equal(ai.calls.complete.filter(isFollowups).at(-1)?.fast, true)
-
-    const conversationId = String(events[0]!.conversationId)
-    const [, answer] = await repos.conversations.messages(conversationId)
-    assert.deepEqual(answer?.followups, first.followups, 'reopening the chat shows them')
-    assert.equal((await call(followupsRoute.POST, `/api/messages/${answerId}/followups`, { method: 'POST', as: ada, params: { id: answerId } })).status, 404)
-  })
-})
+// Asking, with its fast helper calls and follow-up suggestions, is the Go API's (backend/api/chat_test.go).
 
 describe('read-only share links', () => {
   let conversationId: string

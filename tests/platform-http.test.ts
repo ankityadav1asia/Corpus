@@ -3,18 +3,12 @@ import { after, before, describe, it } from 'node:test'
 
 import { NextRequest } from 'next/server'
 
-import * as conversationRoute from '@/app/api/conversations/[id]/route'
-import * as conversationsRoute from '@/app/api/conversations/route'
 import * as documentRetryRoute from '@/app/api/corpus/documents/[id]/retry/route'
 import * as documentRoute from '@/app/api/corpus/documents/[id]/route'
 import * as corpusRoute from '@/app/api/corpus/route'
 import * as evaluationsRoute from '@/app/api/evaluations/route'
 import * as uploadRoute from '@/app/api/learn/upload/route'
-import * as feedbackRoute from '@/app/api/messages/[id]/feedback/route'
-import * as notificationsReadRoute from '@/app/api/notifications/read/route'
-import * as notificationsRoute from '@/app/api/notifications/route'
-import * as auditRoute from '@/app/api/workspaces/[id]/audit/route'
-import type { AuditEvent, DocumentDetail, DocumentSummary, NotificationItem, QualitySummary, UploadResult } from '@/lib/contracts'
+import type { AuditEvent, DocumentDetail, DocumentSummary, QualitySummary, UploadResult } from '@/lib/contracts'
 import { SESSION_COOKIE } from '@/server/auth/session'
 import { resetEnvCache } from '@/server/env'
 import { runJobs } from '@/server/jobs/runner'
@@ -186,72 +180,24 @@ describe('feedback, notifications, audit and pins', () => {
     answerId = (await repos.conversations.addMessage({ conversationId, role: 'assistant', content: 'At dusk [1].' })).id
   })
 
-  it('lets the author rate an answer, change it, and clear it', async () => {
-    const path = `/api/messages/${answerId}/feedback`
-    const up = await call(feedbackRoute.PUT, path, { method: 'PUT', as: ed, params: { id: answerId }, body: { rating: -1, comment: 'Missing the closing time' } })
-    assert.deepEqual(await data(up), { feedback: { rating: -1, comment: 'Missing the closing time' } })
+  // Rating answers, pins, search and notifications are the Go API's (backend/api); the quality
+  // summary that reads the ratings is still TypeScript.
+  it('counts ratings in the quality summary, each member seeing their own', async () => {
+    await repos.feedback.set({ messageId: answerId, userId: ed.id, workspaceId: team.workspaceId, rating: -1, comment: 'Missing the closing time' })
     const quality = await data<QualitySummary>(call(evaluationsRoute.GET, '/api/evaluations', { as: ada }))
     assert.equal(quality.feedback.negative, 1)
     assert.equal(quality.feedback.recent[0]?.question, 'When does it open?')
     const viewerQuality = await data<QualitySummary>(call(evaluationsRoute.GET, '/api/evaluations', { as: val }))
     assert.equal(viewerQuality.feedback.negative, 0, 'members only see their own feedback')
-
-    const conversation = await data<{ messages: Array<{ id: string; feedback?: unknown }> }>(
-      call(conversationRoute.GET, `/api/conversations/${conversationId}`, { as: ed, params: { id: conversationId } }),
-    )
-    assert.deepEqual(conversation.messages.find((message) => message.id === answerId)?.feedback, { rating: -1, comment: 'Missing the closing time' })
-
-    assert.deepEqual(await data(call(feedbackRoute.PUT, path, { method: 'PUT', as: ed, params: { id: answerId }, body: { rating: 0 } })), { feedback: null })
-    assert.equal((await call(feedbackRoute.PUT, path, { method: 'PUT', as: ed, params: { id: answerId }, body: { rating: 2 } })).status, 400)
+    assert.ok(questionId && conversationId)
+    await repos.feedback.remove(answerId, ed.id)
   })
 
-  it('refuses ratings on other people’s answers and on questions', async () => {
-    assert.equal((await call(feedbackRoute.PUT, `/api/messages/${answerId}/feedback`, { method: 'PUT', as: ada, params: { id: answerId }, body: { rating: 1 } })).status, 404)
-    assert.equal((await call(feedbackRoute.PUT, `/api/messages/${questionId}/feedback`, { method: 'PUT', as: ed, params: { id: questionId }, body: { rating: 1 } })).status, 404)
-  })
-
-  it('pins conversations for their author', async () => {
-    await repos.conversations.create({ workspaceId: team.workspaceId, ownerId: ed.id, collectionId: null, title: 'Newer thread' })
-    const pinned = await call(conversationRoute.PATCH, `/api/conversations/${conversationId}`, { method: 'PATCH', as: ed, params: { id: conversationId }, body: { pinned: true } })
-    assert.equal(pinned.status, 200)
-    const { conversations } = await data<{ conversations: Array<{ id: string; pinned: boolean }> }>(call(conversationsRoute.GET, '/api/conversations', { as: ed }))
-    assert.deepEqual([conversations[0]?.id, conversations[0]?.pinned], [conversationId, true])
-    assert.equal(
-      (await call(conversationRoute.PATCH, `/api/conversations/${conversationId}`, { method: 'PATCH', as: ada, params: { id: conversationId }, body: { pinned: true } })).status,
-      404,
-    )
-    assert.equal((await call(conversationRoute.PATCH, `/api/conversations/${conversationId}`, { method: 'PATCH', as: ed, params: { id: conversationId }, body: {} })).status, 400)
-  })
-
-  it('searches the caller’s own chats with ?q=', async () => {
-    const search = (as: Actor, q: string) => call(conversationsRoute.GET, `/api/conversations?q=${encodeURIComponent(q)}`, { as })
-    const own = await data<{ conversations: Array<{ id: string }> }>(search(ed, 'dusk'))
-    assert.deepEqual(
-      own.conversations.map((c) => c.id),
-      [conversationId],
-    )
-    const other = await data<{ conversations: Array<{ id: string }> }>(search(ada, 'dusk'))
-    assert.deepEqual(other.conversations, [], 'chats stay private to their author')
-    assert.equal((await search(ed, 'x'.repeat(201))).status, 400)
-  })
-
-  it('lists notifications across workspaces and marks them read', async () => {
-    const before = await data<{ items: NotificationItem[]; unread: number }>(call(notificationsRoute.GET, '/api/notifications', { as: ed, workspace: null }))
-    assert.ok(before.items.some((item) => item.kind === 'document_ready' && item.workspaceName === 'Team'))
-    assert.ok(before.unread >= 1)
-    const read = await data<{ updated: number }>(call(notificationsReadRoute.POST, '/api/notifications/read', { method: 'POST', as: ed, workspace: null, body: { all: true } }))
-    assert.equal(read.updated, before.unread)
-    assert.equal((await data<{ unread: number }>(call(notificationsRoute.GET, '/api/notifications', { as: ed, workspace: null }))).unread, 0)
-    assert.equal((await call(notificationsReadRoute.POST, '/api/notifications/read', { method: 'POST', as: val, workspace: null, body: {} })).status, 400)
-  })
-
-  it('shows the audit log to workspace admins only', async () => {
-    const path = `/api/workspaces/${team.workspaceId}/audit`
-    const { events } = await data<{ events: AuditEvent[] }>(call(auditRoute.GET, path, { as: ada, workspace: null, params: { id: team.workspaceId } }))
+  // Reading the audit log (admins only) is the Go API's; this checks what these routes record.
+  it('records content changes in the audit log', async () => {
+    const events: AuditEvent[] = await repos.audit.list(team.workspaceId, 100)
     const actions = events.map((event) => event.action)
     assert.ok(actions.includes('source.added'))
     assert.equal(events.find((event) => event.action === 'source.added')?.actorEmail, 'ed@example.com')
-    assert.equal((await call(auditRoute.GET, path, { as: ed, workspace: null, params: { id: team.workspaceId } })).status, 403)
-    assert.equal((await call(auditRoute.GET, path, { as: out, workspace: null, params: { id: team.workspaceId } })).status, 404)
   })
 })

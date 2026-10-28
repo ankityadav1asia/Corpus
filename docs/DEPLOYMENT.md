@@ -20,6 +20,7 @@ jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`
 | No long-running process | Jobs run right after the response that queued them (Next.js `after()`, up to 50 s per pass), each time the UI polls while someone waits, and when Vercel Cron calls `/api/jobs/run`. Long jobs save their progress and continue in the next pass. |
 | Up to 300 s per function (Hobby) | Uploads, chat, URL and YouTube imports and the cron endpoint allow 300 s, so work that runs after the response has room. |
 | Only `/tmp` is writable | OCR keeps the language data of `OCR_LANGUAGES` other than English there. Nothing else is written to disk. |
+| Go API routes | The paths in `GO_API_PATHS` (`next.config.mjs`) run in the Go Function `api/go.go`, built by Vercel from the root `go.mod`. It reads the same `POSTGRES_URL` and `AUTH_SECRET` and keeps one small connection pool per instance. |
 | Latency to the database | `vercel.json` places the functions in `cle1` (Cleveland, AWS `us-east-2`), the region of the Neon database. Every question makes several database round trips. |
 
 ### Hobby or Pro

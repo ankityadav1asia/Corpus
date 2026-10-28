@@ -11,7 +11,6 @@ import { resetEnvCache } from '@/server/env'
 import { clientIp } from '@/server/http/client-ip'
 import { formatBotReply } from '@/server/integrations/service'
 import { cleanSlackText, parseSlackEnvelope, toSlackMrkdwn, verifySlackSignature } from '@/server/integrations/slack'
-import { parseFollowups } from '@/server/rag/followups'
 import { embedQueriesCached } from '@/server/rag/query-cache'
 import { STAGE_TIMEOUTS_MS } from '@/server/rag/retrieval'
 
@@ -42,20 +41,6 @@ describe('speed: helper calls and caching', () => {
     await embedQueriesCached(expired.provider, ['Alpha'], undefined, 0)
     await embedQueriesCached(expired.provider, ['Alpha'], undefined, 2 * 3600 * 1000)
     assert.equal(expired.requests.length, 2, 'entries expire')
-  })
-})
-
-describe('follow-up suggestions', () => {
-  it('reads JSON, drops the original question, duplicates and numbering, and keeps three', () => {
-    const raw =
-      '```json\n{"questions": ["1. What is photosynthesis?", "How fast does it run?", "how fast does it run", "- Which plants use C4?", "Where?", "What about algae?"]}\n```'
-    assert.deepEqual(parseFollowups(raw, 'What is photosynthesis?'), ['How fast does it run?', 'Which plants use C4?', 'Where?'])
-  })
-
-  it('falls back to one question per line and trims long ones', () => {
-    const questions = parseFollowups(`First question here?\n\n2) ${'x'.repeat(200)}?`, 'Other')
-    assert.equal(questions[0], 'First question here?')
-    assert.ok(questions[1]!.length <= 140 && questions[1]!.endsWith('…'))
   })
 })
 
