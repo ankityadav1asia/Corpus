@@ -1,38 +1,11 @@
-/** Answer quality (evaluations, benchmarks, reader feedback) and usage analytics. */
+/** Answer quality (evaluations, reader feedback) and usage analytics. */
 import { z } from 'zod'
 
-import { LIMITS, type ChatMode } from '@/lib/constants'
+import type { ChatMode } from '@/lib/constants'
 
 import type { EvaluationScores } from './chat'
-import type { JobStatus } from './common'
-import { id, requiredText } from './fields'
-
-export const evalCaseSchema = z.object({
-  question: requiredText(LIMITS.evalQuestionChars),
-  referenceAnswer: requiredText(LIMITS.evalReferenceChars),
-  collectionId: id.nullish(),
-})
 
 export const analyticsQuerySchema = z.object({ scope: z.enum(['me', 'workspace']).default('me') })
-
-export interface EvalCase {
-  id: string
-  question: string
-  referenceAnswer: string
-  collectionId: string | null
-  createdAt: string
-}
-
-export interface EvalRunSummary {
-  id: string
-  status: JobStatus
-  caseCount: number
-  completedCount: number
-  averages: EvaluationScores
-  createdAt: string
-  finishedAt: string | null
-  error: string | null
-}
 
 export interface QualitySummary {
   days: number
@@ -46,7 +19,6 @@ export interface QualitySummary {
     scores: EvaluationScores
     createdAt: string
   }>
-  lastBenchmark: EvalRunSummary | null
   /** Thumbs up / down from readers (admins: everyone's; others: their own). */
   feedback: {
     positive: number
@@ -90,5 +62,5 @@ export interface UsageSummary {
   byModel: Array<TokenCount & { model: string; kind: 'generate' | 'embed' }>
   byMember: Array<TokenCount & { userId: string | null; email: string | null }>
   storage: { notebooks: number; documents: number; chunks: number; bytes: number }
-  studio: { reports: number; mindMaps: number; audio: number }
+  studio: { reports: number }
 }

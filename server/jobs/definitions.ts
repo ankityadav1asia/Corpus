@@ -2,9 +2,8 @@ import { z } from 'zod'
 
 import { notify } from '@/server/activity'
 import { syncConnectorSource, syncPayload } from '@/server/connectors/sync'
-import { benchmarkPayload, evaluateAnswerPayload, evaluateMessage, runBenchmarkBatch } from '@/server/evaluation/service'
+import { evaluateAnswerPayload, evaluateMessage } from '@/server/evaluation/service'
 import { indexQueuedDocument } from '@/server/ingestion/ingest-service'
-import { answerBotMessage, botMessagePayload } from '@/server/integrations/service'
 import type { JobContext } from '@/server/jobs/context'
 import { PermanentJobError } from '@/server/jobs/errors'
 import { readQueuedMedia } from '@/server/media/read-media'
@@ -13,8 +12,6 @@ import { generateReport, reportPayload } from '@/server/reports/generate'
 import type { Repositories } from '@/server/repositories'
 import { JOB_ATTEMPTS, type JobType } from '@/server/repositories/jobs'
 import type { NewNotification } from '@/server/repositories/notifications'
-import { audioPayload, generateAudio } from '@/server/studio/audio'
-import { generateMindMap, mindMapPayload } from '@/server/studio/mindmap'
 
 /**
  * What each background job does: run it, say why it waits when a retry is scheduled, and — once it
@@ -94,17 +91,6 @@ export const JOBS: Record<JobType, JobDefinition> = {
     run: (payload, context) => evaluateMessage({ repos: context.repos, ai: context.ai(), reranker: null }, payload),
   }),
 
-  run_benchmark: defineJob(benchmarkPayload, {
-    async run(payload, context, deadline) {
-      const result = await runBenchmarkBatch({ repos: context.repos, ai: context.ai(), reranker: context.reranker() }, payload, deadline)
-      await continueIfMore(context, 'run_benchmark', payload, result)
-    },
-    async onFailure({ runId }, { repos }, reason) {
-      await repos.evaluations.markRun(runId, 'failed', reason)
-      await tellCreator(repos, await repos.evaluations.runForJob(runId), { kind: 'benchmark_failed', title: 'Benchmark run failed', body: reason, link: { tab: 'analytics' } })
-    },
-  }),
-
   ingest_document: documentJob(async (payload, context, deadline) => {
     const result = await indexQueuedDocument({ repos: context.repos, ai: context.ai() }, payload.documentId, deadline - STEP_MARGIN_MS)
     // Very large documents are indexed across several runs; each resumes where the last one stopped.
@@ -131,39 +117,6 @@ export const JOBS: Record<JobType, JobDefinition> = {
       await repos.reports.fail(reportId, reason)
       const report = await repos.reports.forJob(reportId)
       if (report) await tellCreator(repos, report, { kind: 'report_failed', title: `Report failed: ${report.title}`, body: reason, link: { tab: 'reports', id: report.id } })
-    },
-  }),
-
-  generate_audio: defineJob(audioPayload, {
-    async run(payload, context, deadline) {
-      const result = await generateAudio({ repos: context.repos, ai: context.ai(), speech: (context.speech ?? off)() }, payload.audioId, deadline - STEP_MARGIN_MS)
-      // Recording continues segment by segment in fresh runs.
-      await continueIfMore(context, 'generate_audio', payload, result)
-    },
-    onRetry: ({ audioId }, { repos }, progress) => repos.audio.setProgress(audioId, 'queued', progress),
-    async onFailure({ audioId }, { repos }, reason) {
-      const audio = await repos.audio.forJob(audioId)
-      if (!audio) return
-      await repos.audio.fail(audio.id, reason)
-      await tellCreator(repos, audio, { kind: 'audio_failed', title: 'An audio overview could not be created', body: reason, link: { tab: 'audio', id: audio.id } })
-    },
-  }),
-
-  generate_mindmap: defineJob(mindMapPayload, {
-    run: ({ mindMapId }, context) => generateMindMap({ repos: context.repos, ai: context.ai() }, mindMapId),
-    onRetry: ({ mindMapId }, { repos }, progress) => repos.mindMaps.setProgress(mindMapId, 'queued', progress),
-    async onFailure({ mindMapId }, { repos }, reason) {
-      const map = await repos.mindMaps.forJob(mindMapId)
-      if (!map) return
-      await repos.mindMaps.fail(map.id, reason)
-      await tellCreator(repos, map, { kind: 'mindmap_failed', title: 'A mind map could not be created', body: reason, link: { tab: 'mindmaps', id: map.id } })
-    },
-  }),
-
-  answer_bot_message: defineJob(botMessagePayload, {
-    async run(payload, context) {
-      if (!context.secret) throw new PermanentJobError('Chat apps are not available on this server.')
-      await answerBotMessage({ repos: context.repos, ai: context.ai(), reranker: context.reranker(), fetch: context.fetch ?? fetch, secret: context.secret() }, payload)
     },
   }),
 

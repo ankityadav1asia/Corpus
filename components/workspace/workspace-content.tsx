@@ -4,10 +4,8 @@ import { AlertCircle, Loader2 } from 'lucide-react'
 import type { ReactNode } from 'react'
 
 import { AnalyticsDashboard } from '@/components/analytics-dashboard'
-import { AudioStudio } from '@/components/audio-studio'
 import { ChatPanel } from '@/components/chat-panel'
 import { ChunkExplorer } from '@/components/chunk-explorer'
-import { MindMapStudio } from '@/components/mindmap-studio'
 import { ReportsPanel } from '@/components/reports-panel'
 import type { useRagChat } from '@/hooks/use-rag-chat'
 import type { ChatMode } from '@/lib/constants'
@@ -48,7 +46,7 @@ export interface WorkspaceContentProps {
   scopeLabel: string
   chunkCount: number
   totals: StatsResponse['totals'] | undefined
-  features: { ai: boolean; schema: boolean; audio: boolean }
+  features: { ai: boolean; schema: boolean }
   /** An item to open on its tab (from a notification), and a way to say it was opened. */
   focus: { tab: WorkspaceTab; id: string } | null
   onFocusConsumed: () => void
@@ -105,30 +103,7 @@ export function WorkspaceContent(props: WorkspaceContentProps) {
       return panel(<ChunkExplorer collections={collections} selected={props.selected} onChanged={props.onCorpusChanged} />)
     case 'reports':
       return panel(<ReportsPanel collections={collections} user={user} focusId={focusId('reports')} onFocusConsumed={props.onFocusConsumed} />)
-    case 'audio':
-      return panel(
-        <AudioStudio
-          collections={collections}
-          user={user}
-          audioEnabled={features.audio && enabled}
-          focusId={focusId('audio')}
-          onFocusConsumed={props.onFocusConsumed}
-          onOpenSource={(documentId) => props.onOpenSource(documentId)}
-        />,
-      )
-    case 'mindmaps':
-      return panel(
-        <MindMapStudio
-          collections={collections}
-          user={user}
-          enabled={enabled}
-          focusId={focusId('mindmaps')}
-          onFocusConsumed={props.onFocusConsumed}
-          onAsk={props.onAskInChat}
-          onOpenSource={(documentId) => props.onOpenSource(documentId)}
-        />,
-      )
     case 'analytics':
-      return panel(<AnalyticsDashboard totals={props.totals} collections={collections} />)
+      return panel(<AnalyticsDashboard totals={props.totals} />)
   }
 }

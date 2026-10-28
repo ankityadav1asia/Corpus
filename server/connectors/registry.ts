@@ -1,9 +1,6 @@
 import type { ConnectorProvider } from '@/lib/contracts'
-import { createGitHubConnector } from '@/server/connectors/github'
 import { createGoogleDriveConnector, type GoogleClient } from '@/server/connectors/google-drive'
-import { createNotionConnector } from '@/server/connectors/notion'
 import type { Connector } from '@/server/connectors/types'
-import { createWebsiteConnector } from '@/server/connectors/website'
 
 export interface ConnectorRegistry {
   /** null when the provider is not available on this server (e.g. no Google OAuth client). */
@@ -14,9 +11,6 @@ export interface ConnectorRegistry {
 
 export function createConnectorRegistry(options: { google: GoogleClient | null }): ConnectorRegistry {
   const connectors: Partial<Record<ConnectorProvider, Connector>> = {
-    notion: createNotionConnector(),
-    github: createGitHubConnector(),
-    website: createWebsiteConnector(),
     ...(options.google ? { google_drive: createGoogleDriveConnector(options.google) } : {}),
   }
   return {

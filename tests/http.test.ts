@@ -7,9 +7,7 @@ import * as chunkRoute from '@/app/api/corpus/chunks/[id]/route'
 import * as chunksRoute from '@/app/api/corpus/chunks/route'
 import * as documentChunksRoute from '@/app/api/corpus/documents/[id]/chunks/route'
 import * as corpusRoute from '@/app/api/corpus/route'
-import * as evalCasesRoute from '@/app/api/evaluations/cases/route'
 import * as evaluationsRoute from '@/app/api/evaluations/route'
-import * as evalRunsRoute from '@/app/api/evaluations/runs/route'
 import * as jobsNudgeRoute from '@/app/api/jobs/nudge/route'
 import * as jobsRunRoute from '@/app/api/jobs/run/route'
 import * as learnRoute from '@/app/api/learn/route'
@@ -30,7 +28,7 @@ import { setServicesForTests, type Services } from '@/server/services'
 
 import { createTestDb, type TestDb } from './helpers/db'
 import { createFakeAi, type FakeAi } from './helpers/fake-ai'
-import { createTeam, createUser, type TestUser } from './helpers/fixtures'
+import { addDocument, createTeam, createUser, type TestUser } from './helpers/fixtures'
 import { sessionToken } from './helpers/session'
 
 const SECRET = 'y'.repeat(48)
@@ -111,7 +109,6 @@ before(async () => {
     reranker: () => createLlmReranker(ai),
     vision: () => null,
     transcriber: () => null,
-    speech: () => null,
     ocr: () => null,
     connectors: () => registryOf({}),
     email: () => null,
@@ -162,25 +159,43 @@ describe('authentication', () => {
 
 describe('request hardening', () => {
   // The Go API (backend/) has the same checks for the routes it serves (backend/api).
-  // Checked on a TypeScript route with a JSON body: adding a benchmark question (32 KB limit).
-  const path = '/api/evaluations/cases'
-  const base = () => ({ method: 'POST', as: alice })
+  // Checked on a TypeScript route with a JSON body: adding a chunk to a document (32 KB limit).
+  let path = ''
+  let documentId = ''
+  const base = () => ({ method: 'POST', as: alice, params: { id: documentId } })
+
+  before(async () => {
+    const document = await addDocument(repos, {
+      workspaceId: alice.workspaceId,
+      collectionId: alice.notebookId,
+      createdBy: alice.id,
+      title: 'Hardening notes',
+      chunks: ['Reciprocal Rank Fusion merges ranked lists.'],
+    })
+    documentId = document.id
+    path = `/api/corpus/documents/${documentId}/chunks`
+  })
+
+  // Added chunks are embedded at once; later tests count AI calls from zero.
+  after(() => {
+    ai.calls.embedDocuments.length = 0
+  })
 
   it('blocks cross-site writes (CSRF) but allows same-origin ones', async () => {
-    const question = { question: 'What is RRF?', referenceAnswer: 'Reciprocal Rank Fusion.' }
-    const evil = await call(evalCasesRoute.POST, path, { ...base(), origin: 'https://evil.example', body: question })
+    const chunk = { content: 'RRF stands for Reciprocal Rank Fusion.' }
+    const evil = await call(documentChunksRoute.POST, path, { ...base(), origin: 'https://evil.example', body: chunk })
     assert.equal(evil.status, 403)
-    const ok = await call(evalCasesRoute.POST, path, { ...base(), body: question })
+    const ok = await call(documentChunksRoute.POST, path, { ...base(), body: chunk })
     assert.equal(ok.status, 201)
   })
 
   it('validates content type, JSON syntax, schema and body size', async () => {
-    assert.equal((await call(evalCasesRoute.POST, path, { ...base(), body: 'question=x', contentType: 'text/plain' })).status, 415)
-    assert.equal((await call(evalCasesRoute.POST, path, { ...base(), body: '{"question":' })).status, 400)
-    const invalid = await call(evalCasesRoute.POST, path, { ...base(), body: { question: '', referenceAnswer: 'x' } })
+    assert.equal((await call(documentChunksRoute.POST, path, { ...base(), body: 'content=x', contentType: 'text/plain' })).status, 415)
+    assert.equal((await call(documentChunksRoute.POST, path, { ...base(), body: '{"content":' })).status, 400)
+    const invalid = await call(documentChunksRoute.POST, path, { ...base(), body: { content: '' } })
     assert.equal(invalid.status, 400)
     assert.equal((await data<{ error: { code: string } }>(invalid)).error.code, 'VALIDATION_FAILED')
-    assert.equal((await call(evalCasesRoute.POST, path, { ...base(), body: { question: 'x'.repeat(70_000), referenceAnswer: 'x' } })).status, 413)
+    assert.equal((await call(documentChunksRoute.POST, path, { ...base(), body: { content: 'x'.repeat(70_000) } })).status, 413)
   })
 
   it('never returns internal error details to the client', async () => {
@@ -362,20 +377,15 @@ describe('chunk editor API', () => {
 })
 
 describe('evaluation API', () => {
-  it('editors manage benchmark questions and start one run at a time; members read the summary', async () => {
-    const asTeam = (who: Actor) => ({ as: who, workspace: team.workspaceId })
-    const question = { question: 'When is the retrospective?', referenceAnswer: 'Every Friday afternoon.' }
-    assert.equal((await call(evalCasesRoute.POST, '/api/evaluations/cases', { ...asTeam(vera), method: 'POST', body: question })).status, 403)
-    assert.equal((await call(evalCasesRoute.POST, '/api/evaluations/cases', { ...asTeam(eddie), method: 'POST', body: question })).status, 201)
-    const started = await call(evalRunsRoute.POST, '/api/evaluations/runs', { ...asTeam(eddie), method: 'POST' })
-    assert.equal(started.status, 202)
-    assert.equal((await call(evalRunsRoute.POST, '/api/evaluations/runs', { ...asTeam(eddie), method: 'POST' })).status, 409)
-    await runJobs({ repos, ai: () => ai, reranker: () => createLlmReranker(ai) })
-    const summary = await data<{ lastBenchmark: { status: string; averages: { contextRecall: number | null } } | null }>(
-      call(evaluationsRoute.GET, '/api/evaluations', asTeam(vera)),
-    )
-    assert.equal(summary.lastBenchmark?.status, 'completed')
-    assert.equal(summary.lastBenchmark?.averages.contextRecall, 1)
+  it('members read the answer-quality summary of their workspace', async () => {
+    const res = await call(evaluationsRoute.GET, '/api/evaluations?days=7', { as: vera, workspace: team.workspaceId })
+    assert.equal(res.status, 200)
+    const summary = await data<{ days: number; evaluated: number; feedback: { positive: number; negative: number } }>(res)
+    assert.equal(summary.days, 7)
+    assert.equal(summary.evaluated, 0)
+    assert.deepEqual([summary.feedback.positive, summary.feedback.negative], [0, 0])
+    assert.ok(!('lastBenchmark' in summary), 'benchmarks were removed')
+    assert.equal((await call(evaluationsRoute.GET, '/api/evaluations', { as: bob, workspace: team.workspaceId })).status, 404, 'hidden from non-members')
   })
 })
 

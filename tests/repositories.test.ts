@@ -439,35 +439,30 @@ describe('background jobs', () => {
 })
 
 describe('evaluations and reports', () => {
-  it('benchmark runs track progress and averages; summaries are per workspace', async () => {
-    const testCase = await repos.evaluations.addCase({ workspaceId: bob.workspaceId, question: 'Q?', referenceAnswer: 'A.', collectionId: null, createdBy: bob.id })
-    const run = await repos.evaluations.createRun(bob.workspaceId, bob.id, 1)
-    assert.equal(run.status, 'queued')
+  it('live answer scores are summarised and flagged per workspace', async () => {
+    const conversation = await repos.conversations.create({ workspaceId: bob.workspaceId, ownerId: bob.id, collectionId: null, title: 'Weak answer' })
+    await repos.conversations.addMessage({ conversationId: conversation.id, role: 'user', content: 'Q?' })
+    const answer = await repos.conversations.addMessage({ conversationId: conversation.id, role: 'assistant', content: 'A.' })
     await repos.evaluations.save({
       workspaceId: bob.workspaceId,
-      runId: run.id,
-      caseId: testCase.id,
+      messageId: answer.id,
       question: 'Q?',
       answer: 'A.',
-      scores: { faithfulness: 0.5, answerRelevance: 1, contextPrecision: 1, contextRecall: 0.25 },
+      scores: { faithfulness: 0.25, answerRelevance: 1, contextPrecision: 1, contextRecall: null },
       details: {},
       model: null,
     })
-    await repos.evaluations.incrementRunProgress(run.id)
-    await repos.evaluations.markRun(run.id, 'completed')
-    const [stored] = await repos.evaluations.runs(bob.workspaceId)
-    assert.equal(stored?.completedCount, 1)
-    assert.equal(stored?.status, 'completed')
-    assert.ok(stored?.finishedAt)
-    assert.deepEqual(stored?.averages, { faithfulness: 0.5, answerRelevance: 1, contextPrecision: 1, contextRecall: 0.25 })
-    assert.deepEqual([...(await repos.evaluations.scoredCaseIds(run.id))], [testCase.id])
 
     const summary = await repos.evaluations.summary(bob.workspaceId, { days: 30, ownerId: null })
-    assert.equal(summary.evaluated, 0, 'benchmark answers are not live answers')
-    assert.equal(summary.averages.contextRecall, 0.25)
-    assert.equal(summary.lastBenchmark?.id, run.id)
-    assert.equal((await repos.evaluations.summary(alice.workspaceId, { days: 30, ownerId: null })).lastBenchmark, null)
-    assert.equal(await repos.evaluations.deleteCase(alice.workspaceId, testCase.id), false)
+    assert.equal(summary.evaluated, 1)
+    assert.deepEqual(summary.averages, { faithfulness: 0.25, answerRelevance: 1, contextPrecision: 1, contextRecall: null })
+    assert.equal(summary.trend.length, 1)
+    assert.deepEqual(
+      summary.flagged.map((item) => [item.question, item.conversationId]),
+      [['Q?', conversation.id]],
+    )
+    assert.deepEqual((await repos.evaluations.summary(bob.workspaceId, { days: 30, ownerId: alice.id })).flagged, [], 'only the owner’s own answers')
+    assert.ok(!(await repos.evaluations.summary(alice.workspaceId, { days: 30, ownerId: null })).flagged.some((item) => item.id === summary.flagged[0]!.id))
   })
 
   it('reports are scoped to their workspace', async () => {

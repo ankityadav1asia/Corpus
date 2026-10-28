@@ -10,7 +10,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Group 4b: the studio's reports and mind maps (server/repositories/{reports,mindmaps}.ts). The
+// Group 4b: the studio's reports (server/repositories/reports.ts). The
 // routes only queue them; the TypeScript job runner writes them.
 
 // ReportSummary is a report as the list returns it.
@@ -147,128 +147,6 @@ func (s *Store) GetReport(ctx context.Context, workspaceID, id string) (*ReportD
 
 func (s *Store) DeleteReport(ctx context.Context, workspaceID, id string) (bool, error) {
 	tag, err := s.pool.Exec(ctx, `DELETE FROM app.reports WHERE id = $1 AND workspace_id = $2`, id, workspaceID)
-	if err != nil {
-		return false, err
-	}
-	return tag.RowsAffected() > 0, nil
-}
-
-// MindMapSummary is a mind map as the list returns it.
-type MindMapSummary struct {
-	ID             string  `json:"id"`
-	Title          string  `json:"title"`
-	Focus          *string `json:"focus"`
-	Status         string  `json:"status"`
-	Progress       *string `json:"progress"`
-	NodeCount      *int    `json:"nodeCount"`
-	CreatedByEmail *string `json:"createdByEmail"`
-	CreatedAt      string  `json:"createdAt"`
-	CompletedAt    *string `json:"completedAt"`
-}
-
-// MindMapDetail adds the selection and the tree. CreatedBy is not returned.
-type MindMapDetail struct {
-	MindMapSummary
-	CollectionIDs []string        `json:"collectionIds"`
-	DocumentIDs   []string        `json:"documentIds"`
-	Root          json.RawMessage `json:"root"`
-	Sources       json.RawMessage `json:"sources"`
-	Model         *string         `json:"model"`
-	Error         *string         `json:"error"`
-	CreatedBy     *string         `json:"-"`
-}
-
-// NewMindMap is what POST /api/mindmaps stores.
-type NewMindMap struct {
-	WorkspaceID, CreatedBy, Title string
-	Focus                         *string
-	CollectionIDs, DocumentIDs    []string
-}
-
-const mindMapColumns = `m.id::text, m.title, m.focus, m.status, m.progress, m.node_count, u.email, m.created_at, m.completed_at`
-
-func mindMapSummaryTargets(m *MindMapSummary, created *time.Time, completed **time.Time) []any {
-	return []any{&m.ID, &m.Title, &m.Focus, &m.Status, &m.Progress, &m.NodeCount, &m.CreatedByEmail, created, completed}
-}
-
-func (m *MindMapSummary) finish(created time.Time, completed *time.Time) {
-	m.Focus, m.Progress, m.CreatedByEmail = nonEmpty(m.Focus), nonEmpty(m.Progress), nonEmpty(m.CreatedByEmail)
-	m.CreatedAt, m.CompletedAt = IsoTime(created), isoOrNil(completed)
-}
-
-func (s *Store) CreateMindMap(ctx context.Context, input NewMindMap) (*MindMapSummary, error) {
-	var m MindMapSummary
-	var created time.Time
-	var completed *time.Time
-	err := s.pool.QueryRow(ctx, `WITH m AS (
-			INSERT INTO app.mind_maps (workspace_id, created_by, title, focus, collection_ids, document_ids)
-			VALUES ($1, $2, $3, $4, $5::uuid[], $6::uuid[])
-			RETURNING *
-		)
-		SELECT `+mindMapColumns+` FROM m LEFT JOIN app.users u ON u.id = m.created_by`,
-		input.WorkspaceID, input.CreatedBy, input.Title, input.Focus, ids(input.CollectionIDs), ids(input.DocumentIDs),
-	).Scan(mindMapSummaryTargets(&m, &created, &completed)...)
-	if err != nil {
-		return nil, err
-	}
-	m.finish(created, completed)
-	return &m, nil
-}
-
-// ListMindMaps: newest first.
-func (s *Store) ListMindMaps(ctx context.Context, workspaceID string, limit int) ([]MindMapSummary, error) {
-	rows, err := s.pool.Query(ctx, `SELECT `+mindMapColumns+` FROM app.mind_maps m LEFT JOIN app.users u ON u.id = m.created_by
-		WHERE m.workspace_id = $1 ORDER BY m.created_at DESC LIMIT $2`, workspaceID, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	list := []MindMapSummary{}
-	for rows.Next() {
-		var m MindMapSummary
-		var created time.Time
-		var completed *time.Time
-		if err := rows.Scan(mindMapSummaryTargets(&m, &created, &completed)...); err != nil {
-			return nil, err
-		}
-		m.finish(created, completed)
-		list = append(list, m)
-	}
-	return list, rows.Err()
-}
-
-func (s *Store) CountMindMaps(ctx context.Context, workspaceID string) (int, error) {
-	var count int
-	err := s.pool.QueryRow(ctx, `SELECT count(*)::int FROM app.mind_maps WHERE workspace_id = $1`, workspaceID).Scan(&count)
-	return count, err
-}
-
-// GetMindMap: nil when the mind map is not in the workspace.
-func (s *Store) GetMindMap(ctx context.Context, workspaceID, id string) (*MindMapDetail, error) {
-	var m MindMapDetail
-	var created time.Time
-	var completed *time.Time
-	var collectionIDs, documentIDs []string
-	var root, sources []byte
-	targets := append(mindMapSummaryTargets(&m.MindMapSummary, &created, &completed), &collectionIDs, &documentIDs, &root, &sources, &m.Model, &m.Error, &m.CreatedBy)
-	err := s.pool.QueryRow(ctx, `SELECT `+mindMapColumns+`, m.collection_ids::text[], m.document_ids::text[], m.root, m.sources, m.model, m.error, m.created_by::text
-		FROM app.mind_maps m LEFT JOIN app.users u ON u.id = m.created_by
-		WHERE m.id = $1 AND m.workspace_id = $2`, id, workspaceID).Scan(targets...)
-	if errors.Is(err, pgx.ErrNoRows) || isInvalidID(err) {
-		return nil, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-	m.finish(created, completed)
-	m.CollectionIDs, m.DocumentIDs = ids(collectionIDs), ids(documentIDs)
-	m.Root, m.Sources = jsonOrNull(root), jsonArray(sources)
-	m.Model, m.Error, m.CreatedBy = nonEmpty(m.Model), nonEmpty(m.Error), nonEmpty(m.CreatedBy)
-	return &m, nil
-}
-
-func (s *Store) DeleteMindMap(ctx context.Context, workspaceID, id string) (bool, error) {
-	tag, err := s.pool.Exec(ctx, `DELETE FROM app.mind_maps WHERE id = $1 AND workspace_id = $2`, id, workspaceID)
 	if err != nil {
 		return false, err
 	}

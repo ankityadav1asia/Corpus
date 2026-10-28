@@ -5,7 +5,6 @@ export function readFeatures(stats: StatsResponse | undefined) {
   return {
     schema: stats?.schema.ready ?? true,
     ai: stats?.features.ai ?? true,
-    audio: stats?.features.audio ?? false,
   }
 }
 

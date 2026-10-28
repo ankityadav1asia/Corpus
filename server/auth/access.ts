@@ -42,8 +42,7 @@ export function requireWorkspacePermission(access: WorkspaceAccess, permission: 
 }
 
 /**
- * Things members create and share with the workspace (reports, images, audio overviews, mind maps,
- * connected accounts, public links) are managed by their creator or by a workspace admin.
+ * Things members create and share with the workspace (reports, connected accounts, public links) are managed by their creator or by a workspace admin.
  */
 export function canManageOwned(access: WorkspaceAccess, ownerId: string | null): boolean {
   return ownerId === access.userId || access.role === 'admin'

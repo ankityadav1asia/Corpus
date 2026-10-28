@@ -2,9 +2,9 @@ import { base64UrlDecode, base64UrlEncode } from '@/server/auth/session'
 import { acceptedKeys, currentKey, type SecretKeys } from '@/server/security/keys'
 
 /**
- * Encryption at rest for third-party credentials (connector and chat-app tokens) and share-link
+ * Encryption at rest for third-party credentials (connector tokens) and share-link
  * tokens: AES-256-GCM with a key derived from AUTH_SECRET by HKDF, so a database dump alone does
- * not reveal anyone's Drive/Notion/GitHub/Slack access. New values are sealed with the current
+ * not reveal anyone's Google Drive access. New values are sealed with the current
  * secret; during a rotation values sealed with AUTH_SECRET_PREVIOUS still open, and
  * server/security/rotation.ts re-seals them with the current one.
  */

@@ -1,6 +1,6 @@
 'use client'
 
-import { AlertTriangle, Check, Globe, Plug, RefreshCw, Unplug } from 'lucide-react'
+import { AlertTriangle, Check, Plug, RefreshCw, Unplug } from 'lucide-react'
 import { useState } from 'react'
 
 import { Button } from '@/components/ui/button'
@@ -12,7 +12,6 @@ import { apiJson, errorMessage } from '@/lib/api-client'
 import type { ConnectionSummary, ConnectorProvider } from '@/lib/contracts'
 import { cn } from '@/lib/utils'
 
-import { TokenDialog, WebsiteDialog } from './connect-dialogs'
 import { Picker } from './picker'
 import { PROVIDERS, ProviderIcon } from './providers'
 import { SourceRow } from './source-row'
@@ -28,8 +27,6 @@ export function ConnectorsPanel({ collectionId, canEdit, onChanged }: Connectors
   const { toast } = useToast()
   const workspace = useWorkspaceContext()
   const overview = useConnectors()
-  const [tokenFor, setTokenFor] = useState<'notion' | 'github' | null>(null)
-  const [websiteOpen, setWebsiteOpen] = useState(false)
   const [pickerFor, setPickerFor] = useState<ConnectionSummary | null>(null)
   const data = overview.data
   const mine = (provider: ConnectorProvider) => (data?.connections ?? []).filter((connection) => connection.provider === provider && connection.mine)
@@ -41,14 +38,9 @@ export function ConnectorsPanel({ collectionId, canEdit, onChanged }: Connectors
   }
 
   function connect(provider: ConnectorProvider) {
-    if (provider === 'website') return setWebsiteOpen(true)
-    if (provider === 'google_drive') {
-      if (!workspace.active) return
-      // A top-level navigation: Google shows its consent screen, then returns to the app.
-      window.location.href = `/api/connectors/google-drive/start?w=${encodeURIComponent(workspace.active.id)}`
-      return
-    }
-    setTokenFor(provider)
+    if (provider !== 'google_drive' || !workspace.active) return
+    // A top-level navigation: Google shows its consent screen, then returns to the app.
+    window.location.href = `/api/connectors/google-drive/start?w=${encodeURIComponent(workspace.active.id)}`
   }
 
   async function disconnect(connection: ConnectionSummary) {
@@ -116,11 +108,7 @@ export function ConnectorsPanel({ collectionId, canEdit, onChanged }: Connectors
                   disabled={!availability?.available || !collectionId}
                   onClick={() => connect(provider)}
                 >
-                  {provider === 'website' ? (
-                    <>
-                      <Globe className="mr-1.5 size-3" /> Add a website
-                    </>
-                  ) : connections.length ? (
+                  {connections.length ? (
                     <>
                       <Plug className="mr-1.5 size-3" /> Connect another account
                     </>
@@ -142,7 +130,7 @@ export function ConnectorsPanel({ collectionId, canEdit, onChanged }: Connectors
           <EmptyState
             icon={RefreshCw}
             title="Nothing synced yet"
-            description="Connect an app and add files, pages, repositories or a website. They stay up to date automatically."
+            description="Connect Google Drive and add files or folders. They stay up to date automatically."
             className="py-6"
           />
         ) : (
@@ -154,24 +142,6 @@ export function ConnectorsPanel({ collectionId, canEdit, onChanged }: Connectors
         )}
       </div>
 
-      <TokenDialog
-        provider={tokenFor}
-        onClose={() => setTokenFor(null)}
-        onConnected={(connection) => {
-          setTokenFor(null)
-          void overview.mutate()
-          setPickerFor(connection)
-        }}
-      />
-      <WebsiteDialog
-        open={websiteOpen}
-        collectionId={collectionId}
-        onClose={() => setWebsiteOpen(false)}
-        onAdded={() => {
-          setWebsiteOpen(false)
-          refresh()
-        }}
-      />
       <Picker
         connection={pickerFor}
         collectionId={collectionId}

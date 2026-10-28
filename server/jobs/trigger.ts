@@ -15,7 +15,6 @@ export function jobContextFrom(services: Services): JobContext {
     reranker: services.reranker,
     vision: services.vision,
     transcriber: services.transcriber,
-    speech: services.speech,
     ocr: services.ocr,
     connectors: services.connectors,
     secret: getSecretKeys,

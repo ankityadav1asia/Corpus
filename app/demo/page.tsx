@@ -24,7 +24,7 @@ const STEPS = [
   { title: 'Open a citation', text: 'Click [1] to see the exact passage, highlighted in the original PDF or page.' },
   { title: 'Watch it research', text: 'Switch to Deep mode: the query planner rewrites the question before searching.' },
   { title: 'Ask something off-topic', text: 'The guardrail refuses instead of making an answer up.' },
-  { title: 'Explore the studio', text: 'Open the reports, mind maps and audio overviews made from the same sources.' },
+  { title: 'Explore the studio', text: 'Open the reports made from the same sources: summaries, comparisons and slide outlines.' },
 ]
 
 const FEATURES = [
@@ -32,9 +32,9 @@ const FEATURES = [
   { title: 'Hybrid retrieval', text: 'pgvector similarity + PostgreSQL full-text, fused with RRF, then re-ranked.' },
   { title: 'Guardrail', text: 'Weak context gets a fixed "insufficient context" reply, never a guess.' },
   { title: 'Any source', text: 'PDFs, scans (OCR), images, audio and video transcripts, web pages, YouTube.' },
-  { title: 'Studio', text: 'Reports, slides, mind maps and two-host audio overviews.' },
-  { title: 'Connected apps', text: 'Google Drive, Notion, GitHub and websites, synced on a schedule.' },
-  { title: 'Teams and sharing', text: 'Workspaces with roles, share links, and a Slack bot.' },
+  { title: 'Studio', text: 'Executive summaries, comparison tables and slide outlines across documents.' },
+  { title: 'Google Drive', text: 'Files and whole folders, kept in sync on a schedule.' },
+  { title: 'Teams and sharing', text: 'Workspaces with roles, per-notebook access and share links.' },
   { title: 'Secure by design', text: 'Server-side sessions, CSP nonces, SSRF-safe fetching, encrypted tokens.' },
 ]
 
@@ -152,10 +152,7 @@ export default async function DemoPage() {
               </div>
             ))}
           </dl>
-          <div className="grid gap-4 md:grid-cols-2">
-            <Screenshot src="/demo/sources.webp" alt="Sources drawer with indexing progress" width={1200} height={750} />
-            <Screenshot src="/demo/mind-map.webp" alt="A mind map generated from the sources" width={1200} height={817} />
-          </div>
+          <Screenshot src="/demo/sources.webp" alt="Sources drawer with indexing progress" width={1200} height={750} />
         </section>
 
         <section className="flex flex-col gap-8">

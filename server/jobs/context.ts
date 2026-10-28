@@ -1,4 +1,4 @@
-import type { SpeechSynthesizer, Transcriber, VisionModel } from '@/server/ai/media'
+import type { Transcriber, VisionModel } from '@/server/ai/media'
 import type { AiProvider } from '@/server/ai/provider'
 import type { ConnectorRegistry } from '@/server/connectors/registry'
 import type { OcrEngine } from '@/server/media/ocr'
@@ -14,11 +14,10 @@ export interface JobContext {
   /** Multimodal capabilities (absent = turned off). */
   vision?: () => VisionModel | null
   transcriber?: () => Transcriber | null
-  speech?: () => SpeechSynthesizer | null
   ocr?: () => OcrEngine | null
   connectors?: () => ConnectorRegistry
-  /** AUTH_SECRET key ring, to open encrypted connector and chat-app credentials. */
+  /** AUTH_SECRET key ring, to open encrypted connector credentials. */
   secret?: () => SecretKeys
-  /** Outbound HTTP for chat-app replies (injectable for tests). */
+  /** Outbound HTTP (injectable for tests). */
   fetch?: typeof fetch
 }

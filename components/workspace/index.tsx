@@ -33,7 +33,7 @@ import { atLeast } from '@/lib/roles'
 
 import { buildCommands, buildOnboardingSteps } from './commands'
 import { describeScope, onboardingProgress, readFeatures } from './derived'
-import { TABS, tabLabel, type WorkspaceTab } from './navigation'
+import { isTab, tabLabel, tabsFor, type WorkspaceTab } from './navigation'
 import { useConversationActions } from './use-conversation-actions'
 import { useHistoryPanel } from './use-history-panel'
 import { useNotebookActions } from './use-notebook-actions'
@@ -67,7 +67,10 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
   const mod = useModKeyLabel()
   const history = useHistoryPanel()
 
-  const [tab, setTab] = useState<WorkspaceTab>('chat')
+  const [chosenTab, setTab] = useState<WorkspaceTab>('chat')
+  // Members who are not admins never see the chunk editor; a link to it opens the chat instead.
+  const tabs = tabsFor(workspace.role === 'admin')
+  const tab: WorkspaceTab = tabs.some((item) => item.id === chosenTab) ? chosenTab : 'chat'
   const [selected, setSelected] = useState('all')
   const [mode, setMode] = useState<ChatMode>('standard')
   const [sources, setSources] = useState<{ open: boolean; target: string | null; highlight: string | null; tab: IngestionTab; key: number }>({
@@ -221,6 +224,8 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
     const link = item.link
     if (!link) return
     if (link.tab !== 'sources') {
+      // Links of removed features (audio overviews, mind maps) open nothing.
+      if (!isTab(link.tab)) return
       setTab(link.tab)
       if (link.id) setFocus({ tab: link.tab, id: link.id })
       return
@@ -248,10 +253,11 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
       inInputs: true,
     },
     { combo: 'shift+?', handler: () => setShortcutsOpen(true) },
-    ...TABS.map(({ id }, index) => ({ combo: `alt+${index + 1}`, handler: () => setTab(id), inInputs: true })),
+    ...tabs.map(({ id }, index) => ({ combo: `alt+${index + 1}`, handler: () => setTab(id), inInputs: true })),
   ])
 
   const commands = buildCommands({
+    tabs,
     mode,
     conversations: conversationList,
     collections: collectionList,
@@ -291,6 +297,7 @@ function WorkspaceShell({ user }: { user: SessionUser }) {
         onOpenChange={history.change}
         user={user}
         tab={tab}
+        tabs={tabs}
         onTabChange={showTab}
         collections={collectionList}
         selected={selected}

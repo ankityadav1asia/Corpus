@@ -60,9 +60,9 @@ export const EMBEDDING_DIMENSIONS = 3072
 
 /** Views of the workspace shell, in navigation-rail order; notification links point at them. */
 /** How connected apps are named in the UI, notifications and sync messages. */
-export const CONNECTOR_LABELS: Record<ConnectorProvider, string> = { google_drive: 'Google Drive', notion: 'Notion', github: 'GitHub', website: 'Website' }
+export const CONNECTOR_LABELS: Record<ConnectorProvider, string> = { google_drive: 'Google Drive' }
 
-export const WORKSPACE_TABS = ['chat', 'reports', 'audio', 'mindmaps', 'explorer', 'analytics'] as const
+export const WORKSPACE_TABS = ['chat', 'reports', 'explorer', 'analytics'] as const
 export type WorkspaceTab = (typeof WORKSPACE_TABS)[number]
 
 export const CHAT_MODES = ['standard', 'deep'] as const
@@ -74,43 +74,6 @@ export type Role = (typeof ROLES)[number]
 
 export const REPORT_TEMPLATES = ['executive_summary', 'comparison_table', 'slide_outline'] as const
 export type ReportTemplate = (typeof REPORT_TEMPLATES)[number]
-
-/** NotebookLM-style audio overviews: a conversation between two hosts about the selected sources. */
-export const AUDIO_FORMATS = ['deep_dive', 'brief', 'critique', 'debate'] as const
-export type AudioFormat = (typeof AUDIO_FORMATS)[number]
-
-export const AUDIO_LENGTHS = ['short', 'default', 'long'] as const
-export type AudioLength = (typeof AUDIO_LENGTHS)[number]
-
-export const AUDIO_LANGUAGES = [
-  'English',
-  'Hindi',
-  'Hinglish',
-  'Spanish',
-  'French',
-  'German',
-  'Portuguese',
-  'Italian',
-  'Japanese',
-  'Korean',
-  'Chinese',
-  'Arabic',
-  'Bengali',
-  'Tamil',
-  'Telugu',
-  'Marathi',
-] as const
-export type AudioLanguage = (typeof AUDIO_LANGUAGES)[number]
-
-export const STUDIO_LIMITS = {
-  focusChars: 500,
-  collectionsPerItem: 20,
-  documentsPerItem: 12,
-  audioPerWorkspace: 200,
-  mindMapsPerWorkspace: 300,
-  mindMapNodes: 80,
-  mindMapDepth: 4,
-} as const
 
 /** Exact wording required by the product spec when retrieval finds nothing relevant enough. */
 export const INSUFFICIENT_CONTEXT_MESSAGE = 'Insufficient context in knowledge base.'

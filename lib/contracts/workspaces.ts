@@ -133,7 +133,6 @@ export interface StatsResponse {
     ocr: 'tesseract' | 'vision' | null
     vision: boolean
     transcription: boolean
-    audio: boolean
     connectors: { googleDrive: boolean }
   }
   totals: { collections: number; documents: number; chunks: number }
@@ -163,7 +162,6 @@ export interface ModelsStatus {
     embeddings: ModelInfo | null
     vision: ModelInfo | null
     transcription: ModelInfo | null
-    speech: ModelInfo | null
     ocr: ModelInfo | null
   }
   embeddings: { active: string | null; total: number; stale: number; reembedding: boolean }

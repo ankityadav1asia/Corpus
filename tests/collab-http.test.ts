@@ -1,23 +1,18 @@
 import assert from 'node:assert/strict'
-import { createHmac } from 'node:crypto'
 import { after, before, describe, it } from 'node:test'
 
 import { NextRequest } from 'next/server'
 
 import * as documentFileRoute from '@/app/api/corpus/documents/[id]/file/route'
 import * as documentRoute from '@/app/api/corpus/documents/[id]/route'
-import * as slackEventsRoute from '@/app/api/integrations/slack/[id]/events/route'
 import * as uploadRoute from '@/app/api/learn/upload/route'
 import * as publicShareRoute from '@/app/api/public/shares/[token]/route'
 import * as shareRoute from '@/app/api/shares/[id]/route'
 import * as sharesRoute from '@/app/api/shares/route'
-import * as integrationRoute from '@/app/api/workspaces/[id]/integrations/[integrationId]/route'
-import * as integrationsRoute from '@/app/api/workspaces/[id]/integrations/route'
 import * as workspaceSharesRoute from '@/app/api/workspaces/[id]/shares/route'
-import type { DocumentDetail, IntegrationSummary, ShareLink, SharedView, UploadResult } from '@/lib/contracts'
+import type { DocumentDetail, ShareLink, SharedView, UploadResult } from '@/lib/contracts'
 import { SESSION_COOKIE } from '@/server/auth/session'
 import { resetEnvCache } from '@/server/env'
-import { runJobs } from '@/server/jobs/runner'
 import { setJobAutorun } from '@/server/jobs/trigger'
 import { registryOf } from '@/server/connectors/registry'
 import { createLlmReranker } from '@/server/rag/rerank'
@@ -32,7 +27,6 @@ import { makePdf } from './helpers/pdf'
 
 const SECRET = 'q'.repeat(48)
 const ORIGIN = 'http://localhost:3000'
-const SLACK_SIGNING = 'slack-signing-secret-for-tests'
 
 let t: TestDb
 let repos: Repositories
@@ -45,22 +39,6 @@ let ada: Actor // admin
 let ed: Actor // editor
 let val: Actor // viewer
 let team: { workspaceId: string; notebookId: string }
-
-/* ── Fake Slack endpoints ─────────────────────────────────────────────────── */
-
-const outbound: Array<{ url: string; body: string; auth: string | null }> = []
-
-const fakeFetch: typeof fetch = async (input, init) => {
-  const url = String(input instanceof Request ? input.url : input)
-  const body = typeof init?.body === 'string' ? init.body : init?.body instanceof URLSearchParams ? init.body.toString() : ''
-  const auth = new Headers(init?.headers).get('authorization')
-  outbound.push({ url, body, auth })
-  const reply = (value: unknown, status = 200) => new Response(JSON.stringify(value), { status, headers: { 'content-type': 'application/json' } })
-  if (url === 'https://slack.com/api/auth.test')
-    return auth === 'Bearer xoxb-good' ? reply({ ok: true, team: 'Acme', user: 'corpus' }) : reply({ ok: false, error: 'invalid_auth' })
-  if (url === 'https://slack.com/api/chat.postMessage') return reply({ ok: true })
-  return reply({ error: 'unexpected' }, 404)
-}
 
 /* ── Harness ──────────────────────────────────────────────────────────────── */
 
@@ -100,8 +78,6 @@ async function data<T>(res: Response | Promise<Response>): Promise<T> {
   return (await (await res).json()) as T
 }
 
-const jobs = () => runJobs({ repos, ai: () => ai, reranker: () => createLlmReranker(ai), secret: () => SECRET, fetch: fakeFetch }, { maxJobs: 20 })
-
 async function actor(email: string): Promise<Actor> {
   const user = await createUser(repos, email)
   return { ...user, cookie: await sessionToken(repos, user.user, SECRET) }
@@ -123,11 +99,10 @@ before(async () => {
     reranker: () => createLlmReranker(ai),
     vision: () => null,
     transcriber: () => null,
-    speech: () => null,
     ocr: () => null,
     connectors: () => registryOf({}),
     email: () => null,
-    fetch: () => fakeFetch,
+    fetch: () => async () => new Response('offline', { status: 503 }),
   }
   setServicesForTests(services)
   ada = await actor('ada@example.com')
@@ -264,143 +239,5 @@ describe('original PDFs for the viewer', () => {
 
     const stranger = await actor('stranger@example.com')
     assert.equal((await call(documentFileRoute.GET, `/api/corpus/documents/${documentId}/file`, { as: stranger, params: { id: documentId } })).status, 404)
-  })
-})
-
-describe('Slack bot', () => {
-  let integration: IntegrationSummary
-  const signed = (body: string, extra: Record<string, string> = {}) => {
-    const ts = String(Math.floor(Date.now() / 1000))
-    return { 'x-slack-request-timestamp': ts, 'x-slack-signature': `v0=${createHmac('sha256', SLACK_SIGNING).update(`v0:${ts}:${body}`).digest('hex')}`, ...extra }
-  }
-
-  it('is connected by admins after checking the token with Slack', async () => {
-    const body = { provider: 'slack', name: 'Team bot', collectionId: team.notebookId, botToken: 'xoxb-good', signingSecret: SLACK_SIGNING }
-    const path = `/api/workspaces/${team.workspaceId}/integrations`
-    assert.equal((await call(integrationsRoute.POST, path, { method: 'POST', as: ed, workspace: null, body, params: { id: team.workspaceId } })).status, 403)
-    assert.equal(
-      (await call(integrationsRoute.POST, path, { method: 'POST', as: ada, workspace: null, body: { ...body, botToken: 'xoxb-bad' }, params: { id: team.workspaceId } })).status,
-      400,
-    )
-    const created = await call(integrationsRoute.POST, path, { method: 'POST', as: ada, workspace: null, body, params: { id: team.workspaceId } })
-    assert.equal(created.status, 201)
-    integration = ((await created.json()) as { integration: IntegrationSummary }).integration
-    assert.equal(integration.endpoint, `${ORIGIN}/api/integrations/slack/${integration.id}/events`)
-    assert.equal(integration.account, 'Acme · @corpus')
-    const listed = await data<{ integrations: IntegrationSummary[] }>(call(integrationsRoute.GET, path, { as: ada, workspace: null, params: { id: team.workspaceId } }))
-    assert.equal(listed.integrations.length, 1)
-    assert.ok(!JSON.stringify(listed).includes('xoxb-good') && !JSON.stringify(listed).includes(SLACK_SIGNING), 'secrets never leave the server')
-  })
-
-  it('verifies Slack signatures, answers mentions in the thread, and ignores retries', async () => {
-    const path = `/api/integrations/slack/${integration.id}/events`
-    const params = { id: integration.id }
-    const challenge = JSON.stringify({ type: 'url_verification', challenge: 'xyz' })
-    assert.deepEqual(await data(call(slackEventsRoute.POST, path, { method: 'POST', as: null, workspace: null, raw: challenge, headers: signed(challenge), params })), {
-      challenge: 'xyz',
-    })
-    assert.equal(
-      (
-        await call(slackEventsRoute.POST, path, {
-          method: 'POST',
-          as: null,
-          workspace: null,
-          raw: challenge,
-          headers: { ...signed(challenge), 'x-slack-signature': 'v0=bad' },
-          params,
-        })
-      ).status,
-      401,
-    )
-
-    const mention = JSON.stringify({
-      type: 'event_callback',
-      event_id: 'Ev1',
-      event: { type: 'app_mention', user: 'U1', channel: 'C1', ts: '100.1', text: '<@UBOT> What does photosynthesis convert?' },
-    })
-    await t.db.query(`DELETE FROM app.jobs`)
-    assert.equal((await call(slackEventsRoute.POST, path, { method: 'POST', as: null, workspace: null, raw: mention, headers: signed(mention), params })).status, 200)
-    await call(slackEventsRoute.POST, path, { method: 'POST', as: null, workspace: null, raw: mention, headers: signed(mention, { 'x-slack-retry-num': '1' }), params })
-    const [queued] = await t.db.query<{ n: number }>(`SELECT count(*)::int AS n FROM app.jobs WHERE type = 'answer_bot_message'`)
-    assert.equal(queued?.n, 1, 'retries are not answered twice')
-
-    outbound.length = 0
-    assert.deepEqual(await jobs(), { processed: 1, failed: 0 })
-    const post = outbound.find((request) => request.url === 'https://slack.com/api/chat.postMessage')
-    assert.ok(post)
-    const message = JSON.parse(post.body) as { channel: string; thread_ts: string; text: string }
-    assert.equal(message.channel, 'C1')
-    assert.equal(message.thread_ts, '100.1')
-    assert.match(message.text, /Answer from sources \[1\]\.[\s\S]*\*Sources\*\n\[1\] Photosynthesis notes/)
-    assert.equal(post.auth, 'Bearer xoxb-good')
-  })
-
-  it('stops, instead of answering from every notebook, when its notebook is deleted', async () => {
-    const notebook = (await repos.collections.create(team.workspaceId, ada.id, 'Public FAQ'))!
-    const path = `/api/workspaces/${team.workspaceId}/integrations`
-    const scoped = (
-      await data<{ integration: IntegrationSummary }>(
-        call(integrationsRoute.POST, path, {
-          method: 'POST',
-          as: ada,
-          workspace: null,
-          body: { provider: 'slack', name: 'FAQ bot', collectionId: notebook.id, botToken: 'xoxb-good', signingSecret: SLACK_SIGNING },
-          params: { id: team.workspaceId },
-        }),
-      )
-    ).integration
-    assert.equal(scoped.allNotebooks, false)
-    await repos.collections.delete(team.workspaceId, notebook.id)
-
-    const mention = JSON.stringify({
-      type: 'event_callback',
-      event_id: 'Ev2',
-      event: { type: 'app_mention', user: 'U1', channel: 'C1', ts: '200.1', text: '<@UBOT> What does photosynthesis convert?' },
-    })
-    await t.db.query(`DELETE FROM app.jobs`)
-    await call(slackEventsRoute.POST, `/api/integrations/slack/${scoped.id}/events`, {
-      method: 'POST',
-      as: null,
-      workspace: null,
-      raw: mention,
-      headers: signed(mention),
-      params: { id: scoped.id },
-    })
-    outbound.length = 0
-    await jobs()
-    const post = outbound.find((request) => request.url === 'https://slack.com/api/chat.postMessage')
-    assert.match(JSON.parse(post!.body).text, /not connected to a notebook/)
-    assert.ok(!JSON.parse(post!.body).text.includes('Photosynthesis'), 'no answer from other notebooks')
-    const listed = await data<{ integrations: IntegrationSummary[] }>(call(integrationsRoute.GET, path, { as: ada, workspace: null, params: { id: team.workspaceId } }))
-    const after = listed.integrations.find((item) => item.id === scoped.id)
-    assert.equal(after?.status, 'error')
-    assert.match(after?.lastError ?? '', /was deleted/)
-    assert.equal(listed.integrations.find((item) => item.id === integration.id)?.allNotebooks, false, 'the first bot was limited to a notebook too')
-  })
-
-  it('stops answering once disconnected', async () => {
-    const path = `/api/workspaces/${team.workspaceId}/integrations/${integration.id}`
-    assert.equal(
-      (await call(integrationRoute.DELETE, path, { method: 'DELETE', as: ed, workspace: null, params: { id: team.workspaceId, integrationId: integration.id } })).status,
-      403,
-    )
-    assert.equal(
-      (await call(integrationRoute.DELETE, path, { method: 'DELETE', as: ada, workspace: null, params: { id: team.workspaceId, integrationId: integration.id } })).status,
-      200,
-    )
-    const body = JSON.stringify({ type: 'url_verification', challenge: 'x' })
-    assert.equal(
-      (
-        await call(slackEventsRoute.POST, `/api/integrations/slack/${integration.id}/events`, {
-          method: 'POST',
-          as: null,
-          workspace: null,
-          raw: body,
-          headers: signed(body),
-          params: { id: integration.id },
-        })
-      ).status,
-      404,
-    )
   })
 })

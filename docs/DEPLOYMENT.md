@@ -16,7 +16,7 @@ jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`
 | Limit | What the app does |
 |---|---|
 | Request bodies up to 4.5 MB | Files up to 4 MB go up in one request. Larger ones (up to 50 MB) go in 4 MB parts: `POST /api/learn/uploads`, `PUT …/parts/:n` (retried on its own if the network drops), `POST …/complete`. |
-| Buffered response bodies up to 4.5 MB | Original files (PDFs, recordings) and audio overviews are streamed, which the limit does not cover. Recordings answer byte ranges so players can seek. |
+| Buffered response bodies up to 4.5 MB | Original files (PDFs, recordings) are streamed, which the limit does not cover. Recordings answer byte ranges so players can seek. |
 | No long-running process | Jobs run right after the response that queued them (Next.js `after()`, up to 50 s per pass), each time the UI polls while someone waits, and when Vercel Cron calls `/api/jobs/run`. Long jobs save their progress and continue in the next pass. |
 | Up to 300 s per function (Hobby) | Uploads, chat, URL and YouTube imports and the cron endpoint allow 300 s, so work that runs after the response has room. |
 | Only `/tmp` is writable | OCR keeps the language data of `OCR_LANGUAGES` other than English there. Nothing else is written to disk. |
@@ -30,7 +30,7 @@ jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`
   until then.
 - **Pro** allows commercial use, cron every minute (change the schedule in `vercel.json` to
   `*/5 * * * *` or `* * * * *`), and functions of up to 800 s.
-- Background jobs count as function usage: many scanned PDFs, long recordings or audio overviews
+- Background jobs count as function usage: many scanned PDFs or long recordings
   use more of the plan's function time.
 
 ## Before the first deploy
@@ -40,7 +40,7 @@ jobs, with the database on **Neon** (Postgres + pgvector, region `aws-us-east-2`
    move forward. To rehearse, run `npm run db:migrate` against a Neon branch first.
 2. **Generate the secrets:** `openssl rand -hex 24` for `CRON_SECRET`, and `openssl rand -hex 32` for
    `AUTH_SECRET` on a new database. A database that already has data needs the `AUTH_SECRET` that
-   encrypted its stored credentials (connector and chat-app tokens); change it only by rotating
+   encrypted its stored credentials (connector tokens); change it only by rotating
    ([below](#rotating-auth_secret)).
 3. **Pick a sign-in method.** At least one is needed:
    - Google OAuth or GitHub OAuth (register the redirect URIs after the first deploy, when you know the domain);
@@ -96,7 +96,7 @@ ask questions, open citations and browse what the studio made, but cannot upload
 share, change settings or create workspaces. Their chats are private and removed with the account.
 
 1. In the app, create a team workspace (for example "Corpus demo") and fill it as an admin: add a
-   few public documents, and make a report, a mind map and an audio overview for visitors to open.
+   few public documents, and make a report or two for visitors to open.
    In **Workspace settings → Retrieval & answer quality**, turning off "Re-rank passages" and
    "Background evaluation" makes each question cost fewer model calls.
 2. Copy its ID from **Workspace settings → General** and set `DEMO_WORKSPACE_ID` on Vercel. Only a
@@ -113,7 +113,7 @@ open-source model (`CHAT_PROVIDER=openai-compatible`) keeps the demo answering.
 
 ## Rotating AUTH_SECRET
 
-`AUTH_SECRET` signs sessions and encrypts stored credentials (connector and chat-app tokens). To
+`AUTH_SECRET` signs sessions and encrypts stored credentials (connector tokens). To
 change it and keep everyone signed in:
 
 1. Generate a new secret: `openssl rand -hex 32`.
@@ -127,7 +127,7 @@ change it and keep everyone signed in:
    reminder while it is set.
 
 If the secret **leaked**, set only the new `AUTH_SECRET`, redeploy and run the re-seal script. Every
-session ends; apps and bots whose credentials cannot be opened any more must be reconnected.
+session ends; connected apps whose credentials cannot be opened any more must be reconnected.
 
 ## Operating it
 
@@ -141,6 +141,6 @@ session ends; apps and bots whose credentials cannot be opened any more must be 
 - **Backups.** Neon keeps point-in-time history (the retention depends on your plan). Branch before
   risky changes.
 - **Secrets.** See [Rotating AUTH_SECRET](#rotating-auth_secret).
-- **Costs to watch.** Gemini usage: re-ranking, deep mode, evaluation and audio overviews each add
+- **Costs to watch.** Gemini usage: re-ranking, deep mode, evaluation and reports each add
   model calls. Evaluation sampling is a per-workspace setting. On Vercel, background jobs add function
   time.

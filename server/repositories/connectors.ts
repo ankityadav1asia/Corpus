@@ -1,6 +1,9 @@
-import type { ConnectionSummary, ConnectorKind, ConnectorProvider, ConnectorSourceSummary } from '@/lib/contracts'
+import { CONNECTOR_PROVIDERS, type ConnectionSummary, type ConnectorKind, type ConnectorProvider, type ConnectorSourceSummary } from '@/lib/contracts'
 import type { Db } from '@/server/db/client'
 import { asJsonObject, toIso, toNumber } from '@/server/repositories/sql'
+
+/** Providers earlier versions offered (Notion, GitHub, websites) are left out of lists and scheduled syncs. */
+const PROVIDERS = [...CONNECTOR_PROVIDERS]
 
 export interface ConnectionRecord {
   id: string
@@ -104,9 +107,9 @@ export function connectorsRepository(db: Db) {
     async listConnections(workspaceId: string, viewerId: string, includeOthers: boolean): Promise<ConnectionSummary[]> {
       const rows = await db.query(
         `SELECT c.*, u.email AS owner_email FROM app.connections c JOIN app.users u ON u.id = c.user_id
-         WHERE c.workspace_id = $1 AND (c.user_id = $2 OR $3)
+         WHERE c.workspace_id = $1 AND (c.user_id = $2 OR $3) AND c.provider = ANY($4::text[])
          ORDER BY c.created_at DESC`,
-        [workspaceId, viewerId, includeOthers],
+        [workspaceId, viewerId, includeOthers, PROVIDERS],
       )
       return rows.map((row) => mapConnection(row, viewerId))
     },
@@ -185,8 +188,8 @@ export function connectorsRepository(db: Db) {
     async listSources(workspaceId: string): Promise<ConnectorSourceSummary[]> {
       const rows = await db.query(
         `SELECT ${SOURCE_COLUMNS} FROM app.connector_sources s LEFT JOIN app.users u ON u.id = s.created_by
-         WHERE s.workspace_id = $1 ORDER BY s.created_at DESC LIMIT 500`,
-        [workspaceId],
+         WHERE s.workspace_id = $1 AND s.provider = ANY($2::text[]) ORDER BY s.created_at DESC LIMIT 500`,
+        [workspaceId, PROVIDERS],
       )
       return rows.map(mapSource)
     },
@@ -288,12 +291,12 @@ export function connectorsRepository(db: Db) {
         `UPDATE app.connector_sources SET status = 'queued'
          WHERE id IN (
            SELECT id FROM app.connector_sources
-           WHERE auto_sync AND next_sync_at IS NOT NULL AND next_sync_at <= now() AND status IN ('idle', 'error')
+           WHERE auto_sync AND next_sync_at IS NOT NULL AND next_sync_at <= now() AND status IN ('idle', 'error') AND provider = ANY($2::text[])
            ORDER BY next_sync_at LIMIT $1
            FOR UPDATE SKIP LOCKED
          )
          RETURNING id`,
-        [limit],
+        [limit, PROVIDERS],
       )
       return rows.map((row) => String(row.id))
     },

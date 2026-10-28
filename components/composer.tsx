@@ -15,13 +15,11 @@ interface ComposerProps {
   footer: ReactNode
   /** Controls shown before the text field (e.g. the deep-mode toggle). */
   tools?: ReactNode
-  /** Hide the dictation button on phones (when voice chat is offered instead), to keep the field wide. */
-  compactDictation?: boolean
   onSend: (text: string) => void
   onStop: () => void
 }
 
-export function Composer({ disabled, isStreaming, placeholder, footer, tools, compactDictation, onSend, onStop }: ComposerProps) {
+export function Composer({ disabled, isStreaming, placeholder, footer, tools, onSend, onStop }: ComposerProps) {
   const [value, setValue] = useState('')
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const speech = useSpeechInput((text) => setValue((current) => (current ? `${current.trimEnd()} ${text}` : text)))
@@ -56,7 +54,7 @@ export function Composer({ disabled, isStreaming, placeholder, footer, tools, co
       <div className="composer flex items-end gap-2 p-2">
         {tools}
         {speech.supported && (
-          <span className={cn('contents', compactDictation && 'max-sm:hidden')}>
+          <span className="contents">
             <Tooltip label={speech.listening ? 'Stop dictation' : 'Dictate'} align="start">
               <button
                 type="button"

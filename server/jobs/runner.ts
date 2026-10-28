@@ -11,8 +11,7 @@ export type { JobContext }
 
 /**
  * Executes queued background work (reading media, indexing, re-embedding, answer evaluation,
- * benchmark runs, reports, images, audio overviews, mind maps, connector syncs, chat-app answers;
- * see server/jobs/definitions.ts). Called after responses (Next.js `after`), by `npm run worker`,
+ * reports, connector syncs; see server/jobs/definitions.ts). Called after responses (Next.js `after`), by `npm run worker`,
  * or by the cron endpoint. Each job is claimed by exactly one worker; failures are retried with
  * exponential backoff.
  */

@@ -127,7 +127,6 @@ before(async () => {
     reranker: () => createLlmReranker(ai),
     vision: () => null,
     transcriber: () => null,
-    speech: () => null,
     ocr: () => null,
     connectors: () => registryOf({}),
     email: () => null,

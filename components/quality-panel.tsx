@@ -1,23 +1,15 @@
 'use client'
 
-import { AlertTriangle, FlaskConical, Gauge, Loader2, MessageSquareQuote, Play, Plus, ThumbsDown, ThumbsUp, Trash2 } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
+import { AlertTriangle, Gauge, Loader2, MessageSquareQuote, ThumbsDown, ThumbsUp } from 'lucide-react'
+import { useState } from 'react'
 
 import { METRICS, formatScore, scoreTone } from '@/components/quality-badges'
-import { Badge } from '@/components/ui/badge'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { Select } from '@/components/ui/select'
-import { Textarea } from '@/components/ui/textarea'
-import { useToast } from '@/components/ui/use-toast'
 import { useWorkspaceContext } from '@/components/workspace-provider'
-import { useEvalCases, useEvalRuns, useQuality } from '@/hooks/use-api'
-import { apiJson, errorMessage } from '@/lib/api-client'
-import { LIMITS } from '@/lib/constants'
+import { useQuality } from '@/hooks/use-api'
+import { errorMessage } from '@/lib/api-client'
 import { timeAgo } from '@/lib/format'
-import type { Collection, EvaluationScores } from '@/lib/contracts'
-import { atLeast } from '@/lib/roles'
+import type { EvaluationScores } from '@/lib/contracts'
 import { cn } from '@/lib/utils'
 
 function ScoreChips({ scores }: { scores: EvaluationScores }) {
@@ -43,62 +35,13 @@ function Bar({ value }: { value: number | null }) {
   )
 }
 
-/** LLM-as-judge quality of live answers, plus benchmark runs against reference answers. */
-export function QualityPanel({ collections }: { collections: Collection[] }) {
-  const { toast } = useToast()
+/** LLM-as-judge quality of live answers and readers' thumbs up / down. */
+export function QualityPanel() {
   const { role } = useWorkspaceContext()
-  const canManage = atLeast(role, 'editor')
   const [days, setDays] = useState(30)
   const quality = useQuality(days)
-  const cases = useEvalCases()
-  const runs = useEvalRuns()
-  const [question, setQuestion] = useState('')
-  const [reference, setReference] = useState('')
-  const [caseNotebook, setCaseNotebook] = useState('')
-  const [busy, setBusy] = useState<string | null>(null)
 
   const data = quality.data
-  const runList = runs.data?.runs ?? []
-  const caseList = cases.data?.cases ?? []
-  const runActive = runList.some((run) => run.status === 'queued' || run.status === 'running')
-  const notebookName = (id: string | null) => (id ? (collections.find((c) => c.id === id)?.name ?? 'Deleted notebook') : 'All notebooks')
-
-  async function run(key: string, action: () => Promise<void>) {
-    setBusy(key)
-    try {
-      await action()
-    } catch (error) {
-      toast({ variant: 'destructive', description: errorMessage(error) })
-    } finally {
-      setBusy(null)
-    }
-  }
-
-  const addCase = (event: FormEvent) => {
-    event.preventDefault()
-    void run('case', async () => {
-      await apiJson('/api/evaluations/cases', {
-        method: 'POST',
-        json: { question: question.trim(), referenceAnswer: reference.trim(), collectionId: caseNotebook || null },
-      })
-      setQuestion('')
-      setReference('')
-      await cases.mutate()
-    })
-  }
-
-  const deleteCase = (id: string) =>
-    void run(`delete:${id}`, async () => {
-      await apiJson(`/api/evaluations/cases/${id}`, { method: 'DELETE' })
-      await cases.mutate()
-    })
-
-  const startRun = () =>
-    void run('run', async () => {
-      await apiJson('/api/evaluations/runs', { method: 'POST' })
-      await runs.mutate()
-      toast({ description: 'Benchmark started. Every question is answered by the live pipeline and scored in the background.' })
-    })
 
   return (
     <div className="space-y-6">
@@ -238,136 +181,6 @@ export function QualityPanel({ collections }: { collections: Collection[] }) {
             </div>
           </>
         )}
-      </section>
-
-      <section className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/50 pb-3">
-          <div>
-            <h3 className="flex items-center gap-2 font-display text-base font-medium">
-              <FlaskConical className="size-4 text-primary" /> Benchmarks
-            </h3>
-            <p className="text-xs text-muted-foreground">Questions with reference answers, run through the live pipeline, the only way to measure context recall.</p>
-          </div>
-          {canManage && (
-            <Button type="button" size="sm" onClick={startRun} disabled={busy === 'run' || runActive || caseList.length === 0}>
-              {busy === 'run' || runActive ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <Play className="mr-2 size-3.5" />}
-              {runActive ? 'Running…' : 'Run benchmark'}
-            </Button>
-          )}
-        </div>
-
-        {runList.length > 0 && (
-          <div className="overflow-x-auto rounded-xl border border-border/70 bg-card/50 p-4">
-            <table className="w-full text-left text-xs">
-              <thead className="border-b border-border/60 text-xs text-muted-foreground">
-                <tr>
-                  <th className="pb-2 font-normal">Started</th>
-                  <th className="pb-2 font-normal">Status</th>
-                  <th className="pb-2 font-normal">Progress</th>
-                  <th className="pb-2 font-normal">Scores</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/40">
-                {runList.map((entry) => (
-                  <tr key={entry.id}>
-                    <td className="py-2 pr-3 font-mono text-[11px]">{new Date(entry.createdAt).toLocaleString()}</td>
-                    <td className="py-2 pr-3">
-                      <Badge variant="outline" className=" text-xs">
-                        {entry.status}
-                      </Badge>
-                      {entry.error && (
-                        <p className="mt-1 max-w-[220px] truncate text-[10px] text-destructive" title={entry.error}>
-                          {entry.error}
-                        </p>
-                      )}
-                    </td>
-                    <td className="py-2 pr-3 font-mono text-[11px] text-muted-foreground">
-                      {entry.completedCount} / {entry.caseCount}
-                    </td>
-                    <td className="py-2">
-                      <ScoreChips scores={entry.averages} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        <div className="grid gap-4 lg:grid-cols-2">
-          <div className="space-y-2">
-            <p className=" text-xs text-muted-foreground">
-              Questions ({caseList.length}/{LIMITS.evalCasesPerWorkspace})
-            </p>
-            {cases.isLoading ? (
-              <Loader2 className="size-4 animate-spin text-primary" />
-            ) : caseList.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-border/60 p-4 text-center text-xs text-muted-foreground">
-                No benchmark questions yet{canManage ? '. Add a few questions whose correct answers you know.' : '.'}
-              </p>
-            ) : (
-              <ul className="max-h-96 space-y-2 overflow-y-auto pr-1">
-                {caseList.map((item) => (
-                  <li key={item.id} className="group rounded-lg border border-border/50 bg-secondary/20 p-2.5 text-xs">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-medium">{item.question}</p>
-                      {canManage && (
-                        <button
-                          type="button"
-                          aria-label="Delete question"
-                          disabled={busy === `delete:${item.id}`}
-                          onClick={() => deleteCase(item.id)}
-                          className="shrink-0 rounded p-1 text-muted-foreground opacity-60 hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100"
-                        >
-                          <Trash2 className="size-3" />
-                        </button>
-                      )}
-                    </div>
-                    <p className="mt-1 line-clamp-2 text-muted-foreground">{item.referenceAnswer}</p>
-                    <p className="mt-1 text-xs text-muted-foreground">{notebookName(item.collectionId)}</p>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-
-          {canManage && (
-            <form onSubmit={addCase} className="space-y-2.5 rounded-xl border border-border/60 bg-secondary/20 p-4">
-              <p className="text-xs font-medium">Add a benchmark question</p>
-              <div className="space-y-1.5">
-                <Label htmlFor="eval-question">Question</Label>
-                <Input id="eval-question" value={question} maxLength={LIMITS.evalQuestionChars} onChange={(event) => setQuestion(event.target.value)} className="h-9 text-xs" />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="eval-reference">Reference answer</Label>
-                <Textarea
-                  id="eval-reference"
-                  rows={3}
-                  value={reference}
-                  maxLength={LIMITS.evalReferenceChars}
-                  onChange={(event) => setReference(event.target.value)}
-                  placeholder="What a correct answer must contain"
-                  className="text-xs"
-                />
-              </div>
-              <div className="space-y-1.5">
-                <Label htmlFor="eval-notebook">Search in</Label>
-                <Select id="eval-notebook" value={caseNotebook} onChange={(event) => setCaseNotebook(event.target.value)}>
-                  <option value="">All notebooks</option>
-                  {collections.map((collection) => (
-                    <option key={collection.id} value={collection.id}>
-                      {collection.name}
-                    </option>
-                  ))}
-                </Select>
-              </div>
-              <Button type="submit" size="sm" className="w-full" disabled={busy === 'case' || !question.trim() || !reference.trim()}>
-                {busy === 'case' ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <Plus className="mr-2 size-3.5" />}
-                Add question
-              </Button>
-            </form>
-          )}
-        </div>
       </section>
     </div>
   )

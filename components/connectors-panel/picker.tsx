@@ -1,13 +1,11 @@
 'use client'
 
-import { ArrowLeft, Check, ChevronRight, Database, FileText, Folder, Github, Globe, Loader2, Search } from 'lucide-react'
+import { ArrowLeft, Check, ChevronRight, FileText, Folder, Loader2, Search } from 'lucide-react'
 import { useCallback, useEffect, useState } from 'react'
 
 import { Button } from '@/components/ui/button'
 import { Dialog } from '@/components/ui/dialog'
 import { Skeleton } from '@/components/ui/feedback-primitives'
-import { Input } from '@/components/ui/input'
-import { Label } from '@/components/ui/label'
 import { useToast } from '@/components/ui/use-toast'
 import { apiJson, errorMessage } from '@/lib/api-client'
 import type { ConnectionSummary, ConnectorBrowseItem, ConnectorBrowseResult } from '@/lib/contracts'
@@ -16,7 +14,7 @@ import { cn } from '@/lib/utils'
 
 import { PROVIDERS, SyncSettings } from './providers'
 
-const ITEM_ICON: Record<ConnectorBrowseItem['kind'], typeof FileText> = { file: FileText, folder: Folder, page: FileText, database: Database, repository: Github, site: Globe }
+const ITEM_ICON: Record<ConnectorBrowseItem['kind'], typeof FileText> = { file: FileText, folder: Folder }
 
 /** Browse a connected account and pick what to keep in the notebook. */
 export function Picker({
@@ -41,7 +39,6 @@ export function Picker({
   const [chosen, setChosen] = useState<Map<string, ConnectorBrowseItem>>(new Map())
   const [autoSync, setAutoSync] = useState(true)
   const [interval, setInterval] = useState(24)
-  const [path, setPath] = useState('')
   const [busy, setBusy] = useState(false)
   const parent = trail[trail.length - 1]!.id
 
@@ -99,7 +96,6 @@ export function Picker({
           items: [...chosen.values()].map((item) => ({ externalId: item.id, kind: item.kind, name: item.name.slice(0, 200) })),
           autoSync,
           syncIntervalHours: interval,
-          options: path.trim() ? { path: path.trim() } : {},
         },
       })
       toast({ title: `Added ${plural(chosen.size, 'item')}`, description: 'The first sync has started. Documents appear as they are indexed.' })
@@ -111,7 +107,6 @@ export function Picker({
     }
   }
 
-  const isGitHub = connection?.provider === 'github'
 
   return (
     <Dialog
@@ -134,12 +129,12 @@ export function Picker({
             <input
               value={query}
               onChange={(event) => setQuery(event.target.value)}
-              placeholder={isGitHub ? 'owner/repository (e.g. vercel/next.js)' : connection.provider === 'notion' ? 'Search pages and databases' : 'Search by name'}
+              placeholder="Search by name"
               className="w-full bg-transparent text-xs focus:outline-none"
               aria-label="Search"
             />
             <Button type="submit" size="sm" variant="ghost" className="h-7 px-2 text-xs">
-              {isGitHub ? 'Find' : 'Search'}
+              Search
             </Button>
           </form>
 
@@ -175,7 +170,7 @@ export function Picker({
               </div>
             ) : items.length === 0 ? (
               <p className="p-6 text-center text-xs text-muted-foreground">
-                {isGitHub && !search ? 'Type a repository name above, e.g. owner/name.' : 'Nothing here. Check that the item is shared with this account.'}
+                Nothing here. Check that the item is shared with this account.
               </p>
             ) : (
               <ul className="divide-y divide-border/50">
@@ -215,15 +210,9 @@ export function Picker({
             )}
           </div>
 
-          {isGitHub && (
-            <div className="space-y-1">
-              <Label htmlFor="repo-path">Only this folder (optional)</Label>
-              <Input id="repo-path" value={path} onChange={(event) => setPath(event.target.value)} placeholder="docs/" className="h-8 text-xs" />
-            </div>
-          )}
           <SyncSettings autoSync={autoSync} interval={interval} onAutoSync={setAutoSync} onInterval={setInterval} />
           <div className="flex items-center justify-between gap-2">
-            <p className="text-[11px] text-muted-foreground">{chosen.size ? `${plural(chosen.size, 'item')} selected` : 'Select files, folders, pages or repositories'}</p>
+            <p className="text-[11px] text-muted-foreground">{chosen.size ? `${plural(chosen.size, 'item')} selected` : 'Select files or folders'}</p>
             <Button type="button" size="sm" variant="brand" disabled={busy || chosen.size === 0 || !collectionId} onClick={() => void add()}>
               {busy ? <Loader2 className="mr-2 size-3.5 animate-spin" /> : <Check className="mr-2 size-3.5" />}
               Add to notebook
