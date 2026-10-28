@@ -30,6 +30,14 @@ export const GO_API_PATHS = [
   '/api/workspaces/:id/audit',
   '/api/collections/:id',
   '/api/collections/:id/roles',
+  // Group 3: conversations, answer feedback, notifications, analytics.
+  '/api/conversations',
+  '/api/conversations/:id',
+  '/api/conversations/:id/branch',
+  '/api/messages/:id/feedback',
+  '/api/notifications',
+  '/api/notifications/read',
+  '/api/analytics',
 ]
 
 /** @type {import('next').NextConfig} */
