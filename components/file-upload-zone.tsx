@@ -81,7 +81,7 @@ export function FileUploadZone({ disabled, onFiles, onReject }: FileUploadZonePr
         </button>
       </p>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        Documents (PDF incl. scans, TXT, MD, CSV, JSON, HTML), images, audio and video, up to {formatBytes(LIMITS.fileBytes)} per file
+        Documents (PDF incl. scans, Word, PowerPoint, Excel, TXT, MD, CSV, JSON, HTML), images, audio and video, up to {formatBytes(LIMITS.fileBytes)} per file
       </p>
     </div>
   )

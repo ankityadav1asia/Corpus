@@ -4,6 +4,7 @@ import { ACCEPTED_FILE_EXTENSIONS, LIMITS } from '@/lib/constants'
 import type { MediaKind } from '@/lib/contracts'
 import { Errors } from '@/server/http/errors'
 import { detectMedia, isMediaExtension } from '@/server/media/detect'
+import { extractOfficeText, OfficeFileError, type OfficeExtension } from '@/server/ingestion/office'
 import { decodeHtmlEntities, delimitedToText, htmlToDocument, normalizeExtractedText, truncateTitle } from '@/server/ingestion/text'
 import { log } from '@/server/logger'
 import { parseFetchableUrl, safeFetchText, type FetchedPage } from '@/server/security/ssrf'
@@ -122,9 +123,24 @@ export async function readUpload(file: File): Promise<UploadContent> {
   return { type: 'text', document: await extractTextFile(name, extension, bytes) }
 }
 
+function readOfficeFile(name: string, extension: OfficeExtension, bytes: Uint8Array): string {
+  try {
+    return extractOfficeText(bytes, extension, name)
+  } catch (error) {
+    if (!(error instanceof OfficeFileError)) throw error
+    log.warn('Office file extraction failed', { file: name, error: error.message })
+    throw Errors.unprocessable(error.message)
+  }
+}
+
 async function extractTextFile(name: string, extension: string, bytes: Uint8Array): Promise<ExtractedDocument> {
   let text: string
   switch (extension) {
+    case '.docx':
+    case '.pptx':
+    case '.xlsx':
+      text = readOfficeFile(name, extension, bytes)
+      break
     case '.csv':
       text = delimitedToText(utf8.decode(bytes), ',')
       break

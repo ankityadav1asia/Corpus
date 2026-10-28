@@ -21,6 +21,7 @@ import { setServicesForTests, type Services } from '@/server/services'
 import { createTestDb, type TestDb } from './helpers/db'
 import { createFakeAi, type FakeAi } from './helpers/fake-ai'
 import { createTeam, createUser, type TestUser } from './helpers/fixtures'
+import { docx, pptx, xlsx } from './helpers/office'
 import { sessionToken } from './helpers/session'
 
 const SECRET = 'p'.repeat(48)
@@ -129,6 +130,31 @@ describe('file upload and background indexing', () => {
     const indexed = documents.find((document) => document.id === documentId)
     assert.equal(indexed?.status, 'ready')
     assert.equal(indexed?.chunkCount, indexed?.totalChunks)
+  })
+
+  it('reads Word, PowerPoint and Excel files', async () => {
+    const form = new FormData()
+    form.set('collectionId', team.notebookId)
+    form.append('files', new File([docx('<w:p><w:r><w:t>The greenhouse is watered at six.</w:t></w:r></w:p>')], 'greenhouse.docx'))
+    form.append('files', new File([pptx([{ part: 'slide1.xml', text: ['Seed bank tour'], notes: ['Start at the cold room.'] }])], 'tour.pptx'))
+    form.append('files', new File([xlsx([{ name: 'Beds', cells: { A1: 'Bed', B1: 'Crop', A2: 'North', B2: 'Kale' } }])], 'beds.xlsx'))
+    form.append('files', new File([new Uint8Array([0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1])], 'locked.docx'))
+    const res = await call(uploadRoute.POST, '/api/learn/upload', { method: 'POST', as: ed, form })
+    assert.equal(res.status, 202)
+    const { results } = await data<UploadResult>(res)
+    assert.deepEqual(
+      results.map((result) => result.status),
+      ['queued', 'queued', 'queued', 'error'],
+    )
+    assert.match(results[3]!.error!, /password-protected or in the old binary format/)
+
+    await jobs()
+    const ids = results.slice(0, 3).map((result) => result.document!.id)
+    const texts = await repos.documents.documentTexts(team.workspaceId, ids, 10_000)
+    const byTitle = Object.fromEntries(texts.map((document) => [document.title, document.text]))
+    assert.match(byTitle['greenhouse.docx'] ?? '', /The greenhouse is watered at six\./)
+    assert.match(byTitle['tour.pptx'] ?? '', /## Slide 1\nSeed bank tour\n\nNotes: Start at the cold room\./)
+    assert.match(byTitle['beds.xlsx'] ?? '', /## Sheet: Beds[\s\S]*Row 1: Bed: North \| Crop: Kale/)
   })
 
   it('reports unreadable files per file with a reason (422 when nothing was accepted)', async () => {
