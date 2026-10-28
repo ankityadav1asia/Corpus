@@ -63,6 +63,10 @@ const envSchema = z.object({
   EMBEDDING_PROVIDER: optionalString,
   OPENAI_COMPATIBLE_BASE_URL: optionalString,
   OPENAI_COMPATIBLE_API_KEY: optionalString,
+  /** CHAT_PROVIDER=anthropic: Claude for answers and helper calls (embeddings stay with EMBEDDING_PROVIDER). */
+  ANTHROPIC_API_KEY: optionalString,
+  ANTHROPIC_CHAT_MODEL: optionalString,
+  ANTHROPIC_FAST_MODEL: optionalString,
   OPENAI_COMPATIBLE_CHAT_MODEL: optionalString,
   OPENAI_COMPATIBLE_EMBEDDING_MODEL: optionalString,
   OPENAI_COMPATIBLE_EMBEDDING_BASE_URL: optionalString,
@@ -146,6 +150,11 @@ export function geminiApiKey(): string | null {
 
 /** Where a model runs. Open-source models are reached through any OpenAI-compatible server. */
 export type ModelBackend = { provider: 'gemini'; apiKey: string; model: string } | { provider: 'openai-compatible'; baseUrl: string; apiKey: string | null; model: string }
+/** Answers can also come from Claude; the other capabilities use Gemini or an open-source server. */
+export type ChatBackend = ModelBackend | { provider: 'anthropic'; apiKey: string; model: string }
+
+/** Claude Opus 5.5 unless ANTHROPIC_CHAT_MODEL names another Claude model. */
+const DEFAULT_ANTHROPIC_MODEL = 'claude-opus-5-5'
 
 type Capability = 'chat' | 'embeddings' | 'vision' | 'transcription' | 'speech'
 
@@ -185,18 +194,28 @@ function compatibleBackend(model: string | undefined, modelVariable: string, cap
   return { provider: 'openai-compatible', baseUrl: compatibleBaseUrl(baseUrlOverride, capability), apiKey: raw().OPENAI_COMPATIBLE_API_KEY ?? null, model }
 }
 
-/** Answers, query planning, re-ranking, judging, reports, briefs, scripts. */
-export function getChatBackend(): ModelBackend {
+function anthropicBackend(): ChatBackend {
   const env = raw()
-  return providerChoice(env.CHAT_PROVIDER, 'gemini') === 'openai-compatible'
+  if (!env.ANTHROPIC_API_KEY) throw Errors.notConfigured('CHAT_PROVIDER=anthropic requires ANTHROPIC_API_KEY.')
+  return { provider: 'anthropic', apiKey: env.ANTHROPIC_API_KEY, model: env.ANTHROPIC_CHAT_MODEL ?? DEFAULT_ANTHROPIC_MODEL }
+}
+
+/** Answers, query planning, re-ranking, judging, reports, briefs, scripts. */
+export function getChatBackend(): ChatBackend {
+  const env = raw()
+  const choice = providerChoice(env.CHAT_PROVIDER, 'gemini')
+  if (choice === 'anthropic') return anthropicBackend()
+  return choice === 'openai-compatible'
     ? compatibleBackend(env.OPENAI_COMPATIBLE_CHAT_MODEL, 'OPENAI_COMPATIBLE_CHAT_MODEL', 'chat')
     : geminiBackend(env.GEMINI_CHAT_MODEL ?? DEFAULT_CHAT_MODEL, 'chat')
 }
 
-/** The fast helper model of the chat provider, or null to use the chat model (with thinking off). */
+/** The fast helper model of the chat provider, or null to use the chat model (thinking off, or low effort for Claude). */
 export function getFastChatModel(): string | null {
   const env = raw()
-  return providerChoice(env.CHAT_PROVIDER, 'gemini') === 'openai-compatible' ? (env.OPENAI_COMPATIBLE_FAST_MODEL ?? null) : (env.GEMINI_FAST_MODEL ?? null)
+  const choice = providerChoice(env.CHAT_PROVIDER, 'gemini')
+  if (choice === 'anthropic') return env.ANTHROPIC_FAST_MODEL ?? null
+  return choice === 'openai-compatible' ? (env.OPENAI_COMPATIBLE_FAST_MODEL ?? null) : (env.GEMINI_FAST_MODEL ?? null)
 }
 
 export function getEmbeddingBackend(): ModelBackend {
@@ -497,7 +516,7 @@ export function getFeatureFlags() {
   }
 }
 
-function describeBackend(backend: ModelBackend | null): { provider: string; model: string } | null {
+function describeBackend(backend: ChatBackend | null): { provider: string; model: string } | null {
   return backend ? { provider: backend.provider, model: backend.model } : null
 }
 
@@ -516,7 +535,7 @@ export function getModelSummary() {
     chat: describeBackend(safely(getChatBackend)),
     fast: (() => {
       const chat = safely(getChatBackend)
-      return chat ? { provider: chat.provider, model: getFastChatModel() ?? `${chat.model} (thinking off)` } : null
+      return chat ? { provider: chat.provider, model: getFastChatModel() ?? `${chat.model} (${chat.provider === 'anthropic' ? 'low effort' : 'thinking off'})` } : null
     })(),
     embeddings: describeBackend(safely(getEmbeddingBackend)),
     vision: describeBackend(getVisionBackend()),

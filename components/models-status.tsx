@@ -24,6 +24,7 @@ const ROWS: Array<{ key: keyof ModelsStatus['models']; label: string; hint: stri
 function providerLabel(info: ModelInfo): string {
   if (info.provider === 'gemini') return /^gemma/i.test(info.model) ? 'Gemini API, open model' : 'Gemini API'
   if (info.provider === 'openai-compatible') return 'Open-source server'
+  if (info.provider === 'anthropic') return 'Claude API'
   if (info.provider === 'tesseract') return 'Local, open source'
   return info.provider
 }
