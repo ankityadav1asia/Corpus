@@ -1,5 +1,6 @@
 import { EMBEDDING_DIMENSIONS } from '@/lib/constants'
 import { AiProviderError, type AiProvider, type ChatTurn } from '@/server/ai/provider'
+import { estimateTokens, recordUsage } from '@/server/ai/usage'
 
 /**
  * Adapter for any server that speaks the OpenAI REST dialect — the usual way to run open-source
@@ -153,6 +154,19 @@ function messages(system: string, turns: readonly ChatTurn[]) {
   return [{ role: 'system', content: system }, ...turns.map((turn) => ({ role: turn.role, content: turn.content }))]
 }
 
+interface TokenUsage {
+  prompt_tokens?: number
+  completion_tokens?: number
+}
+
+/** Tokens as the server counted them, or estimated from the text when it did not say. */
+function recordChat(model: string, usage: TokenUsage | null | undefined, fallback: { prompt: string[]; answer: string }) {
+  if (usage?.prompt_tokens !== undefined) {
+    return recordUsage({ model, kind: 'generate', inputTokens: usage.prompt_tokens, outputTokens: usage.completion_tokens ?? 0, estimated: false })
+  }
+  return recordUsage({ model, kind: 'generate', inputTokens: estimateTokens(fallback.prompt), outputTokens: estimateTokens([fallback.answer]), estimated: true })
+}
+
 type ChatPart = Pick<AiProvider, 'chatModel' | 'streamChat' | 'complete'>
 type EmbeddingPart = Pick<AiProvider, 'embeddingModel' | 'embedDocuments' | 'embedQuery' | 'embedQueries'>
 
@@ -163,8 +177,11 @@ export function createOpenAiCompatibleChat(config: OpenAiCompatibleConfig): Chat
 
   async function completion(body: Record<string, unknown>, signal?: AbortSignal): Promise<string> {
     const response = await postWithRetry(doFetch, url, { headers, body: JSON.stringify(body) }, 'Model request failed', signal)
-    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string | null } }> }
-    return stripThinking(data.choices?.[0]?.message?.content ?? '')
+    const data = (await response.json()) as { choices?: Array<{ message?: { content?: string | null } }>; usage?: TokenUsage }
+    const text = data.choices?.[0]?.message?.content ?? ''
+    const sent = (body.messages as Array<{ content: string }> | undefined) ?? []
+    await recordChat(String(body.model), data.usage, { prompt: sent.map((message) => message.content), answer: text })
+    return stripThinking(text)
   }
 
   return {
@@ -180,15 +197,20 @@ export function createOpenAiCompatibleChat(config: OpenAiCompatibleConfig): Chat
       )
       if (!response.body) throw new AiProviderError('Model returned no stream')
       const filter = createThinkFilter()
+      let answer = ''
+      let usage: TokenUsage | null = null
       try {
         for await (const data of sseData(response.body)) {
           if (data === '[DONE]') break
           let delta = ''
           try {
-            delta = (JSON.parse(data) as { choices?: Array<{ delta?: { content?: string | null } }> }).choices?.[0]?.delta?.content ?? ''
+            const event = JSON.parse(data) as { choices?: Array<{ delta?: { content?: string | null } }>; usage?: TokenUsage | null }
+            delta = event.choices?.[0]?.delta?.content ?? ''
+            usage = event.usage ?? usage
           } catch {
             continue // keep-alive comments and malformed lines
           }
+          answer += delta
           const visible = filter.push(delta)
           if (visible) yield visible
         }
@@ -198,6 +220,7 @@ export function createOpenAiCompatibleChat(config: OpenAiCompatibleConfig): Chat
       }
       const rest = filter.flush()
       if (rest) yield rest
+      await recordChat(config.model, usage, { prompt: [system, ...turns.map((turn) => turn.content)], answer })
     },
 
     async complete({ system, prompt, json, temperature, fast, signal }) {
@@ -247,7 +270,9 @@ export function createOpenAiCompatibleEmbeddings(config: OpenAiCompatibleConfig)
       'Embedding request failed',
       signal,
     )
-    const data = (await response.json()) as { data?: Array<{ embedding?: number[]; index?: number }> }
+    const data = (await response.json()) as { data?: Array<{ embedding?: number[]; index?: number }>; usage?: TokenUsage }
+    const counted = data.usage?.prompt_tokens
+    await recordUsage({ model: `openai-compatible/${config.model}`, kind: 'embed', inputTokens: counted ?? estimateTokens(texts), outputTokens: 0, estimated: counted === undefined })
     const rows = [...(data.data ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0))
     if (rows.length !== texts.length) throw new AiProviderError(`Embedding batch returned ${rows.length} vectors for ${texts.length} inputs`)
     return rows.map((row) => fitEmbedding(row.embedding ?? [], config.model))

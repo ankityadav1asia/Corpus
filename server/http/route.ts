@@ -4,6 +4,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 import { idSchema, type ApiErrorBody, type SessionUser } from '@/lib/contracts'
 import { AiProviderError, aiErrorMessage } from '@/server/ai/provider'
+import { withUsageScope } from '@/server/ai/usage'
 import { resolveWorkspaceAccess, type WorkspaceAccess } from '@/server/auth/access'
 import { getUserFromRequest } from '@/server/auth/current-user'
 import { getConfiguredAppUrl } from '@/server/env'
@@ -78,7 +79,9 @@ export function workspaceRoute<P extends Params = Params>(handler: (args: Worksp
     const workspaceId = requestedWorkspaceId(args.req)
     if (!workspaceId) throw Errors.badRequest('Select a workspace first (missing or invalid X-Workspace-Id header).')
     const access = await resolveWorkspaceAccess(getServices().repos, args.user.id, workspaceId, { guest: args.user.guest })
-    return handler({ ...args, access })
+    // Model calls made while answering are metered to this workspace, under the API area ("corpus").
+    const feature = new URL(args.req.url).pathname.split('/')[2] || 'api'
+    return withUsageScope({ workspaceId: access.workspaceId, userId: access.userId, feature }, () => handler({ ...args, access }))
   })
 }
 
