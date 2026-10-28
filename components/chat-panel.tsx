@@ -1,13 +1,12 @@
 'use client'
 
-import { ArrowDown, AudioLines, CornerDownRight, Database, Layers } from 'lucide-react'
+import { ArrowDown, CornerDownRight, Database, Layers } from 'lucide-react'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 
 import { ChatMessage, type ChatMessageActions } from '@/components/chat-message'
 import { Composer } from '@/components/composer'
 import { Button } from '@/components/ui/button'
 import { Tooltip } from '@/components/ui/tooltip'
-import { VoiceMode, voiceChatSupported } from '@/components/voice-mode'
 import type { UiMessage } from '@/hooks/use-rag-chat'
 import type { ChatMode } from '@/lib/constants'
 import type { SessionUser } from '@/lib/contracts'
@@ -88,9 +87,6 @@ export function ChatPanel(props: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const stickToBottom = useRef(true)
   const [showJump, setShowJump] = useState(false)
-  const [voiceOpen, setVoiceOpen] = useState(false)
-  const [canVoice, setCanVoice] = useState(false)
-  useEffect(() => setCanVoice(voiceChatSupported()), [])
 
   // Follow the stream only while the user is already at the bottom (don't yank them while reading).
   useEffect(() => {
@@ -133,8 +129,8 @@ export function ChatPanel(props: ChatPanelProps) {
                 </p>
               ) : (
                 <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-muted-foreground">
-                  Add files up to 50 MB (documents, scans, images, audio, video), web pages, YouTube videos or notes, or connect Google Drive, Notion and GitHub. Then ask questions
-                  and create reports, audio overviews and mind maps grounded in them.
+                  Add files up to 50 MB (documents, scans, images, audio, video), web pages, YouTube videos or notes, or connect Google Drive. Then ask questions
+                  and create reports grounded in them.
                 </p>
               )}
               {chunkCount === 0 ? (
@@ -202,38 +198,11 @@ export function ChatPanel(props: ChatPanelProps) {
           isStreaming={isStreaming}
           placeholder={disabled ? 'Chat is unavailable until the server is configured' : `Ask about ${scopeLabel}…`}
           footer={`${props.mode === 'deep' ? 'Deep mode' : 'Standard'}, ${scopeLabel}`}
-          compactDictation={canVoice}
-          tools={
-            <>
-              <DeepModeToggle mode={props.mode} disabled={disabled} onChange={props.onModeChange} />
-              {canVoice && (
-                <Tooltip label="Voice chat: talk and hear answers" align="start">
-                  <button
-                    type="button"
-                    aria-label="Voice chat"
-                    disabled={disabled}
-                    onClick={() => setVoiceOpen(true)}
-                    className="flex size-9 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-secondary hover:text-foreground disabled:opacity-40"
-                  >
-                    <AudioLines className="size-4" />
-                  </button>
-                </Tooltip>
-              )}
-            </>
-          }
+          tools={<DeepModeToggle mode={props.mode} disabled={disabled} onChange={props.onModeChange} />}
           onSend={props.onSend}
           onStop={props.onStop}
         />
       </div>
-      <VoiceMode
-        open={voiceOpen}
-        onClose={() => setVoiceOpen(false)}
-        messages={messages}
-        isStreaming={isStreaming}
-        disabled={disabled}
-        onSend={props.onSend}
-        onStop={props.onStop}
-      />
     </main>
   )
 }

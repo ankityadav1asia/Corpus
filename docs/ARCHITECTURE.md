@@ -3,10 +3,10 @@
 Corpus is a Next.js 15 (App Router) RAG app. People work in **workspaces** (a private personal one,
 plus shared team workspaces with Admin / Editor / Viewer roles) that hold **notebooks** of documents
 (files, scans, images, recordings, web pages, YouTube transcripts, pasted text, and items synced from
-Google Drive, Notion, GitHub or a website). Questions are answered from passages retrieved with hybrid
+Google Drive). Questions are answered from passages retrieved with hybrid
 search (pgvector + Postgres full-text), re-ranked, and checked by a relevance guardrail before any
 answer is generated. Answers are scored for quality in the background, and sources can be turned into
-reports, audio overviews and mind maps. Models are Gemini by default; Gemma or any
+reports. Models are Gemini by default; Gemma or any
 OpenAI-compatible server (Ollama, vLLM, …) can take over each capability, and OCR runs locally with
 Tesseract.
 
@@ -16,9 +16,9 @@ Tesseract.
 2. **Authorisation at the data layer.** Every repository query is scoped by `workspace_id` (and by `owner_id` for private conversations). Route handlers resolve membership and check a named permission; middleware is only a second line.
 3. **One way to do each thing.** One DB client, one error model, one request wrapper, one permission table, one streaming protocol, one job queue.
 4. **The server owns state.** Chat history, ids and retrieval settings live on the server; the browser sends only the new question.
-5. **Everything testable without the cloud.** Services depend on interfaces (`Db`, `AiProvider`, `Reranker`, `VisionModel`, `Transcriber`, `SpeechSynthesizer`, `OcrEngine`, `Connector`, `EmailSender`); tests run the real SQL on PGlite (Postgres + pgvector in WASM) with deterministic fakes.
-6. **Graceful degradation.** Every optional AI step (query expansion, re-ranking, evaluation) can fail without failing the question; an unconfigured capability (vision, transcription, speech, a connector) hides its feature instead of breaking others.
-7. **Resumable background work.** Anything slow (indexing, OCR, transcription, recording, syncing) stores progress as it goes, so a timed-out or retried job continues instead of starting over.
+5. **Everything testable without the cloud.** Services depend on interfaces (`Db`, `AiProvider`, `Reranker`, `VisionModel`, `Transcriber`, `OcrEngine`, `Connector`, `EmailSender`); tests run the real SQL on PGlite (Postgres + pgvector in WASM) with deterministic fakes.
+6. **Graceful degradation.** Every optional AI step (query expansion, re-ranking, evaluation) can fail without failing the question; an unconfigured capability (vision, transcription, a connector) hides its feature instead of breaking others.
+7. **Resumable background work.** Anything slow (indexing, OCR, transcription, syncing) stores progress as it goes, so a timed-out or retried job continues instead of starting over.
 
 ## Layout
 
@@ -33,21 +33,19 @@ instrumentation.ts          refuses to start a production server with missing or
 server/                     server-only code (never bundled for the browser)
   env.ts                    zod-validated configuration, model back ends per capability, feature flags
   config-check.ts           startup check of the configuration (errors stop production; warnings are logged)
-  services.ts               composition root (DB, repositories, AI, vision, transcriber, speech, OCR, connectors, email)
+  services.ts               composition root (DB, repositories, AI, vision, transcriber, OCR, connectors, email)
   http/                     route wrappers (authedRoute, workspaceRoute, workspaceParamRoute, publicRoute), errors, body limits, client IP
   auth/                     sessions (server-side, revocable), OAuth, OTP, allowlist, permissions.ts (RBAC), access.ts
   db/                       Neon + PGlite adapters, versioned migrations
   repositories/             all SQL — parameterised and workspace-scoped (documents, chunks, media, jobs, sessions, …)
-  rag/                      splitter, query-transform, retrieval, rerank, guardrail, prompt, re-embed (used by the Slack bot,
-                            benchmarks and ingestion; asking itself runs in Go: backend/api/chat.go, backend/rag)
+  rag/                      splitter, query-transform, retrieval, rerank, guardrail, prompt, re-embed (used by ingestion,
+                            re-embedding and the Go golden fixtures; asking itself runs in Go: backend/api/chat.go, backend/rag)
   corpus/                   chunk editor (edit / append / delete with re-embedding)
-  evaluation/               LLM-as-judge metrics, live-answer and benchmark scoring
+  evaluation/               LLM-as-judge metrics, live-answer scoring
   reports/                  map-reduce synthesis (executive summary, comparison table, slide outline)
-  studio/                   audio overviews (script → speech → MP3), mind maps, shared source notes, item routes
-  connectors/               Google Drive (+ OAuth), Notion, GitHub, website; the provider-neutral sync engine
-  integrations/             Slack bot (webhook verification, replies)
+  connectors/               Google Drive (+ OAuth); the provider-neutral sync engine
   shares/                   read-only public links (snapshots)
-  media/                    reading media before indexing (OCR, vision, transcription), WAV/MP3 encoding
+  media/                    reading media before indexing (OCR, vision, transcription)
   jobs/                     definitions.ts (one entry per job type), runner, post-response trigger
   ingestion/                extractors (file, URL, YouTube; detects media and scanned PDFs), ingest pipeline
   workspaces/               member management, the overview behind /api/stats
@@ -57,8 +55,8 @@ server/                     server-only code (never bundled for the browser)
 lib/                        isomorphic: API contracts (lib/contracts/*, one file per area), constants, roles, NDJSON protocol, API client
 hooks/                      client: SWR data hooks (workspace-keyed), useRagChat, useBusyAction, theme
 components/                 UI: workspace/ (shell, header, content, URL state, commands), app-sidebar/ (rail, history,
-                            notebook picker), chat, sources drawer, connectors-panel/, studio (reports, audio,
-                            mind maps), chunk editor, analytics & quality, workspace-settings/, notifications, command palette
+                            notebook picker), chat, sources drawer, connectors-panel/, reports,
+                            chunk editor, analytics & quality, workspace-settings/, notifications, command palette
 scripts/                    init-db (migrate), worker, reseal-secrets, seed;
                             vercel-build (migrations on production builds, then next build)
 tests/                      node:test suites (unit, PGlite integration, HTTP route tests)
@@ -74,12 +72,12 @@ flowchart TD
   MW["middleware.ts<br/>public allowlist + session check (edge)"]
   Route["app/api/**/route.ts<br/>workspaceRoute: same-origin, session, membership (404), zod, limits"]
   Perm["server/auth/permissions.ts<br/>role ≥ required? (+ notebook override)"]
-  Services["server/rag · corpus · reports · studio · connectors · media · ingestion · evaluation<br/>business logic"]
+  Services["server/rag · corpus · reports · connectors · media · ingestion · evaluation<br/>business logic"]
   Jobs["server/jobs<br/>app.jobs queue (SKIP LOCKED)"]
   Repos["server/repositories<br/>parameterised, workspace-scoped SQL"]
   DB[("Postgres + pgvector<br/>schema app.*")]
-  AI["AiProvider · VisionModel · Transcriber · SpeechSynthesizer<br/>(Gemini / Gemma or OpenAI-compatible) · Reranker (LLM or Cohere) · OcrEngine (Tesseract or vision)"]
-  Apps["Google Drive · Notion · GitHub · websites"]
+  AI["AiProvider · VisionModel · Transcriber<br/>(Gemini / Gemma or OpenAI-compatible) · Reranker (LLM or Cohere) · OcrEngine (Tesseract or vision)"]
+  Apps["Google Drive"]
   Browser --> MW --> Route --> Perm --> Services --> Repos --> DB
   Services --> AI
   Services --> Apps
@@ -108,10 +106,10 @@ sign-in allowlist still applies).
 | Permission | Viewer | Editor | Admin |
 |---|:-:|:-:|:-:|
 | Search & chat, browse notebooks, sources and chunks, view vectors | ✓ | ✓ | ✓ |
-| Create reports, audio overviews and mind maps (from notebooks they can read) | ✓ | ✓ | ✓ |
+| Create reports (from notebooks they can read) | ✓ | ✓ | ✓ |
 | Add sources; edit, add and delete chunks; delete documents | | ✓ | ✓ |
-| Connect their own Drive / Notion / GitHub and sync into notebooks they can edit | | ✓ | ✓ |
-| Create notebooks; manage benchmark questions and runs | | ✓ | ✓ |
+| Connect their own Drive and sync into notebooks they can edit | | ✓ | ✓ |
+| Create notebooks | | ✓ | ✓ |
 | Rename / clear / delete notebooks; per-notebook access overrides | | | ✓ |
 | Members, invitations, retrieval & guardrail settings, re-embed, activity log, delete workspace | | | ✓ |
 | Workspace-wide analytics and flagged answers (others see their own) | | | ✓ |
@@ -177,22 +175,18 @@ Heavy work runs outside the request in a durable queue (`app.jobs`):
 | Job | Queued by | Does |
 |---|---|---|
 | `evaluate_answer` | a finished answer (sampled per workspace) | LLM-as-judge scoring of that answer |
-| `run_benchmark` | `POST /api/evaluations/runs` | answers every benchmark question through the live pipeline and scores it against its reference; continues in a follow-up job if it runs out of time |
 | `generate_report` | `POST /api/reports` (202) | map-reduce synthesis of the selected documents |
 | `ingest_document` | every new source (upload, URL, YouTube, text, connector item, finished media) | split → embed → store, in steps; resumes at the first missing chunk |
 | `read_media` | uploaded images, audio, video, scanned PDFs | vision / OCR / transcription, page by page for scans, then queues `ingest_document` |
-| `generate_audio` | `POST /api/audio` (202) | notes → two-host script → speech in segments (MP3) → timed transcript; resumes per segment |
-| `generate_mindmap` | `POST /api/mindmaps` (202) | notes → one validated topic tree |
 | `sync_connector` | adding a source, “Sync now”, the schedule | list → import new/changed items → prune deleted ones; resumes per item |
 | `reembed_workspace` | `POST /api/workspaces/:id/reembed` (admins) | re-embeds passages from another embedding model, in steps |
-| `answer_bot_message` | a Slack mention or DM | answers from the integration's notebook and replies in the thread |
 
 - Each job type is one entry in `server/jobs/definitions.ts`: how to run it, what to show while a retry waits, and how to record a final failure and tell the person who started it. The payload is validated once for all three.
 - Claimed with `FOR UPDATE SKIP LOCKED` (any number of workers, each job runs once); a crashed worker's job is reclaimed after 10 minutes. A stopping worker (SIGTERM) finishes its current job and claims no new one.
 - Retries back off 10 s → 20 s → 40 s…; when Gemini returns 429 with a `RetryInfo` delay, the job waits at least that long, and the adapter stops burning quota on immediate retries. A **daily** quota error, invalid input or a `PermanentJobError` fails the job at once with a readable message instead of retrying. Waiting items show why (“AI service busy — retrying in ~40s”).
-- Jobs return `'more'` when their time budget runs out; a follow-up job continues from the stored progress (chunks, OCR pages, audio segments, sync state).
+- Jobs return `'more'` when their time budget runs out; a follow-up job continues from the stored progress (chunks, OCR pages, sync state).
 - Duplicate work is refused while the same job is active (`hasActive`), e.g. a second “Sync now”.
-- **Who runs jobs:** after each response that queued work (Next.js `after()`), the endpoints the UI polls while waiting (sources, audio, connectors, benchmark runs; for reports and mind maps, which the Go API queues, the browser calls `POST /api/jobs/nudge` while it polls; the Go conversation endpoint runs a pending answer evaluation itself), `npm run worker` (a polling loop), and `/api/jobs/run` for a scheduler (Bearer `CRON_SECRET`; Vercel Cron calls it, see `vercel.json`). Each pass also queues connector syncs that are due. One runner per server instance at a time. With a dedicated worker, `WEB_RUNS_JOBS=false` keeps OCR, transcription and audio out of the web process.
+- **Who runs jobs:** after each response that queued work (Next.js `after()`), the endpoints the UI polls while waiting (sources, connectors; for reports, which the Go API queues, the browser calls `POST /api/jobs/nudge` while it polls; the Go conversation endpoint runs a pending answer evaluation itself), `npm run worker` (a polling loop), and `/api/jobs/run` for a scheduler (Bearer `CRON_SECRET`; Vercel Cron calls it, see `vercel.json`). Each pass also queues connector syncs that are due. One runner per server instance at a time. With a dedicated worker, `WEB_RUNS_JOBS=false` keeps OCR and transcription out of the web process.
 - A runner claims only the job types its version knows, so during a rollout an older worker leaves new types to newer code.
 
 ## Speed
@@ -212,13 +206,12 @@ Latency before the first words is what users feel, so the pipeline keeps it shor
 
 | Metric | Computed as | Available for |
 |---|---|---|
-| Faithfulness | supported claims ÷ claims in the answer (hallucination detection) | live answers, benchmarks |
-| Answer relevance | judge rating 1–5 → (r − 1) ÷ 4 | live answers, benchmarks |
-| Context precision | relevant passages ÷ retrieved passages | live answers, benchmarks |
-| Context recall | reference statements attributable to the passages ÷ reference statements | benchmarks (needs a reference answer) |
+| Faithfulness | supported claims ÷ claims in the answer (hallucination detection) | live answers |
+| Answer relevance | judge rating 1–5 → (r − 1) ÷ 4 | live answers |
+| Context precision | relevant passages ÷ retrieved passages | live answers |
 
 The Analytics & quality tab shows averages, a daily trend, answers to review (faithfulness or
-relevance below 50%) and benchmark runs. Each answer in chat shows its scores once they arrive.
+relevance below 50%) and reader feedback. Each answer in chat shows its scores once they arrive.
 
 ## Reports
 
@@ -229,24 +222,13 @@ table (GFM Markdown) or a slide outline. Slide outlines can be produced as JSON 
 with zod (`title`, `subtitle`, 1–20 slides of ≤ 8 bullets and notes) and rendered to Markdown too.
 Reports are shared with the workspace; the author or an admin can delete them.
 
-## Studio: audio overviews, mind maps
-
-Both are queued (202), run as jobs, are shared with the workspace (the author or an admin
-deletes them), keep the sources they were built from, and check `collection.search` on every selected
-notebook (`server/studio/selection.ts`; up to 20 notebooks or 12 documents). The map step is shared
-(`server/studio/notes.ts`): each document, rebuilt from its chunks (≤ 60 000 characters), is condensed
-into notes, three at a time, inside `<document>` delimiters.
-
-- **Audio overviews** (`server/studio/audio.ts`): notes → a two-host script as JSON (`deep_dive`, `brief`, `critique`, `debate`; ~350 / 900 / 1 600 words; 16 languages including Hindi and Hinglish; optional focus) → lines cleaned of citations, URLs and Markdown and split at sentence ends → spoken in segments of ≤ 10 lines / 1 100 characters (Gemini multi-speaker TTS, or one request per line on OpenAI-compatible servers) → each segment encoded to MP3 (64 kbps, lamejs) and stored (`audio_segments`) as soon as it is ready, so a long recording resumes → the transcript is timed from the segment lengths. The file is the segments back to back, served with HTTP Range (`server/http/range.ts`) for seeking; the player highlights the current line and seeks on click.
-- **Mind maps** (`server/studio/mindmap.ts`): notes → one JSON topic tree, parsed leniently and trimmed on the server (depth 4, 80 nodes, 8 children, 80-character labels, 280-character summaries). The viewer is an SVG tree with pan / zoom / collapse, PNG and Markdown export, and “Ask about this” that opens chat on the topic.
-
 ## Connectors
 
 A connector (`server/connectors/types.ts`) implements `browse`, `list` and `fetchItem`; the sync
 engine (`server/connectors/sync.ts`) is the same for every provider:
 
 1. **list** everything in the source (at most 200 items), stored as the sync state;
-2. **import** each new or changed item (version compare: Drive `modifiedTime`, Notion `last_edited_time`, GitHub blob sha, website text hash) like an upload — text directly, files through `readUpload`, so scans get OCR and recordings are transcribed; the previous version is replaced only when the new one is ready;
+2. **import** each new or changed item (version compare: Drive `modifiedTime`) like an upload — text directly, files through `readUpload`, so scans get OCR and recordings are transcribed; the previous version is replaced only when the new one is ready;
 3. **prune** documents whose item disappeared upstream.
 
 Progress is saved after every item, so an interrupted sync resumes. Auto-sync runs every 1–720 hours
@@ -255,34 +237,33 @@ Progress is saved after every item, so an interrupted sync resumes. Auto-sync ru
 | Provider | Connect | Imports |
 |---|---|---|
 | Google Drive | OAuth (`drive.readonly`, PKCE, signed state cookie, tokens refreshed and re-saved) | files and folders (4 levels, shared drives too): Docs → Markdown, Sheets → CSV, Slides → text, plus any supported file type ≤ 50 MB |
-| Notion | integration token (pages must be shared with the integration) | pages and databases (every page in them), as Markdown (a sub-page shows as a heading; add it separately to import its content) |
-| GitHub | optional personal access token (public repositories work without one) | documentation files (`.md`, `.mdx`, `.rst`, `.adoc`, `.txt`) of a repository or a path in it |
-| Website | nothing | pages under the start URL from its sitemap, or found by following links (same site and folder, 3 levels, up to 100 pages); robots.txt respected; SSRF-safe fetcher |
+
+Connections and synced sources of providers that were removed (Notion, GitHub, websites) that still
+exist in a database are hidden from lists and no longer synced; the documents they imported stay in
+their notebooks.
 
 Connections belong to one member in one workspace; only that member can browse or use them.
 Credentials are encrypted with AES-256-GCM using a key derived from `AUTH_SECRET` by HKDF
 (`server/security/secrets.ts`); an expired or revoked token marks the connection `error` and asks its
 owner to reconnect. Removing a source can keep or delete its documents.
 
-## Answers: follow-ups, charts, PDFs, voice
+## Answers: follow-ups, charts, PDFs, dictation
 
 - **Follow-up questions** (`backend/rag/llm.go`, `POST /api/messages/:id/followups`, Go): three short next questions from the question, answer and source titles (fast helper call, 10 s deadline). Generated once per answer and stored on the message (`messages.followups`), shown as chips under the latest answer; failures return an empty list.
 - **Inline charts**: the system prompt lets the model add one ```` ```chart ```` block with `{type: bar|line|pie, title, unit, labels, series}` when it compares three or more numbers from the passages. The JSON is untrusted: `lib/chart.ts` validates and bounds it (24 labels, 6 series, numbers only), and `components/chart-block.tsx` draws SVG (no chart library, theme colours, data table toggle). Invalid charts show as code; streaming ones as a placeholder.
 - **PDF viewer**: uploaded (and connector-imported) PDFs are kept in `document_files` (2 MB parts). The source viewer opens the original with pdf.js, finds the cited passage by its letters and digits across the pages' text items (`lib/pdf-match.ts`, robust to spacing and hyphenation), jumps to that page and highlights the items. pdf.js and its worker are served from `public/` (copied from the installed package by `scripts/copy-pdf-worker.mjs`) and loaded outside webpack, whose transform of pdf.js fails at runtime.
-- **Voice chat** (`components/voice-mode.tsx`): browser speech recognition (Chrome, Edge, Safari) hears the question, it is sent like a typed one, and the answer is spoken with speech synthesis sentence by sentence while it streams (`lib/speech-text.ts` strips citations, links, Markdown and charts). Tapping interrupts. Languages include English (India) and Hindi.
+- **Dictation and read-aloud**: the composer's microphone uses the browser's speech recognition (`hooks/use-speech-input.ts`; Chrome, Edge, Safari) to write the spoken question into the composer; each answer can be read aloud with the browser's speech synthesis (`components/chat-message.tsx`).
 
-## Sharing and chat apps
+## Sharing
 
 - **Share links** (`server/shares/service.ts`): Editors create a read-only public link to their own chat or to a finished report. The link holds a *snapshot* (later messages stay private; citations lose internal ids and file paths), stops working when revoked (by its creator or an admin) or when the original is deleted, and counts views. Tokens are 192 random bits, stored as a SHA-256 hash for lookup and encrypted to show the link again. The page `/s/:token` is server-rendered, `noindex`, `no-referrer`.
-- **Slack** (`server/integrations/slack.ts`): Events API. Every request must carry a valid `X-Slack-Signature` (HMAC-SHA256 with the integration's signing secret, timestamp within 5 minutes). URL verification is answered; @mentions and direct messages are acknowledged at once (Slack's 3 s rule), retries are ignored, and the `answer_bot_message` job posts the answer with numbered sources in the thread.
-- Integrations are managed by workspace admins (Workspace settings → Chat apps), answer from one notebook or all, store credentials sealed with the `AUTH_SECRET`-derived key, are rate limited (120 questions / hour each), and use the normal pipeline (retrieval, re-ranking, guardrail).
 
 ## Collaboration features
 
 - **Feedback** — readers rate answers up or down (one rating per person per answer); ratings show in Analytics.
-- **Notifications** — finished background work (sources ready or failed, reports, audio, mind maps, syncs) and being added to a workspace; a bell menu with unread count.
+- **Notifications** — finished background work (sources ready or failed, reports, syncs) and being added to a workspace; a bell menu with unread count.
 - **Audit log** — member, settings, notebook and content changes per workspace, for admins (`server/activity.ts`; recording is best-effort and never fails the action).
-- **Navigation** — a narrow rail holds every view (Chat; studio: reports, audio, mind maps; tools: chunk editor, analytics) plus sources, settings and the account menu. Next to it, a collapsible panel is mostly chat history: grouped Pinned / Today / Yesterday / Previous 7 and 30 days / by month (`lib/history.ts`), with a search that runs on the server over titles and message text, so chats older than the 100 listed are found too. On phones both slide in as one drawer.
+- **Navigation** — a narrow rail holds every view (Chat; studio: reports; tools: chunk editor, shown to workspace admins only, and analytics; Alt+1…4) plus sources, settings and the account menu. Next to it, a collapsible panel is mostly chat history: grouped Pinned / Today / Yesterday / Previous 7 and 30 days / by month (`lib/history.ts`), with a search that runs on the server over titles and message text, so chats older than the 100 listed are found too. On phones both slide in as one drawer.
 - Conversations can be pinned, renamed, forked, exported and deleted (sidebar or the chat header menu); deep mode is a toggle in the composer; a command palette (Ctrl/⌘ K) reaches every view and action.
 
 ## Chunk editor
@@ -339,11 +320,10 @@ came from.
 
 | Capability | Gemini (default) | OpenAI-compatible (open source) |
 |---|---|---|
-| Chat (answers, planning, re-ranking, judging, reports, scripts) | `GEMINI_CHAT_MODEL` — Gemini or open Gemma (`gemma-4-26b-a4b-it`) | `/chat/completions` (Ollama, vLLM, LM Studio, LocalAI, Groq, OpenRouter) |
+| Chat (answers, planning, re-ranking, judging, reports) | `GEMINI_CHAT_MODEL` — Gemini or open Gemma (`gemma-4-26b-a4b-it`) | `/chat/completions` (Ollama, vLLM, LM Studio, LocalAI, Groq, OpenRouter) |
 | Embeddings | `gemini-embedding-001` (3 072 dims) | `/embeddings` (e.g. nomic-embed-text, bge-m3) |
 | Vision | chat model | `/chat/completions` with images (e.g. Qwen2.5-VL, Llama 3.2 Vision) |
 | Transcription | chat model (a Gemini model when chat is Gemma, which takes no audio) | `/audio/transcriptions` (faster-whisper, whisper.cpp, Groq) |
-| Speech | `gemini-2.5-flash-preview-tts`, two voices in one request | `/audio/speech` per line (Kokoro, openedai-speech) |
 | OCR | Tesseract (local) or the vision model | same |
 
 Chat and embeddings can come from different providers (`combineProviders`). Reasoning output is
@@ -444,11 +424,11 @@ the `app` schema. Migrations are versioned and append-only (`server/db/migration
 | v7 | generated images (the feature was removed; the table is kept) |
 | v8 | answer feedback, notifications, audit log, pinned conversations |
 | v9 | `chunks.embedding_model` (existing rows tagged `gemini-embedding-001`), media staging, per-page PDF text, new source types, connector columns on documents |
-| v10 | audio overviews (+ segments) and mind maps |
+| v10 | audio overviews (+ segments) and mind maps (features since removed; tables kept) |
 | v11 | connections and connector sources |
-| v12 | follow-up questions on messages, share links, original files (PDFs), chat-app integrations |
+| v12 | follow-up questions on messages, share links, original files (PDFs), chat-app integrations (since removed; table kept) |
 | v13 | server-side sessions (`app.sessions`): sign-out revokes the token, "sign out of all devices" |
-| v14 | chat-app integrations remember whether they answer from all notebooks (`all_notebooks`) |
+| v14 | chat-app integrations remember whether they answer from all notebooks (`all_notebooks`) (feature since removed; column kept) |
 | v15 | uploads in parts (`upload_sessions`, `upload_session_parts`) |
 
 Search is **exact** (sequential scan filtered by workspace / notebook), correct and fast for corpora
@@ -470,14 +450,13 @@ step-back and HyDE on, guardrail on (relevance ≥ 0.35, similarity ≥ 0.45), e
 | Sign-in | Google (OIDC, `email_verified`), GitHub (verified primary email), email OTP (CSPRNG, HMAC-stored, 5 attempts, single use, one message for every failure, a daily cap per address). Allowlist applies before invitations are accepted. Redirects after sign-in are same-origin paths only. |
 | CSRF | SameSite=Lax cookies + `Origin` check on every non-GET request. |
 | Browser | Per-request nonce CSP (`script-src 'self' 'nonce-…'`, no inline scripts without it, `frame-ancestors 'none'`), HSTS, nosniff, COOP/CORP same-origin, no framing. |
-| Input | zod on every body / query / param (labels, metadata keys, settings ranges, report, benchmark and studio sizes); byte caps before parsing; uploads identified by their bytes, not their name; `websearch_to_tsquery` for user search text. |
-| SSRF | Only http(s) on standard ports, DNS answers checked at connect time, redirects re-validated, size and time caps — for URL imports and every website-connector request. Model server URLs come only from server configuration. |
+| Input | zod on every body / query / param (labels, metadata keys, settings ranges, report sizes); byte caps before parsing; uploads identified by their bytes, not their name; `websearch_to_tsquery` for user search text. |
+| SSRF | Only http(s) on standard ports, DNS answers checked at connect time, redirects re-validated, size and time caps — for URL imports. Model server URLs come only from server configuration. |
 | Share links | Opt-in per chat / report by Editors; snapshot only; unguessable token stored hashed; revocable by the author and by admins (who see every active link); revoked when the author leaves the workspace; dead when the original is deleted; rate-limited per IP; public paths are anchored single-segment patterns. |
-| Chat-app webhooks | Slack signatures (HMAC, 5-minute replay window, constant-time compare) are checked before anything is queued; replies go only to Slack's API. |
 | Connectors | Tokens encrypted at rest (AES-256-GCM, key from `AUTH_SECRET` via HKDF) and never returned to the browser; a connection is usable only by its owner; Drive is read-only with PKCE and a signed, short-lived state cookie bound to the user and workspace; a sync runs with its adder's current rights (Editor on the notebook), and removing a member deletes their connections. |
 | Prompt injection | Untrusted text is wrapped and escaped in every prompt (`<source>`, `<passage>`, `<document>`, judge sections); the re-ranker and judge are told passages are data; the renderer never loads images or raw HTML. |
 | Background endpoints | `/api/jobs/run` is disabled without `CRON_SECRET` (404) and compares the bearer token in constant time. |
-| Abuse / cost | Postgres-backed rate limits (chat, ingest, chunk edits, reports, benchmarks, audio, mind maps, connector syncs, feedback, invitations, OTP, shared pages); client IPs only from `TRUST_PROXY` hops of `X-Forwarded-For`; size, page, chunk and item caps; evaluation sampling. |
+| Abuse / cost | Postgres-backed rate limits (chat, ingest, chunk edits, reports, connector syncs, feedback, invitations, OTP, shared pages); client IPs only from `TRUST_PROXY` hops of `X-Forwarded-For`; size, page, chunk and item caps; evaluation sampling. |
 | Public demo | Opt-in (`DEMO_WORKSPACE_ID`, a team workspace only). Guests are accounts on the reserved `demo.invalid` domain, Viewers of that workspace and held to a read-only policy in `requireWorkspacePermission` / `requireCollectionPermission` (`guestCan`: view and search only); no personal workspace, no workspace creation, no follow-up model calls; starts and questions limited per IP and per day; removed with their chats after 24 hours (`server/auth/demo.ts`). |
 | Errors | Unknown errors return a generic 500 with a request id; background job failures are shown as generic messages. |
 | Configuration | A production server or worker refuses to start without `AUTH_SECRET`, a real Postgres and an https `APP_URL` (`server/config-check.ts`). |
@@ -493,16 +472,16 @@ OCR tests run real Tesseract on generated scans):
 - `tests/rerank.test.ts` — LLM grader parsing/ordering, Cohere adapter with a mocked `fetch`
 - `tests/quality-units.test.ts` — judge parsing and metrics, slide-outline validation, settings merge, retry policy
 - `tests/repositories.test.ts` — every repository on PGlite: workspaces, last-admin race, invites, chunk editing, job queue
-- `tests/services.test.ts` — ingestion, chat pipeline and guardrail short-circuit, evaluation, benchmarks, reports, chunk editor permissions
+- `tests/services.test.ts` — ingestion, chat pipeline and guardrail short-circuit, evaluation, reports, chunk editor permissions
 - `tests/http.test.ts` — real route handlers + middleware: auth, CSRF, role matrix, IDOR, cron and nudge endpoints
 - `tests/migrations.test.ts` — upgrading real v1 data to the latest schema
 - `tests/platform.test.ts`, `tests/platform-http.test.ts` — background indexing and retries, feedback, notifications, audit log, pins
-- `tests/models-units.test.ts` — OpenAI-compatible chat / embeddings / streaming think-filter, per-capability configuration, multimodal adapters, WAV / MP3, OCR
-- `tests/studio.test.ts` — media reading (images, scans page by page, audio), embedding-model tagging and re-embedding, mind maps (including rate-limit and daily-quota retries), audio overviews (resume per segment)
-- `tests/connectors.test.ts` — credential encryption, Notion / GitHub / Drive / website adapters with mocked APIs, the sync engine (incremental, prune, resume, schedule)
-- `tests/studio-http.test.ts` — media uploads, audio (Range) and mind map routes, models and re-embed, connectors over HTTP, role matrix
-- `tests/features-units.test.ts` — thinking-off settings, embedding cache, follow-up parsing, chart validation and scales, speech text, PDF passage matching, Slack signatures / events / mrkdwn, public paths
-- `tests/collab-http.test.ts` — fast path in standard and deep mode, follow-ups, share links (snapshot, revoke, delete, roles), original PDFs, Slack end to end with signed requests
+- `tests/models-units.test.ts` — OpenAI-compatible chat / embeddings / streaming think-filter, per-capability configuration, multimodal adapters, byte ranges, OCR
+- `tests/studio.test.ts` — media reading (images, scans page by page, audio), embedding-model tagging and re-embedding
+- `tests/connectors.test.ts` — credential encryption, the Drive adapter with mocked APIs, the sync engine (incremental, prune, resume, schedule)
+- `tests/studio-http.test.ts` — media uploads, models and re-embed, connectors over HTTP, role matrix
+- `tests/features-units.test.ts` — thinking-off settings, embedding cache, follow-up parsing, chart validation and scales, PDF passage matching, public paths
+- `tests/collab-http.test.ts` — fast path in standard and deep mode, follow-ups, share links (snapshot, revoke, delete, roles), original PDFs
 - `tests/security.test.ts` — session revocation and "sign out of all devices", `AUTH_SECRET` rotation with re-sealing, the CSP nonce, middleware redirects
 - `tests/config-check.test.ts` — the production startup check, `TRUST_PROXY` hops, `WEB_RUNS_JOBS`, Vercel's own address as `APP_URL`, the cron warning
 - `tests/demo-http.test.ts` — the public demo: team workspace only, guest read-only policy, member list, question limits, purge after a day, public paths
@@ -542,14 +521,12 @@ One process at a time can open the directory; not for production.
 
 - Revoking a session takes effect within 30 s on each server instance: handlers cache the check briefly, and middleware checks only the signature.
 - Admins add members by email without the member accepting first, and the response tells whether an account exists; an invitation-acceptance flow would close both.
-- Uploaded files, media and generated audio are stored in Postgres (≤ 50 MB per file, in 2 MB parts). Much larger files would be better uploaded straight to object storage.
-- On Vercel's Hobby plan the cron runs once a day: long jobs (big scans, audio overviews) move while someone uses the app, and otherwise wait for the cron or a worker.
+- Uploaded files and media are stored in Postgres (≤ 50 MB per file, in 2 MB parts). Much larger files would be better uploaded straight to object storage.
+- On Vercel's Hobby plan the cron runs once a day: long jobs (big scans, long recordings) move while someone uses the app, and otherwise wait for the cron or a worker.
 - Gemini free-tier quotas are small: re-ranking, evaluation and deep mode each add model calls. Evaluation can be sampled or disabled per workspace, the Cohere re-ranker avoids model calls for re-ranking, and open-source models avoid quotas entirely. Gemma models have their own quota but take no audio input.
 - Tesseract OCR is CPU-heavy (a few seconds per page); long scans progress over several job runs. Handwriting is better read with `OCR_ENGINE=vision`.
-- A connector sync covers at most 200 items per source (websites: 100 pages); Notion sub-pages must be added separately; GitHub imports documentation files, not code.
-- MP3 encoding uses `@breezystack/lamejs` (LGPL-3.0, used unmodified as a library).
-- Voice chat depends on the browser's speech recognition (not in Firefox) and voices; audio is processed by the browser vendor's service.
-- Bots answer anyone who can message them in the connected Slack workspace, from the chosen notebook; they do not keep thread history (each question stands alone).
+- A connector sync covers at most 200 items per source.
+- Dictation depends on the browser's speech recognition (not in Firefox) and read-aloud on its voices; dictated audio is processed by the browser vendor's service.
 
 ## Code standards
 

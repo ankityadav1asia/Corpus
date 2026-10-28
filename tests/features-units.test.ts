@@ -1,16 +1,12 @@
 import assert from 'node:assert/strict'
-import { createHmac } from 'node:crypto'
 import { describe, it } from 'node:test'
 
 import { formatChartValue, niceScale, parseChartSpec } from '@/lib/chart'
 import { compact, findPassage } from '@/lib/pdf-match'
-import { takeSentences, toSpeakable } from '@/lib/speech-text'
 import { thinkingOffConfig } from '@/server/ai/gemini'
 import { isPublicPath } from '@/server/auth/public-paths'
 import { resetEnvCache } from '@/server/env'
 import { clientIp } from '@/server/http/client-ip'
-import { formatBotReply } from '@/server/integrations/service'
-import { cleanSlackText, parseSlackEnvelope, toSlackMrkdwn, verifySlackSignature } from '@/server/integrations/slack'
 import { embedQueriesCached } from '@/server/rag/query-cache'
 import { STAGE_TIMEOUTS_MS } from '@/server/rag/retrieval'
 
@@ -74,20 +70,6 @@ describe('inline charts', () => {
   })
 })
 
-describe('voice: speaking answers while they stream', () => {
-  it('removes citations, links, code, formatting and charts', () => {
-    const spoken = toSpeakable('## Summary\n\n- **Revenue** grew 18% [1, 2].\n- See [the report](https://example.com/r).\n\n```chart\n{"type":"bar"}\n```\n`code`')
-    assert.equal(spoken, 'Summary.\nRevenue grew 18%.\nSee the report.\nI added a chart on screen.\ncode')
-    assert.ok(!/\[|\]|\*|#|https?:/.test(spoken))
-  })
-
-  it('releases complete sentences and keeps the unfinished rest', () => {
-    assert.deepEqual(takeSentences('It grew 18%. Then it fell'), { sentences: ['It grew 18%.'], rest: ' Then it fell' })
-    assert.deepEqual(takeSentences('Version 3.'), { sentences: [], rest: 'Version 3.' }, 'a trailing period may still become 3.5')
-    assert.deepEqual(takeSentences('Heading\nयह सही है। Next'), { sentences: ['Heading', 'यह सही है।'], rest: ' Next' })
-  })
-})
-
 describe('PDF passage highlighting', () => {
   const pages = [{ items: ['Annual report 2025', 'Contents'] }, { items: ['Revenue grew by ', '18 per-', 'cent in the', 'northern region.', 'Costs fell.'] }]
 
@@ -103,55 +85,6 @@ describe('PDF passage highlighting', () => {
     assert.equal(findPassage(pages, 'Something that is not in this document at all'), null)
     assert.equal(findPassage(pages, 'short'), null)
     assert.equal(compact('Ab-C d 1!'), 'abcd1')
-  })
-})
-
-describe('Slack', () => {
-  const secret = 'slack-signing-secret'
-  const sign = (timestamp: string, body: string) => `v0=${createHmac('sha256', secret).update(`v0:${timestamp}:${body}`).digest('hex')}`
-
-  it('accepts only fresh requests signed with the signing secret', () => {
-    const now = 1_800_000_000_000
-    const ts = String(now / 1000)
-    const body = '{"type":"event_callback"}'
-    assert.equal(verifySlackSignature({ signingSecret: secret, timestamp: ts, signature: sign(ts, body), body, now }), true)
-    assert.equal(verifySlackSignature({ signingSecret: secret, timestamp: ts, signature: sign(ts, body), body: `${body} `, now }), false)
-    assert.equal(verifySlackSignature({ signingSecret: 'other', timestamp: ts, signature: sign(ts, body), body, now }), false)
-    assert.equal(verifySlackSignature({ signingSecret: secret, timestamp: ts, signature: sign(ts, body), body, now: now + 10 * 60 * 1000 }), false, 'replays are refused')
-    assert.equal(verifySlackSignature({ signingSecret: secret, timestamp: null, signature: null, body, now }), false)
-  })
-
-  it('turns mentions and direct messages into questions and ignores everything else', () => {
-    assert.deepEqual(parseSlackEnvelope({ type: 'url_verification', challenge: 'abc' }), { type: 'url_verification', challenge: 'abc' })
-    const mention = parseSlackEnvelope({
-      type: 'event_callback',
-      event_id: 'Ev1',
-      team_id: 'T1',
-      event: { type: 'app_mention', user: 'U1', channel: 'C1', ts: '1.1', text: '<@UBOT> what is our <https://x.io|refund> policy?' },
-    })
-    assert.deepEqual(mention, { type: 'question', eventId: 'Ev1', teamId: 'T1', channel: 'C1', threadTs: '1.1', user: 'U1', text: 'what is our refund (https://x.io) policy?' })
-    const dm = parseSlackEnvelope({ type: 'event_callback', event: { type: 'message', channel_type: 'im', user: 'U1', channel: 'D1', ts: '2.2', thread_ts: '1.0', text: 'hi' } })
-    assert.equal(dm.type === 'question' && dm.threadTs, '1.0')
-    assert.equal(
-      parseSlackEnvelope({ type: 'event_callback', event: { type: 'message', channel_type: 'im', bot_id: 'B1', user: 'U1', channel: 'D1', text: 'echo' } }).type,
-      'ignore',
-    )
-    assert.equal(parseSlackEnvelope({ type: 'event_callback', event: { type: 'message', channel_type: 'channel', user: 'U1', channel: 'C1', text: 'chatter' } }).type, 'ignore')
-    assert.equal(cleanSlackText('&lt;tag&gt; &amp; <#C1|general>'), '<tag> & #general')
-  })
-
-  it('writes Slack mrkdwn replies with numbered sources', () => {
-    assert.equal(toSlackMrkdwn('## Plan\n**Bold** and [link](https://a.io)\n- item'), '*Plan*\n*Bold* and link (https://a.io)\n• item')
-    assert.equal(
-      toSlackMrkdwn('Hi <!channel> & <@U1> <https://evil.io|Official>'),
-      'Hi &lt;!channel&gt; &amp; &lt;@U1&gt; &lt;https://evil.io|Official&gt;',
-      'model text cannot ping or disguise links',
-    )
-    const reply = formatBotReply('Answer [1].', [
-      { index: 1, title: 'Policy', source: 'https://docs.io/p' },
-      { index: 2, title: 'Notes.pdf', source: 'Notes.pdf' },
-    ])
-    assert.equal(reply, 'Answer [1].\n\n*Sources*\n[1] <https://docs.io/p|Policy>\n[2] Notes.pdf')
   })
 })
 
@@ -177,10 +110,10 @@ describe('client address behind a proxy', () => {
 })
 
 describe('public paths', () => {
-  it('opens only share pages and chat-app webhooks, one path segment each', () => {
+  it('opens only share pages, one path segment each', () => {
     assert.equal(isPublicPath('/s/abcDEF123_-abcDEF123_-abcDEF123_-'), true)
     assert.equal(isPublicPath('/api/public/shares/abc'), true)
-    assert.equal(isPublicPath('/api/integrations/slack/0b4e7f4e-6a55-4d38-9a2f-0f1b6c1d2e3f/events'), true)
+    assert.equal(isPublicPath('/api/integrations/slack/0b4e7f4e-6a55-4d38-9a2f-0f1b6c1d2e3f/events'), false, 'the Slack bot was removed')
     assert.equal(isPublicPath('/api/integrations/teams/0b4e7f4e-6a55-4d38-9a2f-0f1b6c1d2e3f/messages'), false, 'the Teams bot was removed')
     assert.equal(isPublicPath('/s/abc/../../api/conversations'), false)
     assert.equal(isPublicPath('/api/integrations/slack/0b4e7f4e-6a55-4d38-9a2f-0f1b6c1d2e3f/other'), false)

@@ -1,10 +1,10 @@
 import 'server-only'
 
 import { createGeminiProvider } from '@/server/ai/gemini'
-import { DEFAULT_GEMINI_VOICES, createGeminiSpeech, createGeminiTranscriber, createGeminiVision } from '@/server/ai/gemini-media'
-import type { SpeechSynthesizer, Transcriber, VisionModel } from '@/server/ai/media'
+import { createGeminiTranscriber, createGeminiVision } from '@/server/ai/gemini-media'
+import type { Transcriber, VisionModel } from '@/server/ai/media'
 import { combineProviders, createOpenAiCompatibleChat, createOpenAiCompatibleEmbeddings } from '@/server/ai/openai-compatible'
-import { createOpenAiCompatibleSpeech, createOpenAiCompatibleTranscriber, createOpenAiCompatibleVision } from '@/server/ai/openai-compatible-media'
+import { createOpenAiCompatibleTranscriber, createOpenAiCompatibleVision } from '@/server/ai/openai-compatible-media'
 import type { AiProvider } from '@/server/ai/provider'
 import { setUsageSink } from '@/server/ai/usage'
 import { createConnectorRegistry, type ConnectorRegistry } from '@/server/connectors/registry'
@@ -19,7 +19,6 @@ import {
   getOAuthClient,
   getOcrConfig,
   getRerankerConfig,
-  getSpeechBackend,
   getTranscriptionBackend,
   getVisionBackend,
   type ModelBackend,
@@ -44,14 +43,12 @@ export interface Services {
   vision(): VisionModel | null
   /** Audio/video to text; null when not configured. */
   transcriber(): Transcriber | null
-  /** Text-to-speech for audio overviews; null when not configured. */
-  speech(): SpeechSynthesizer | null
   /** A fresh OCR engine (close it when done); null when OCR_ENGINE=none. */
   ocr(): OcrEngine | null
-  /** Google Drive, Notion, GitHub and website connectors. */
+  /** The Google Drive connector. */
   connectors(): ConnectorRegistry
   email(): EmailSender | null
-  /** Outbound HTTP to chat apps (Slack, Microsoft); tests inject a fake. Defaults to global fetch. */
+  /** Outbound HTTP for background jobs; tests inject a fake. Defaults to global fetch. */
   fetch?: () => typeof fetch
 }
 
@@ -83,7 +80,6 @@ function createServices(): Services {
   let reranker: Reranker | null | undefined
   let vision: VisionModel | null | undefined
   let transcriber: Transcriber | null | undefined
-  let speech: SpeechSynthesizer | null | undefined
   let email: EmailSender | null | undefined
   let connectors: ConnectorRegistry | null = null
   const getAi = () => (ai ??= createAiProvider(getChatBackend(), getEmbeddingBackend(), getFastChatModel()))
@@ -117,16 +113,6 @@ function createServices(): Services {
           ? createGeminiTranscriber({ apiKey: backend.apiKey, model: backend.model })
           : createOpenAiCompatibleTranscriber(compatible(backend))
       return transcriber
-    },
-    speech: () => {
-      if (speech !== undefined) return speech
-      const backend = getSpeechBackend()
-      speech = !backend
-        ? null
-        : backend.provider === 'gemini'
-          ? createGeminiSpeech({ apiKey: backend.apiKey, model: backend.model, voices: backend.voices ?? DEFAULT_GEMINI_VOICES })
-          : createOpenAiCompatibleSpeech({ ...compatible(backend), voices: backend.voices ?? ['af_heart', 'am_michael'] })
-      return speech
     },
     ocr: () => {
       const config = getOcrConfig()

@@ -103,8 +103,8 @@ describe('rotating AUTH_SECRET', () => {
     const connection = await repos.connectors.saveConnection({
       workspaceId: team.workspaceId,
       userId: owner.id,
-      provider: 'notion',
-      accountLabel: 'Notion',
+      provider: 'google_drive',
+      accountLabel: 'owner@example.com',
       credentials: await sealSecret('{"token":"secret_abc"}', PREVIOUS),
     })
     const [stranger] = await t.db.query<{ id: string }>(

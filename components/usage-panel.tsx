@@ -14,15 +14,11 @@ const FEATURE_LABELS: Record<string, string> = {
   chat: 'Answering questions',
   followups: 'Follow-up suggestions',
   evaluate_answer: 'Answer quality checks',
-  run_benchmark: 'Benchmark runs',
   ingest_document: 'Indexing sources',
   read_media: 'Reading scans, images and recordings',
   reembed_workspace: 'Re-embedding',
   sync_connector: 'Connector syncs',
   generate_report: 'Reports',
-  generate_mindmap: 'Mind maps',
-  generate_audio: 'Audio overviews',
-  answer_bot_message: 'Slack answers',
   corpus: 'Chunk editor',
   learn: 'Adding sources',
 }
@@ -246,9 +242,9 @@ export function UsagePanel() {
                 <dd className="text-right tabular-nums">{whole.format(data.storage.chunks)}</dd>
                 <dt className="text-muted-foreground">Uploaded files</dt>
                 <dd className="text-right tabular-nums">{formatBytes(data.storage.bytes)}</dd>
-                <dt className="text-muted-foreground">Reports, mind maps, audio</dt>
+                <dt className="text-muted-foreground">Reports</dt>
                 <dd className="text-right tabular-nums">
-                  {data.studio.reports} / {data.studio.mindMaps} / {data.studio.audio}
+                  {data.studio.reports}
                 </dd>
               </dl>
             </section>

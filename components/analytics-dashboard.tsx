@@ -9,7 +9,7 @@ import { UsagePanel } from '@/components/usage-panel'
 import { useWorkspaceContext } from '@/components/workspace-provider'
 import { useAnalytics } from '@/hooks/use-api'
 import { errorMessage } from '@/lib/api-client'
-import type { Collection, StatsResponse } from '@/lib/contracts'
+import type { StatsResponse } from '@/lib/contracts'
 import { cn } from '@/lib/utils'
 
 function Metric({ label, value, hint, icon: Icon }: { label: string; value: string; hint: string; icon: typeof Activity }) {
@@ -27,11 +27,10 @@ function Metric({ label, value, hint, icon: Icon }: { label: string; value: stri
 
 interface AnalyticsDashboardProps {
   totals: StatsResponse['totals'] | undefined
-  collections: Collection[]
 }
 
 /** Usage and latency (your own questions, or the whole workspace for admins) plus answer quality. */
-export function AnalyticsDashboard({ totals, collections }: AnalyticsDashboardProps) {
+export function AnalyticsDashboard({ totals }: AnalyticsDashboardProps) {
   const { role, active } = useWorkspaceContext()
   const [scope, setScope] = useState<'me' | 'workspace'>('me')
   const effectiveScope = role === 'admin' ? scope : 'me'
@@ -168,7 +167,7 @@ export function AnalyticsDashboard({ totals, collections }: AnalyticsDashboardPr
 
       {role === 'admin' && <UsagePanel />}
 
-      <QualityPanel collections={collections} />
+      <QualityPanel />
     </div>
   )
 }

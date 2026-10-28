@@ -1,8 +1,7 @@
 import { answerText, geminiHttpError } from '@/server/ai/gemini'
-import { IMAGE_PROMPTS, transcriptionPrompt, type SpeechSynthesizer, type SpokenLine, type Transcriber, type VisionModel } from '@/server/ai/media'
+import { IMAGE_PROMPTS, transcriptionPrompt, type Transcriber, type VisionModel } from '@/server/ai/media'
 import { AiProviderError } from '@/server/ai/provider'
 import { recordUsage } from '@/server/ai/usage'
-import { pcmFromL16, sampleRateFromMime } from '@/server/media/wav'
 
 /**
  * Gemini multimodal calls over REST: reading images (OCR + description), transcribing audio/video
@@ -157,40 +156,6 @@ export function createGeminiTranscriber(config: GeminiConfig): Transcriber {
       } finally {
         await deleteFile(config, file.name)
       }
-    },
-  }
-}
-
-export const DEFAULT_GEMINI_VOICES: readonly [string, string] = ['Kore', 'Puck']
-/** Speaker labels used inside the TTS prompt (the model maps them to the voices). */
-const SPEAKERS = ['Host A', 'Host B'] as const
-
-export function ttsPrompt(lines: readonly SpokenLine[]): string {
-  return `Read this podcast conversation between two friendly, curious hosts, naturally and at a relaxed pace:\n\n${lines.map((line) => `${SPEAKERS[line.speaker]}: ${line.text}`).join('\n')}`
-}
-
-export function createGeminiSpeech(config: GeminiConfig & { voices?: readonly [string, string] }): SpeechSynthesizer {
-  const voices = config.voices ?? DEFAULT_GEMINI_VOICES
-  return {
-    model: config.model,
-    voices,
-    async synthesize({ lines, signal }) {
-      const body = {
-        contents: [{ role: 'user', parts: [{ text: ttsPrompt(lines) }] }],
-        generationConfig: {
-          responseModalities: ['AUDIO'],
-          speechConfig: {
-            multiSpeakerVoiceConfig: {
-              speakerVoiceConfigs: SPEAKERS.map((speaker, index) => ({ speaker, voiceConfig: { prebuiltVoiceConfig: { voiceName: voices[index] } } })),
-            },
-          },
-        },
-      }
-      const response = await generate(config, config.model, body, 'Gemini speech request failed', signal)
-      const audio = response.candidates?.[0]?.content?.parts?.find((part) => part.inlineData?.data)?.inlineData
-      if (!audio?.data) throw new AiProviderError('The speech model returned no audio', undefined, true)
-      const bytes = new Uint8Array(Buffer.from(audio.data, 'base64'))
-      return { pcm: pcmFromL16(bytes), sampleRate: sampleRateFromMime(audio.mimeType) }
     },
   }
 }

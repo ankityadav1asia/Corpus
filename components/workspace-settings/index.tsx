@@ -1,10 +1,9 @@
 'use client'
 
-import { Cpu, History, Link2, Loader2, LogOut, MessageSquareShare, Shield, Trash2 } from 'lucide-react'
+import { Cpu, History, Link2, Loader2, LogOut, Shield, Trash2 } from 'lucide-react'
 import { useEffect, useState, type FormEvent } from 'react'
 
 import { ActivityLog } from '@/components/activity-log'
-import { IntegrationsPanel } from '@/components/integrations-panel'
 import { ModelsStatusView } from '@/components/models-status'
 import { PublicLinksPanel } from '@/components/public-links-panel'
 import { Badge } from '@/components/ui/badge'
@@ -129,13 +128,10 @@ function LeaveOrDelete({ workspace, user, isAdmin, onGone }: { workspace: Worksp
   )
 }
 
-/** Sections only admins see: chat apps, public links and the activity log. */
+/** Sections only admins see: public links and the activity log. */
 function AdminSections({ workspaceId }: { workspaceId: string }) {
   return (
     <>
-      <Section title="Chat apps" icon={<MessageSquareShare className="size-4 text-primary" />} description="Slack bots that answer questions from this workspace, with citations.">
-        <IntegrationsPanel workspaceId={workspaceId} />
-      </Section>
       <Section title="Public links" icon={<Link2 className="size-4 text-primary" />} description="Read-only links to chats and reports that anyone with the link can open.">
         <PublicLinksPanel workspaceId={workspaceId} />
       </Section>

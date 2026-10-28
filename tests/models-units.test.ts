@@ -5,18 +5,16 @@ import { createCanvas } from '@napi-rs/canvas'
 
 import { EMBEDDING_DIMENSIONS } from '@/lib/constants'
 import { answerText } from '@/server/ai/gemini'
-import { createGeminiSpeech, createGeminiTranscriber, createGeminiVision, ttsPrompt } from '@/server/ai/gemini-media'
+import { createGeminiTranscriber, createGeminiVision } from '@/server/ai/gemini-media'
 import { formatTimestamp } from '@/server/ai/media'
 import { combineProviders, createOpenAiCompatibleChat, createOpenAiCompatibleEmbeddings, createThinkFilter, fitEmbedding, stripThinking } from '@/server/ai/openai-compatible'
-import { createOpenAiCompatibleSpeech, createOpenAiCompatibleTranscriber, createOpenAiCompatibleVision, formatSegments } from '@/server/ai/openai-compatible-media'
+import { createOpenAiCompatibleTranscriber, createOpenAiCompatibleVision, formatSegments } from '@/server/ai/openai-compatible-media'
 import { AiProviderError } from '@/server/ai/provider'
-import { getChatBackend, getEmbeddingBackend, getModelSummary, getOcrConfig, getSpeechBackend, getTranscriptionBackend, getVisionBackend, resetEnvCache } from '@/server/env'
+import { getChatBackend, getEmbeddingBackend, getModelSummary, getOcrConfig, getTranscriptionBackend, getVisionBackend, resetEnvCache } from '@/server/env'
 import { parseRange } from '@/server/http/range'
 import { scannedPages } from '@/server/ingestion/extractors'
 import { detectMedia } from '@/server/media/detect'
-import { encodeMp3, mp3SampleRate } from '@/server/media/mp3'
 import { createTesseractOcr, createVisionOcr } from '@/server/media/ocr'
-import { concatPcm, decodeWav, encodeWav, pcmFromL16, resample, sampleRateFromMime } from '@/server/media/wav'
 import { createAiProvider } from '@/server/services'
 
 import { createFakeVision } from './helpers/fake-ai'
@@ -150,7 +148,7 @@ describe('model configuration from the environment', () => {
 
   function setEnv(values: Record<string, string | undefined>) {
     for (const key of Object.keys(process.env))
-      if (/^(GOOGLE_API_KEY|GEMINI_|CHAT_PROVIDER|EMBEDDING_PROVIDER|OPENAI_COMPATIBLE_|VISION_PROVIDER|TRANSCRIPTION_PROVIDER|TTS_PROVIDER|OCR_)/.test(key))
+      if (/^(GOOGLE_API_KEY|GEMINI_|CHAT_PROVIDER|EMBEDDING_PROVIDER|OPENAI_COMPATIBLE_|VISION_PROVIDER|TRANSCRIPTION_PROVIDER|OCR_)/.test(key))
         delete process.env[key]
     Object.assign(process.env, values)
     resetEnvCache()
@@ -166,16 +164,11 @@ describe('model configuration from the environment', () => {
       OPENAI_COMPATIBLE_VISION_MODEL: 'llava',
       OPENAI_COMPATIBLE_TRANSCRIPTION_MODEL: 'whisper-1',
       OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL: 'http://localhost:8000/v1',
-      OPENAI_COMPATIBLE_TTS_MODEL: 'kokoro',
-      OPENAI_COMPATIBLE_TTS_BASE_URL: 'http://localhost:8880/v1',
     })
     assert.deepEqual(getChatBackend(), { provider: 'openai-compatible', baseUrl: 'http://localhost:11434/v1', apiKey: null, model: 'llama3.1:8b' })
     assert.equal(getEmbeddingBackend().model, 'nomic-embed-text')
     assert.equal(getVisionBackend()?.model, 'llava')
     assert.deepEqual(getTranscriptionBackend(), { provider: 'openai-compatible', baseUrl: 'http://localhost:8000/v1', apiKey: null, model: 'whisper-1' })
-    const speech = getSpeechBackend()
-    assert.equal(speech?.provider, 'openai-compatible')
-    assert.deepEqual(speech?.voices, ['af_heart', 'am_michael'])
     assert.deepEqual(getOcrConfig(), { engine: 'tesseract', languages: 'eng' }, 'OCR defaults to local Tesseract')
     const summary = JSON.stringify(getModelSummary())
     assert.ok(!summary.includes('localhost'), 'the summary never includes URLs')
@@ -189,16 +182,14 @@ describe('model configuration from the environment', () => {
     setEnv({})
     assert.throws(() => getChatBackend(), /GOOGLE_API_KEY/)
     assert.equal(getVisionBackend(), null)
-    assert.equal(getSpeechBackend(), null)
   })
 
   it('defaults multimodal features to Gemini when the key is set, and lets each be turned off', () => {
-    setEnv({ GOOGLE_API_KEY: 'k'.repeat(39), GEMINI_CHAT_MODEL: 'gemma-4-26b-a4b-it', TTS_PROVIDER: 'none', OCR_ENGINE: 'vision' })
+    setEnv({ GOOGLE_API_KEY: 'k'.repeat(39), GEMINI_CHAT_MODEL: 'gemma-4-26b-a4b-it', OCR_ENGINE: 'vision' })
     assert.equal(getChatBackend().model, 'gemma-4-26b-a4b-it', 'open Gemma models run through the same API')
     assert.equal(getVisionBackend()?.model, 'gemma-4-26b-a4b-it')
     assert.equal(getTranscriptionBackend()?.provider, 'gemini')
     assert.equal(getTranscriptionBackend()?.model, 'gemini-3.6-flash', 'Gemma cannot take audio, so transcription uses a Gemini model')
-    assert.equal(getSpeechBackend(), null)
     assert.deepEqual(getOcrConfig(), { engine: 'vision' })
   })
 })
@@ -231,41 +222,6 @@ describe('multimodal adapters', () => {
     assert.equal(formatTimestamp(3725), '1:02:05')
   })
 
-  it('records each line with its host voice and joins the audio', async () => {
-    const tone = (samples: number, rate: number) => encodeWav(new Int16Array(samples).fill(1000), rate)
-    const { requests, fetchImpl } = mockFetch((request) => new Response(tone((request.body as { voice: string }).voice === 'af_heart' ? 2400 : 4800, 24_000)))
-    const speech = createOpenAiCompatibleSpeech({ baseUrl: 'http://localhost:8880/v1', apiKey: null, model: 'kokoro', voices: ['af_heart', 'am_michael'], fetch: fetchImpl })
-    const result = await speech.synthesize({
-      lines: [
-        { speaker: 0, text: 'Hi' },
-        { speaker: 1, text: 'Hello' },
-      ],
-    })
-    assert.equal(result.sampleRate, 24_000)
-    // 0.1 s + 0.25 s pause + 0.2 s + 0.25 s pause
-    assert.equal(result.pcm.length, 2400 + 6000 + 4800 + 6000)
-    assert.deepEqual(
-      requests.map((request) => (request.body as { voice: string }).voice),
-      ['af_heart', 'am_michael'],
-    )
-  })
-
-  it('asks Gemini for a two-voice recording and decodes its raw PCM', async () => {
-    const pcm = new Int16Array([1, -2, 3, -4])
-    const { requests, fetchImpl } = mockFetch(() =>
-      Response.json({ candidates: [{ content: { parts: [{ inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: Buffer.from(pcm.buffer).toString('base64') } }] } }] }),
-    )
-    const speech = createGeminiSpeech({ apiKey: 'k', model: 'gemini-2.5-flash-preview-tts', fetch: fetchImpl })
-    const result = await speech.synthesize({ lines: [{ speaker: 0, text: 'Hello' }] })
-    assert.deepEqual([...result.pcm], [1, -2, 3, -4])
-    assert.equal(result.sampleRate, 24_000)
-    const body = requests[0]!.body as { generationConfig: { responseModalities: string[]; speechConfig: { multiSpeakerVoiceConfig: { speakerVoiceConfigs: unknown[] } } } }
-    assert.deepEqual(body.generationConfig.responseModalities, ['AUDIO'])
-    assert.equal(body.generationConfig.speechConfig.multiSpeakerVoiceConfig.speakerVoiceConfigs.length, 2)
-    assert.match(ttsPrompt([{ speaker: 1, text: 'Yes' }]), /Host B: Yes/)
-    assert.equal((requests[0]!.init.headers as Record<string, string>)['x-goog-api-key'], 'k')
-  })
-
   it('reads images with Gemini inline and uploads large recordings through the Files API', async () => {
     const vision = createGeminiVision({
       apiKey: 'k',
@@ -294,35 +250,14 @@ describe('multimodal adapters', () => {
   })
 })
 
-describe('audio and file helpers', () => {
-  it('round-trips WAV, resamples and joins PCM', () => {
-    const source = new Int16Array([0, 1000, -1000, 32767, -32768])
-    const decoded = decodeWav(encodeWav(source, 16_000))
-    assert.deepEqual([...decoded.pcm], [...source])
-    assert.equal(decoded.sampleRate, 16_000)
-    assert.equal(resample(new Int16Array(24_000), 24_000, 16_000).length, 16_000)
-    assert.equal(concatPcm([new Int16Array(2), new Int16Array(3)]).length, 5)
-    assert.deepEqual([...pcmFromL16(new Uint8Array([1, 0, 255, 255]))], [1, -1])
-    assert.equal(sampleRateFromMime('audio/L16;codec=pcm;rate=16000'), 16_000)
-    assert.throws(() => decodeWav(new Uint8Array(10)), /Not a WAV/)
-  })
-
-  it('encodes speech as MP3 frames', async () => {
-    const pcm = new Int16Array(24_000).map((_, i) => Math.round(Math.sin(i / 10) * 5000))
-    const mp3 = await encodeMp3(pcm, 24_000)
-    assert.ok(mp3.byteLength > 1000 && mp3.byteLength < 20_000, `one second at 64 kbit/s, got ${mp3.byteLength} bytes`)
-    const frame = mp3.findIndex((byte, i) => byte === 0xff && ((mp3[i + 1] ?? 0) & 0xe0) === 0xe0)
-    assert.ok(frame >= 0, 'contains an MP3 frame header')
-    assert.equal(mp3SampleRate(23_500), 24_000)
-    assert.equal(mp3SampleRate(23_000), 22_050)
-  })
-
+describe('media and file helpers', () => {
   it('verifies media by content, not by name', () => {
     const png = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0])
     assert.deepEqual(detectMedia(png, '.png'), { kind: 'image', mimeType: 'image/png' })
     assert.equal(detectMedia(png, '.jpg'), null, 'a PNG renamed to .jpg is rejected')
     assert.deepEqual(detectMedia(new Uint8Array([0x49, 0x44, 0x33, 4, 0, 0]), '.mp3'), { kind: 'audio', mimeType: 'audio/mpeg' })
-    assert.deepEqual(detectMedia(encodeWav(new Int16Array(4), 8000), '.wav'), { kind: 'audio', mimeType: 'audio/wav' })
+    const wav = new Uint8Array([...new TextEncoder().encode('RIFF'), 36, 0, 0, 0, ...new TextEncoder().encode('WAVEfmt ')])
+    assert.deepEqual(detectMedia(wav, '.wav'), { kind: 'audio', mimeType: 'audio/wav' })
     const mp4 = new Uint8Array([0, 0, 0, 24, ...new TextEncoder().encode('ftypisom'), 0, 0])
     assert.deepEqual(detectMedia(mp4, '.mp4'), { kind: 'video', mimeType: 'video/mp4' })
     assert.deepEqual(detectMedia(new Uint8Array([0x1a, 0x45, 0xdf, 0xa3, 0]), '.webm'), { kind: 'video', mimeType: 'video/webm' })

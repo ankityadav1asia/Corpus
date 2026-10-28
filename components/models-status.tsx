@@ -12,13 +12,12 @@ import type { ModelInfo, ModelsStatus } from '@/lib/contracts'
 import { cn } from '@/lib/utils'
 
 const ROWS: Array<{ key: keyof ModelsStatus['models']; label: string; hint: string }> = [
-  { key: 'chat', label: 'Answers & reasoning', hint: 'Chat answers, reports, audio scripts, mind maps' },
+  { key: 'chat', label: 'Answers & reasoning', hint: 'Chat answers and reports' },
   { key: 'fast', label: 'Quick helper calls', hint: 'Re-ranking, deep-search planning, follow-ups, quality scores' },
   { key: 'embeddings', label: 'Search embeddings', hint: 'Turns passages and questions into vectors' },
   { key: 'vision', label: 'Reading images', hint: 'Describes images and diagrams you upload' },
   { key: 'ocr', label: 'OCR', hint: 'Text in scanned PDFs and images' },
   { key: 'transcription', label: 'Transcription', hint: 'Audio and video sources' },
-  { key: 'speech', label: 'Speech', hint: 'Voices of audio overviews' },
 ]
 
 function providerLabel(info: ModelInfo): string {

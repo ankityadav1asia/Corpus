@@ -1,18 +1,7 @@
-/** Studio outputs made from sources: reports, audio overviews and mind maps. */
+/** Studio outputs made from sources: reports. */
 import { z } from 'zod'
 
-import {
-  AUDIO_FORMATS,
-  AUDIO_LANGUAGES,
-  AUDIO_LENGTHS,
-  LIMITS,
-  REPORT_TEMPLATES,
-  STUDIO_LIMITS,
-  type AudioFormat,
-  type AudioLanguage,
-  type AudioLength,
-  type ReportTemplate,
-} from '@/lib/constants'
+import { LIMITS, REPORT_TEMPLATES, type ReportTemplate } from '@/lib/constants'
 
 import type { JobStatus } from './common'
 import { id } from './fields'
@@ -28,24 +17,6 @@ export const reportCreateSchema = z
     format: z.enum(['markdown', 'json']).default('markdown'),
   })
   .refine((value) => value.collectionIds.length + value.documentIds.length > 0, 'Select at least one notebook or document')
-/** Sources for studio outputs (audio overviews, mind maps): whole notebooks and/or specific documents. */
-const studioSelection = {
-  collectionIds: z.array(id).max(STUDIO_LIMITS.collectionsPerItem).default([]),
-  documentIds: z.array(id).max(STUDIO_LIMITS.documentsPerItem).default([]),
-  focus: z.string().trim().max(STUDIO_LIMITS.focusChars).optional(),
-}
-const hasSources = (value: { collectionIds: string[]; documentIds: string[] }) => value.collectionIds.length + value.documentIds.length > 0
-
-export const audioCreateSchema = z
-  .object({
-    ...studioSelection,
-    format: z.enum(AUDIO_FORMATS).default('deep_dive'),
-    length: z.enum(AUDIO_LENGTHS).default('default'),
-    language: z.enum(AUDIO_LANGUAGES).default('English'),
-  })
-  .refine(hasSources, 'Select at least one notebook or document')
-export const mindMapCreateSchema = z.object(studioSelection).refine(hasSources, 'Select at least one notebook or document')
-
 export interface SlideOutline {
   title: string
   subtitle?: string
@@ -69,78 +40,5 @@ export interface ReportDetail extends ReportSummary {
   content: string | null
   output: SlideOutline | null
   sources: Array<{ documentId: string; title: string; source: string }>
-  error: string | null
-}
-
-export interface StudioSource {
-  documentId: string
-  title: string
-  source: string
-}
-
-export interface AudioSegment {
-  /** 0 = first host, 1 = second host. */
-  speaker: 0 | 1
-  text: string
-  /** Seconds from the start. */
-  start: number
-  end: number
-}
-
-export interface AudioSummary {
-  id: string
-  title: string
-  format: AudioFormat
-  length: AudioLength
-  language: AudioLanguage
-  status: JobStatus
-  progress: string | null
-  durationSeconds: number | null
-  createdByEmail: string | null
-  createdAt: string
-  completedAt: string | null
-}
-
-export interface AudioDetail extends AudioSummary {
-  focus: string | null
-  collectionIds: string[]
-  documentIds: string[]
-  transcript: AudioSegment[]
-  sources: StudioSource[]
-  /** Voice names of the two hosts. */
-  voices: string[]
-  model: string | null
-  byteSize: number | null
-  error: string | null
-}
-
-export interface MindMapNode {
-  id: string
-  label: string
-  /** One or two sentences from the sources. */
-  summary?: string
-  /** 1-based numbers into the mind map's sources. */
-  sources?: number[]
-  children: MindMapNode[]
-}
-
-export interface MindMapSummary {
-  id: string
-  title: string
-  focus: string | null
-  status: JobStatus
-  progress: string | null
-  nodeCount: number | null
-  createdByEmail: string | null
-  createdAt: string
-  completedAt: string | null
-}
-
-export interface MindMapDetail extends MindMapSummary {
-  collectionIds: string[]
-  documentIds: string[]
-  root: MindMapNode | null
-  sources: StudioSource[]
-  model: string | null
   error: string | null
 }

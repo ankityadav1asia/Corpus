@@ -70,7 +70,7 @@ describe('AI usage metering', () => {
     )
   })
 
-  it('meters Gemini media calls (vision, transcription, speech) from their usage metadata', async () => {
+  it('meters Gemini media calls (vision, transcription) from their usage metadata', async () => {
     capture()
     const fetchImpl = (async () =>
       Response.json({ candidates: [{ content: { parts: [{ text: 'A chart of rainfall.' }] } }], usageMetadata: { promptTokenCount: 258, totalTokenCount: 270 } })) as typeof fetch

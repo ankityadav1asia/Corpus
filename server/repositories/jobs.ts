@@ -3,15 +3,11 @@ import { toNumber } from '@/server/repositories/sql'
 
 export const JOB_TYPES = [
   'evaluate_answer',
-  'run_benchmark',
   'generate_report',
   'ingest_document',
   'read_media',
   'reembed_workspace',
-  'generate_audio',
-  'generate_mindmap',
   'sync_connector',
-  'answer_bot_message',
 ] as const
 export type JobType = (typeof JOB_TYPES)[number]
 
@@ -21,18 +17,13 @@ export type JobType = (typeof JOB_TYPES)[number]
  */
 export const JOB_ATTEMPTS: Record<JobType, number> = {
   evaluate_answer: 3,
-  run_benchmark: 4,
   generate_report: 4,
   // Indexing resumes where it stopped, so extra attempts only cost time, never duplicate work.
   ingest_document: 6,
-  // OCR and speech steps are stored as they finish, so retries resume too.
+  // OCR and transcription steps are stored as they finish, so retries resume too.
   read_media: 5,
   reembed_workspace: 6,
-  generate_audio: 4,
-  generate_mindmap: 3,
   sync_connector: 4,
-  // Chat-app replies: a late answer is still useful, a very late one is not.
-  answer_bot_message: 3,
 }
 
 export interface JobRecord {

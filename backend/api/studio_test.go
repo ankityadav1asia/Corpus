@@ -110,67 +110,6 @@ func TestReportsAreQueuedReadAndDeleted(t *testing.T) {
 	}
 }
 
-func TestMindMapsAreQueuedReadAndDeleted(t *testing.T) {
-	e := setup(t)
-	e.useFakeAI(t)
-	ada := e.user(unique("ada") + "@example.com")
-	ed := e.user(unique("ed") + "@example.com")
-	val := e.user(unique("val") + "@example.com")
-	team, notebook := e.team(ada, "Garden")
-	e.join(team, ed, "editor")
-	e.join(team, val, "viewer")
-	e.document(ada.in(team), notebook, "Bees", "Bees pollinate flowers.")
-	notebookName, _ := e.db.QueryString(context.Background(), `SELECT name FROM app.collections WHERE id = $1`, notebook)
-
-	w, body := e.do(&ed, call{method: "POST", path: "/api/mindmaps", workspace: team, body: fmt.Sprintf(`{"collectionIds":[%q,%q],"focus":" pollination "}`, notebook, notebook)})
-	e.expect(w, 202)
-	created := body["mindMap"].(map[string]any)
-	if created["title"] != "Mind map · "+notebookName || created["focus"] != "pollination" || created["status"] != "queued" || created["nodeCount"] != nil {
-		t.Fatalf("mind map = %v", created)
-	}
-	id := created["id"].(string)
-	if !e.queuedJob("generate_mindmap", "mindMapId", id) {
-		t.Fatal("no generate_mindmap job")
-	}
-
-	document, _ := e.db.QueryString(context.Background(), `SELECT id::text FROM app.documents WHERE collection_id = $1`, notebook)
-	w, body = e.do(&ed, call{method: "POST", path: "/api/mindmaps", workspace: team, body: fmt.Sprintf(`{"documentIds":[%q],"focus":""}`, document)})
-	e.expect(w, 202)
-	if picked := body["mindMap"].(map[string]any); picked["title"] != "Mind map" || picked["focus"] != nil {
-		t.Fatalf("picked documents = %v", picked)
-	}
-	w, body = e.do(&ed, call{method: "POST", path: "/api/mindmaps", workspace: team, body: `{"documentIds":["00000000-0000-4000-8000-000000000000"]}`})
-	e.expect(w, 400)
-	if message(body) != "Some selected documents do not exist or are not indexed yet." {
-		t.Fatalf("unknown document: %v", body)
-	}
-	w, _ = e.do(&ed, call{method: "POST", path: "/api/mindmaps", workspace: team, body: `{"focus":"x"}`})
-	e.expect(w, 400)
-
-	w, body = e.do(&val, call{path: "/api/mindmaps/" + id, workspace: team})
-	e.expect(w, 200)
-	detail := body["mindMap"].(map[string]any)
-	if ids := detail["collectionIds"].([]any); len(ids) != 2 || ids[0] != notebook || detail["root"] != nil || len(detail["sources"].([]any)) != 0 {
-		t.Fatalf("detail = %v", detail)
-	}
-	w, body = e.do(&val, call{path: "/api/mindmaps", workspace: team})
-	e.expect(w, 200)
-	if list := body["mindMaps"].([]any); len(list) != 2 {
-		t.Fatalf("list = %v", list)
-	}
-
-	w, _ = e.do(&val, call{method: "DELETE", path: "/api/mindmaps/" + id, workspace: team})
-	e.expect(w, 403)
-	w, _ = e.do(&ada, call{method: "DELETE", path: "/api/mindmaps/" + id, workspace: team})
-	e.expect(w, 200)
-
-	if err := e.db.Exec(context.Background(), `INSERT INTO app.mind_maps (workspace_id, title) SELECT $1, 'Old' FROM generate_series(1, $2::int)`, team, mindMapsPerWorkspace); err != nil {
-		t.Fatal(err)
-	}
-	w, _ = e.do(&ed, call{method: "POST", path: "/api/mindmaps", workspace: team, body: fmt.Sprintf(`{"collectionIds":[%q]}`, notebook)})
-	e.expect(w, 409)
-}
-
 func TestStudioNeedsTheAIConfiguredAndIsClosedToGuests(t *testing.T) {
 	e := setup(t)
 	previous := models
@@ -182,12 +121,10 @@ func TestStudioNeedsTheAIConfiguredAndIsClosedToGuests(t *testing.T) {
 	notebook := notebookOf(e, alice)
 	w, _ := e.do(&alice, call{method: "POST", path: "/api/reports", body: fmt.Sprintf(`{"template":"executive_summary","collectionIds":[%q]}`, notebook)})
 	e.expect(w, 503)
-	w, _ = e.do(&alice, call{method: "POST", path: "/api/mindmaps", body: fmt.Sprintf(`{"collectionIds":[%q]}`, notebook)})
-	e.expect(w, 503)
 
 	guest := e.user(unique("guest") + "@demo.invalid")
 	e.join(alice.workspaceID, guest, "viewer")
-	w, _ = e.do(&guest, call{method: "POST", path: "/api/mindmaps", workspace: alice.workspaceID, body: fmt.Sprintf(`{"collectionIds":[%q]}`, notebook)})
+	w, _ = e.do(&guest, call{method: "POST", path: "/api/reports", workspace: alice.workspaceID, body: fmt.Sprintf(`{"template":"executive_summary","collectionIds":[%q]}`, notebook)})
 	e.expect(w, 403)
 	w, _ = e.do(&guest, call{path: "/api/reports", workspace: alice.workspaceID})
 	e.expect(w, 200)

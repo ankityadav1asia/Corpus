@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict'
 import { after, before, describe, it } from 'node:test'
 
-import { INSUFFICIENT_CONTEXT_MESSAGE } from '@/lib/constants'
 import type { WorkspaceSettingsPatch } from '@/lib/contracts'
 import { AiProviderError } from '@/server/ai/provider'
 import { appendChunk, deleteChunk, updateChunk } from '@/server/corpus/chunk-editor'
-import { runBenchmarkBatch } from '@/server/evaluation/service'
 import { AppError } from '@/server/http/errors'
 import { ingestDocument } from '@/server/ingestion/ingest-service'
 import { runJobs } from '@/server/jobs/runner'
@@ -155,64 +153,6 @@ describe('background evaluation', () => {
     assert.equal(flagged?.question, 'What does photosynthesis convert?')
   })
 
-  it('benchmark runs go through the live pipeline and measure context recall against references', async () => {
-    await t.db.query('DELETE FROM app.jobs')
-    const relevant = await repos.evaluations.addCase({
-      workspaceId: owner.workspaceId,
-      question: 'What does photosynthesis convert?',
-      referenceAnswer: 'Light energy into chemical energy.',
-      collectionId: owner.notebookId,
-      createdBy: owner.id,
-    })
-    await repos.evaluations.addCase({
-      workspaceId: owner.workspaceId,
-      question: 'Who won the football league yesterday?',
-      referenceAnswer: 'Nobody knows.',
-      collectionId: null,
-      createdBy: owner.id,
-    })
-    const run = await repos.evaluations.createRun(owner.workspaceId, owner.id, 2)
-    await repos.jobs.enqueue('run_benchmark', { runId: run.id })
-    const ai = createFakeAi()
-    assert.deepEqual(await runJobs(jobContext(ai)), { processed: 1, failed: 0 })
-
-    const [stored] = await repos.evaluations.runs(owner.workspaceId, 1)
-    assert.equal(stored?.status, 'completed')
-    assert.equal(stored?.completedCount, 2)
-    assert.equal(stored?.averages.contextRecall, 1)
-    const answers = await t.db.query<{ case_id: string; answer: string }>(`SELECT case_id, answer FROM app.evaluations WHERE run_id = $1`, [run.id])
-    assert.equal(answers.length, 2)
-    assert.equal(answers.find((row) => row.case_id !== relevant.id)?.answer, INSUFFICIENT_CONTEXT_MESSAGE, 'the guardrail applies to benchmarks too')
-    assert.equal(ai.calls.chat.length, 1)
-  })
-
-  it('a benchmark batch stops at its deadline and later resumes without rescoring', async () => {
-    const ai = createFakeAi()
-    const deps = { repos, ai, reranker: createLlmReranker(ai) }
-    const run = await repos.evaluations.createRun(owner.workspaceId, owner.id, 2)
-    assert.equal(await runBenchmarkBatch(deps, { runId: run.id }, Date.now() - 1), 'more')
-    assert.equal((await repos.evaluations.runs(owner.workspaceId, 1))[0]?.status, 'running')
-
-    // An earlier batch already scored the first case.
-    const [first] = await repos.evaluations.cases(owner.workspaceId)
-    const scores = { faithfulness: 1, answerRelevance: 1, contextPrecision: 1, contextRecall: 1 }
-    await repos.evaluations.save({
-      workspaceId: owner.workspaceId,
-      runId: run.id,
-      caseId: first!.id,
-      question: first!.question,
-      answer: 'earlier',
-      scores,
-      details: {},
-      model: null,
-    })
-    assert.equal(await runBenchmarkBatch(deps, { runId: run.id }, Date.now() + 60_000), 'done')
-    const rows = await t.db.query<{ case_id: string; answer: string }>(`SELECT case_id, answer FROM app.evaluations WHERE run_id = $1`, [run.id])
-    assert.equal(rows.length, 2, 'each case scored exactly once')
-    assert.equal(rows.find((row) => row.case_id === first!.id)?.answer, 'earlier')
-    assert.equal((await repos.evaluations.runs(owner.workspaceId, 1))[0]?.status, 'completed')
-    assert.equal(await runBenchmarkBatch(deps, { runId: '00000000-0000-4000-8000-000000000000' }, Date.now() + 1000), 'missing')
-  })
 })
 
 describe('synthesis reports', () => {

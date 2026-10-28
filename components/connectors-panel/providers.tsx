@@ -1,6 +1,6 @@
 'use client'
 
-import { Github, Globe, HardDrive, NotebookText } from 'lucide-react'
+import { HardDrive } from 'lucide-react'
 
 import { Select } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
@@ -8,22 +8,11 @@ import { CONNECTOR_LABELS } from '@/lib/constants'
 import type { ConnectorProvider } from '@/lib/contracts'
 import { cn } from '@/lib/utils'
 
-export const PROVIDERS: Record<ConnectorProvider, { label: string; description: string; icon: typeof Globe }> = {
+export const PROVIDERS: Record<ConnectorProvider, { label: string; description: string; icon: typeof HardDrive }> = {
   google_drive: {
     label: CONNECTOR_LABELS.google_drive,
     description: 'Docs, Sheets, Slides, PDFs, images and recordings; whole folders stay in sync.',
     icon: HardDrive,
-  },
-  notion: { label: CONNECTOR_LABELS.notion, description: 'Pages and databases shared with your Notion integration.', icon: NotebookText },
-  github: {
-    label: CONNECTOR_LABELS.github,
-    description: 'Markdown and text docs from repositories (public ones need no token).',
-    icon: Github,
-  },
-  website: {
-    label: CONNECTOR_LABELS.website,
-    description: 'A docs site, help centre or blog: pages under a URL, re-read on a schedule.',
-    icon: Globe,
   },
 }
 

@@ -1,27 +1,20 @@
-/** Connected apps (Google Drive, Notion, GitHub, websites) and the sources synced from them. */
+/** Connected apps (Google Drive) and the sources synced from them. */
 import { z } from 'zod'
 
 import { LIMITS } from '@/lib/constants'
 
 import { id } from './fields'
 
-export const CONNECTOR_PROVIDERS = ['google_drive', 'notion', 'github', 'website'] as const
+/** Earlier versions also connected Notion, GitHub and websites; their rows are hidden (server/repositories/connectors.ts). */
+export const CONNECTOR_PROVIDERS = ['google_drive'] as const
 export type ConnectorProvider = (typeof CONNECTOR_PROVIDERS)[number]
-export const CONNECTOR_KINDS = ['file', 'folder', 'page', 'database', 'repository', 'site'] as const
+export const CONNECTOR_KINDS = ['file', 'folder'] as const
 export type ConnectorKind = (typeof CONNECTOR_KINDS)[number]
-
-/** Token-based connections (Google Drive connects with OAuth instead). */
-export const connectionCreateSchema = z.object({
-  provider: z.enum(['notion', 'github']),
-  /** Notion: an internal integration secret. GitHub: a personal access token (empty = public repositories only). */
-  token: z.string().trim().max(500).default(''),
-})
 
 export const connectorSourceCreateSchema = z.object({
   collectionId: id,
   provider: z.enum(CONNECTOR_PROVIDERS),
-  /** null for websites (no account needed). */
-  connectionId: id.nullable().default(null),
+  connectionId: id,
   items: z
     .array(
       z.object({
@@ -34,14 +27,6 @@ export const connectorSourceCreateSchema = z.object({
     .max(50),
   autoSync: z.boolean().default(true),
   syncIntervalHours: z.number().int().min(1).max(720).default(24),
-  options: z
-    .object({
-      /** GitHub: only files under this folder. Website: only pages under this path. */
-      path: z.string().trim().max(200).optional(),
-      /** Website: pages to read per sync. */
-      maxPages: z.number().int().min(1).max(100).optional(),
-    })
-    .default({}),
 })
 export const connectorSourceUpdateSchema = z
   .object({ autoSync: z.boolean().optional(), syncIntervalHours: z.number().int().min(1).max(720).optional() })
@@ -49,7 +34,7 @@ export const connectorSourceUpdateSchema = z
 
 export interface ConnectionSummary {
   id: string
-  provider: Exclude<ConnectorProvider, 'website'>
+  provider: ConnectorProvider
   accountLabel: string
   status: 'active' | 'error'
   error: string | null

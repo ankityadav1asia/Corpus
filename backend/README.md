@@ -27,9 +27,9 @@ is signed in for the Go routes too.
 | 1 | `GET /api/health`, `GET·POST /api/workspaces`, `GET·POST /api/collections` | Go |
 | 2 | Workspace administration: `GET·PATCH·DELETE /api/workspaces/:id` (settings, rename, delete), `…/members`, `…/members/:userId`, `…/invites`, `…/audit`; `PATCH·DELETE /api/collections/:id`, `GET·PUT /api/collections/:id/roles` | Go |
 | 3 | `GET /api/conversations` (`?q=` search), `GET·PATCH·DELETE /api/conversations/:id`, `POST …/:id/branch`, `PUT /api/messages/:id/feedback`, `GET /api/notifications`, `POST /api/notifications/read`, `GET /api/analytics` | Go |
-| – | Still TypeScript from the workspace area: `…/integrations` (Slack credentials are sealed with the TypeScript key ring), `…/shares` (opens sealed share tokens), `…/models` and `…/reembed` (AI configuration and a background job) | later, with the parts they depend on |
+| – | Still TypeScript from the workspace area: `…/shares` (opens sealed share tokens), `…/models` and `…/reembed` (AI configuration and a background job) | later, with the parts they depend on |
 | 4a | `POST /api/chat` (the whole pipeline: deep-mode query planning, hybrid search, RRF, re-ranking, guardrail, streamed NDJSON answer), `POST /api/messages/:id/followups`; polling a conversation runs its answer's queued evaluation | Go |
-| 4b | Studio: `GET·POST /api/reports`, `GET·DELETE /api/reports/:id`, the same for `/api/mindmaps`. Go queues them; the TypeScript job runner writes them, started by the browser through `POST /api/jobs/nudge` while it polls. Audio overviews are media and stay TypeScript | Go |
+| 4b | Studio: `GET·POST /api/reports`, `GET·DELETE /api/reports/:id`. Go queues reports; the TypeScript job runner writes them, started by the browser through `POST /api/jobs/nudge` while it polls | Go |
 | – | Staying TypeScript: media processing (uploads, OCR, transcription, audio), the connectors' sync jobs, the job runner and cron, `GET /api/stats` (reports the OCR, email and OAuth configuration of the TypeScript side) | by decision |
 
 Everything not listed as Go is still served by Next.js.

@@ -12,11 +12,9 @@ import { reembedWorkspace } from '@/server/rag/reembed'
 import { createLlmReranker } from '@/server/rag/rerank'
 import { createRepositories, type Repositories } from '@/server/repositories'
 import { JOB_ATTEMPTS } from '@/server/repositories/jobs'
-import { generateAudio, parseScript, synthesisChunks, timeTranscript } from '@/server/studio/audio'
-import { countNodes, parseMindMap } from '@/server/studio/mindmap'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { createFakeAi, createFakeOcr, createFakeSpeech, createFakeTranscriber, createFakeVision, fakeEmbedding, fakeRenderPage, type FakeAi } from './helpers/fake-ai'
+import { createFakeAi, createFakeOcr, createFakeTranscriber, createFakeVision, fakeEmbedding, fakeRenderPage, type FakeAi } from './helpers/fake-ai'
 import { addDocument, createUser, type TestUser } from './helpers/fixtures'
 import { makePdf } from './helpers/pdf'
 
@@ -204,21 +202,8 @@ describe('embedding models', () => {
   })
 })
 
-describe('mind maps', () => {
-  it('trims whatever the model returns into a bounded, well-formed tree', () => {
-    const deep = (level: number): unknown => ({ label: `Level ${level}`, children: level < 9 ? [deep(level + 1), deep(level + 1)] : [] })
-    const parsed = parseMindMap(`Here you go:\n\`\`\`json\n${JSON.stringify({ title: '**Big** map', root: deep(1) })}\n\`\`\``, 2, { nodes: 20, depth: 4 })
-    assert.equal(parsed.title, 'Big map')
-    assert.ok(countNodes(parsed.root) <= 20)
-    const depth = (node: { children: unknown[] }): number => 1 + Math.max(0, ...node.children.map((child) => depth(child as { children: unknown[] })))
-    assert.equal(depth(parsed.root), 4)
-    const withSources = parseMindMap(JSON.stringify({ label: 'Root', children: [{ label: 'A', sources: [1, 7, '2', 2] }] }), 2)
-    assert.deepEqual(withSources.root.children[0]!.sources, [1, 2], 'out-of-range and duplicate source numbers are dropped')
-    assert.throws(() => parseMindMap('{"root": {"label": "Only a root"}}', 1), /no branches/)
-  })
-
-  it('builds a mind map from the selected notebook in the background and notifies the author', async () => {
-    await resetJobs()
+describe('background job retries', () => {
+  it('rate limits wait as long as asked; a used-up daily quota fails at once', async () => {
     await addDocument(repos, {
       workspaceId: owner.workspaceId,
       collectionId: owner.notebookId,
@@ -226,171 +211,49 @@ describe('mind maps', () => {
       title: 'Solar panels',
       chunks: ['Panels convert sunlight into electricity.'],
     })
-    const map = await repos.mindMaps.create({
-      workspaceId: owner.workspaceId,
-      createdBy: owner.id,
-      title: 'Mind map',
-      focus: 'energy',
-      collectionIds: [owner.notebookId],
-      documentIds: [],
-    })
-    await repos.jobs.enqueue('generate_mindmap', { mindMapId: map.id }, { maxAttempts: JOB_ATTEMPTS.generate_mindmap })
-    const ai = createFakeAi()
-    await runJobs(context(ai), { maxJobs: 5 })
-    const detail = await repos.mindMaps.get(owner.workspaceId, map.id)
-    assert.equal(detail?.status, 'completed')
-    assert.equal(detail?.title, 'Topics in the sources')
-    assert.ok(detail!.root!.children.some((branch) => branch.label === 'Solar panels'))
-    assert.equal(detail?.nodeCount, countNodes(detail!.root!))
-    assert.ok(detail!.sources.some((source) => source.title === 'Solar panels'))
-    const reduce = ai.calls.complete.find((call) => call.system.startsWith('Build a mind map'))
-    assert.match(reduce!.prompt, /Focus the map on: energy/)
-    assert.equal((await repos.notifications.list(owner.id)).items[0]?.kind, 'mindmap_ready')
-  })
-
-  it('rate limits wait as long as asked; a used-up daily quota fails at once', async () => {
-    const queueMap = async () => {
-      const map = await repos.mindMaps.create({
+    const queueReport = async () => {
+      const report = await repos.reports.create({
         workspaceId: owner.workspaceId,
         createdBy: owner.id,
-        title: 'Mind map',
-        focus: '',
+        template: 'executive_summary',
+        format: 'markdown',
+        title: 'Energy summary',
+        instructions: null,
         collectionIds: [owner.notebookId],
         documentIds: [],
       })
-      await repos.jobs.enqueue('generate_mindmap', { mindMapId: map.id }, { maxAttempts: JOB_ATTEMPTS.generate_mindmap })
-      return map.id
+      await repos.jobs.enqueue('generate_report', { reportId: report.id }, { maxAttempts: JOB_ATTEMPTS.generate_report })
+      return report.id
     }
     const failing = (error: AiProviderError) =>
       createFakeAi({
-        complete: (input) => {
-          if (input.system.startsWith('Build a mind map')) throw error
-          return undefined
+        complete: () => {
+          throw error
         },
       })
 
     await resetJobs()
-    const limited = await queueMap()
-    await runJobs(context(failing(new AiProviderError('Gemini request failed (429)', 429, true, 90))), { types: ['generate_mindmap'] })
+    const limited = await queueReport()
+    await runJobs(context(failing(new AiProviderError('Gemini request failed (429)', 429, true, 90))), { types: ['generate_report'] })
     const [job] = await t.db.query<{ wait: number; status: string }>(`SELECT status, extract(epoch FROM run_after - now())::int AS wait FROM app.jobs`)
     assert.equal(job?.status, 'queued')
     assert.ok(job!.wait >= 85, `retry scheduled after the requested 90s, got ${job!.wait}s`)
-    const waiting = await repos.mindMaps.get(owner.workspaceId, limited)
+    const waiting = await repos.reports.get(owner.workspaceId, limited)
     assert.equal(waiting?.status, 'queued')
     assert.equal(waiting?.progress, 'AI service busy — retrying in ~91 s', 'the card says why it is waiting')
 
     await resetJobs()
-    const exhausted = await queueMap()
+    const exhausted = await queueReport()
     const before = (await repos.notifications.list(owner.id)).items.length
     const quota = failing(new AiProviderError('Gemini request failed (429)', 429, false, 48, true))
-    assert.deepEqual(await runJobs(context(quota), { types: ['generate_mindmap'] }), { processed: 0, failed: 1 })
+    assert.deepEqual(await runJobs(context(quota), { types: ['generate_report'] }), { processed: 0, failed: 1 })
     const [spent] = await t.db.query<{ status: string; attempts: number }>(`SELECT status, attempts FROM app.jobs`)
     assert.deepEqual([spent?.status, spent?.attempts], ['failed', 1], 'no retries against a used-up daily quota')
-    const detail = await repos.mindMaps.get(owner.workspaceId, exhausted)
+    const detail = await repos.reports.get(owner.workspaceId, exhausted)
     assert.equal(detail?.status, 'failed')
     assert.equal(detail?.error, DAILY_QUOTA_MESSAGE)
     const notifications = (await repos.notifications.list(owner.id)).items
     assert.equal(notifications.length, before + 1)
-    assert.equal(notifications[0]?.kind, 'mindmap_failed')
-  })
-})
-
-describe('audio overviews', () => {
-  it('parses scripts leniently and times the transcript from the recording', () => {
-    const script = parseScript(
-      JSON.stringify({
-        title: 'Episode',
-        lines: [
-          { speaker: 'Host A', text: 'Welcome **back** to the show [1].' },
-          { speaker: 'b', text: 'Thanks! See https://example.com for more.' },
-          { speaker: 'unknown', text: 'Who speaks now? The other host.' },
-          { speaker: 'A', text: 'x'.repeat(1000) + '.' },
-        ],
-      }),
-    )
-    assert.deepEqual(
-      script.lines.slice(0, 3).map((line) => line.speaker),
-      [0, 1, 0],
-    )
-    assert.equal(script.lines[0]!.text, 'Welcome back to the show .')
-    assert.ok(!script.lines[1]!.text.includes('https://'))
-    assert.ok(script.lines.every((line) => line.text.length <= 900))
-    const chunks = synthesisChunks(script.lines, 100, 2)
-    assert.equal(chunks[0]!.start, 0)
-    assert.equal(chunks.at(-1)!.end, script.lines.length)
-    const transcript = timeTranscript(
-      script.lines,
-      chunks,
-      chunks.map(() => 1000),
-    )
-    assert.equal(transcript[0]!.start, 0)
-    assert.ok(transcript.every((segment, index) => segment.end >= segment.start && (index === 0 || segment.start >= transcript[index - 1]!.start)))
-    assert.throws(() => parseScript('{"lines": [{"speaker": "A", "text": "Hi"}]}'), /too short/)
-  })
-
-  it('writes a grounded script, records it in resumable segments and serves one MP3', async () => {
-    await resetJobs()
-    await addDocument(repos, {
-      workspaceId: owner.workspaceId,
-      collectionId: owner.notebookId,
-      createdBy: owner.id,
-      title: 'Rainwater harvesting',
-      chunks: ['Rooftop tanks store monsoon rain.'],
-    })
-    const overview = await repos.audio.create({
-      workspaceId: owner.workspaceId,
-      createdBy: owner.id,
-      title: 'Audio overview',
-      format: 'deep_dive',
-      length: 'short',
-      language: 'Hinglish',
-      focus: null,
-      collectionIds: [owner.notebookId],
-      documentIds: [],
-    })
-    const ai = createFakeAi()
-    // The speech model fails after the first segment: the job retries later and resumes.
-    const flaky = createFakeSpeech({ failAfter: 1 })
-    await assert.rejects(generateAudio({ repos, ai, speech: flaky }, overview.id, Date.now() + 60_000), /speech failed/)
-    const partial = await repos.audio.segments(overview.id)
-    assert.equal(partial.length, 1)
-    const scriptCalls = ai.calls.complete.filter((call) => call.system.startsWith('You write the script')).length
-    assert.equal(scriptCalls, 1)
-    assert.match(ai.calls.complete.find((call) => call.system.startsWith('You write the script'))!.system, /Hinglish/)
-
-    const speech = createFakeSpeech()
-    assert.equal(await generateAudio({ repos, ai, speech }, overview.id, Date.now() + 60_000), 'done')
-    assert.equal(ai.calls.complete.filter((call) => call.system.startsWith('You write the script')).length, 1, 'the script is not rewritten on resume')
-    const detail = await repos.audio.get(owner.workspaceId, overview.id)
-    assert.equal(detail?.status, 'completed')
-    assert.equal(detail?.title, 'A tour of the sources')
-    assert.deepEqual(detail?.voices, ['Alpha', 'Beta'])
-    assert.ok((detail?.durationSeconds ?? 0) > 1)
-    assert.ok(detail!.transcript.length >= 4)
-    assert.ok(detail!.sources.some((source) => source.title === 'Rainwater harvesting'))
-    const file = await repos.audio.file(overview.id)
-    assert.equal(file?.data.byteLength, detail?.byteSize)
-    assert.equal(file?.data[0], 0xff, 'starts with an MP3 frame')
-    assert.equal((await repos.notifications.list(owner.id)).items[0]?.kind, 'audio_ready')
-  })
-
-  it('fails with a clear reason when no speech model is configured', async () => {
-    await resetJobs()
-    const overview = await repos.audio.create({
-      workspaceId: owner.workspaceId,
-      createdBy: owner.id,
-      title: 'Audio overview',
-      format: 'brief',
-      length: 'short',
-      language: 'English',
-      focus: null,
-      collectionIds: [owner.notebookId],
-      documentIds: [],
-    })
-    await repos.jobs.enqueue('generate_audio', { audioId: overview.id }, { maxAttempts: JOB_ATTEMPTS.generate_audio })
-    await runJobs(context(createFakeAi()), { types: ['generate_audio'] })
-    const detail = await repos.audio.get(owner.workspaceId, overview.id)
-    assert.equal(detail?.status, 'failed')
-    assert.match(detail!.error!, /text-to-speech/)
+    assert.equal(notifications[0]?.kind, 'report_failed')
   })
 })

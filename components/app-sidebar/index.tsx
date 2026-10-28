@@ -5,7 +5,7 @@ import { Fragment, useState } from 'react'
 
 import { AccountMenu } from '@/components/account-menu'
 import { Monogram } from '@/components/wordmark'
-import { TABS, type TabInfo, type WorkspaceTab } from '@/components/workspace/navigation'
+import type { TabInfo, WorkspaceTab } from '@/components/workspace/navigation'
 import { LIMITS } from '@/lib/constants'
 import type { Collection, ConversationSummary, SessionUser } from '@/lib/contracts'
 import { cn } from '@/lib/utils'
@@ -21,6 +21,8 @@ interface AppSidebarProps {
   onOpenChange: (open: boolean) => void
   user: SessionUser
   tab: WorkspaceTab
+  /** The tabs this member sees (the chunk editor is for admins). */
+  tabs: readonly TabInfo[]
   onTabChange: (tab: WorkspaceTab) => void
   collections: Collection[]
   selected: string
@@ -65,7 +67,7 @@ function NavigationRail(props: AppSidebarProps) {
         {RAIL_GROUPS.map((group, index) => (
           <Fragment key={group}>
             {index > 0 && <RailDivider />}
-            {TABS.filter((item) => item.group === group).map((item) => (
+            {props.tabs.filter((item) => item.group === group).map((item) => (
               <RailButton key={item.id} icon={item.icon} label={item.short} active={props.tab === item.id} onClick={() => props.onTabChange(item.id)} />
             ))}
           </Fragment>

@@ -6,7 +6,7 @@
 
 Corpus turns files, scanned PDFs, images, recordings, web pages, YouTube videos and connected apps into
 searchable notebooks. Every answer comes only from those sources, with numbered citations, and the
-studio turns them into reports, mind maps and audio overviews for the whole team.
+studio turns them into reports for the whole team.
 
 ### 🔗 Live demo: [corpusragagent.vercel.app](https://corpusragagent.vercel.app)
 
@@ -41,15 +41,15 @@ All screenshots show demo data for a fictional company.
 | | |
 |:---:|:---:|
 | ![Sources drawer](docs/images/sources.png) | ![Connected apps](docs/images/apps.png) |
-| **Sources:** files, scans read with OCR and recordings being transcribed, all indexed in the background | **Connected apps:** Google Drive, Notion, GitHub and websites, kept in sync on a schedule |
-| ![Mind map](docs/images/mind-map.png) | ![Report](docs/images/report.png) |
-| **Mind maps:** a topic tree across your sources; click a topic to see where it comes from or ask about it | **Reports:** executive summaries, comparison tables and slide outlines with sources |
-| ![Usage analytics](docs/images/analytics.png) | ![Answer quality](docs/images/quality.png) |
-| **Analytics:** questions, latency, deep-mode use and questions the guardrail withheld | **Answer quality:** faithfulness, relevance and precision scored by an LLM judge, plus reader feedback |
-| ![Workspace settings](docs/images/settings.png) | ![Shared answer](docs/images/shared.png) |
-| **Workspace settings:** members and roles, retrieval and guardrail knobs, models, chat apps, public links, activity | **Share links:** a read-only snapshot of a chat or report that anyone with the link can open |
-| ![Command palette](docs/images/palette.png) | ![Sign in](docs/images/login.png) |
-| **Command palette:** jump to any view, chat, notebook or action with Ctrl/⌘ K | **Sign in:** Google, GitHub or a one-time email code |
+| **Sources:** files, scans read with OCR and recordings being transcribed, all indexed in the background | **Connected apps:** Google Drive files and folders, kept in sync on a schedule |
+| ![Report](docs/images/report.png) | ![Usage analytics](docs/images/analytics.png) |
+| **Reports:** executive summaries, comparison tables and slide outlines with sources | **Analytics:** questions, latency, deep-mode use and questions the guardrail withheld |
+| ![Answer quality](docs/images/quality.png) | ![Workspace settings](docs/images/settings.png) |
+| **Answer quality:** faithfulness, relevance and precision scored by an LLM judge, plus reader feedback | **Workspace settings:** members and roles, retrieval and guardrail knobs, models, public links, activity |
+| ![Shared answer](docs/images/shared.png) | ![Command palette](docs/images/palette.png) |
+| **Share links:** a read-only snapshot of a chat or report that anyone with the link can open | **Command palette:** jump to any view, chat, notebook or action with Ctrl/⌘ K |
+| ![Sign in](docs/images/login.png) | |
+| **Sign in:** Google, GitHub or a one-time email code | |
 
 ## Features
 
@@ -57,25 +57,22 @@ All screenshots show demo data for a fictional company.
 - Answers only from your sources, with numbered citations that open the passage (and the original PDF at the cited spot, highlighted)
 - Deep mode: several rewrites of the question, a broader "step-back" question and a hypothetical answer, searched together
 - A relevance guardrail: when nothing relevant is found, the reply is exactly *"Insufficient context in knowledge base."* instead of a guess
-- Follow-up question suggestions, inline bar, line and pie charts, voice chat (speak and listen), chat history grouped by date, search, pin, rename, branch, export
+- Follow-up question suggestions, inline bar, line and pie charts, dictation and read-aloud (in the browser), chat history grouped by date, search, pin, rename, branch, export
 
 **Sources**
 - PDF and text formats, images (described by a vision model and read with OCR), scanned PDFs (OCR page by page), audio and video (timestamped transcripts), web pages, YouTube transcripts and notes; up to 50 MB per file (larger files go up in parts)
-- Connected apps: Google Drive files and folders, Notion pages and databases, GitHub documentation, whole websites (sitemap or crawl, robots.txt respected), synced on a schedule
+- Connected apps: Google Drive files and folders, synced on a schedule
 - Indexing runs in the background and resumes after interruptions; a chunk editor lets you correct text, labels and metadata
 
 **Studio**
 - Reports: executive summary, comparison table or slide outline across notebooks and documents
-- Mind maps: an interactive topic tree across your sources
-- Audio overviews: two-host conversations in 16 languages (including Hindi and Hinglish) with a timed transcript
 
 **Teams**
 - A private personal workspace for everyone, plus team workspaces with Admin, Editor and Viewer roles and per-notebook overrides
 - Email invitations, an activity (audit) log, notifications, read-only share links
-- A Slack bot that answers from a chosen notebook, with sources
 
 **Quality and operations**
-- Every answer scored in the background (faithfulness, answer relevance, context precision); benchmarks with reference answers; thumbs up and down
+- Every answer scored in the background (faithfulness, answer relevance, context precision); thumbs up and down
 - Usage and latency analytics per person or workspace
 - Gemini by default, or Gemma and any OpenAI-compatible server (Ollama, vLLM, LM Studio, Groq and others) per capability; OCR runs locally with Tesseract
 
@@ -83,7 +80,7 @@ All screenshots show demo data for a fictional company.
 
 ### System overview
 
-![Corpus architecture: clients (browser, Slack, shared links) reach the Next.js 15 app on Vercel (edge middleware, pages, API routes, services and background jobs), which uses Neon PostgreSQL with pgvector, Gemini or open-source models, and external sources](docs/images/diagrams/architecture.png)
+![Corpus architecture: clients (browser, shared links) reach the Next.js 15 app on Vercel (edge middleware, pages, API routes, services and background jobs), which uses Neon PostgreSQL with pgvector, Gemini or open-source models, and external sources](docs/images/diagrams/architecture.png)
 
 ### Answering a question
 
@@ -101,7 +98,7 @@ stored), so an interrupted job continues where it stopped.
 
 ### Background jobs
 
-![Background jobs: a Postgres job queue feeds the job runner, which handles indexing, reports, mind maps, audio, connector syncs, chat-app answers, evaluation and re-embedding](docs/images/diagrams/jobs.png)
+![Background jobs: a Postgres job queue feeds the job runner, which handles indexing, reports, connector syncs, evaluation and re-embedding](docs/images/diagrams/jobs.png)
 
 - Any number of workers can run, and each job runs once.
 - Failures are retried with growing waits; failures a retry cannot fix end the job at once with a
@@ -110,7 +107,7 @@ stored), so an interrupted job continues where it stopped.
 
 ### Studio
 
-![Studio: source notes feed reports, mind maps and a two-host audio script](docs/images/diagrams/studio.png)
+![Studio: source notes feed reports](docs/images/diagrams/studio.png)
 
 ### Connected apps
 
@@ -119,9 +116,9 @@ stored), so an interrupted job continues where it stopped.
 A sync runs with the current rights of the member who added the source. Tokens are stored encrypted
 and never sent to the browser.
 
-### Sharing and chat apps
+### Sharing
 
-![Sharing and chat apps: share links store a snapshot behind a random token; Slack webhooks are verified and answered by a background job](docs/images/diagrams/sharing.png)
+![Sharing: share links store a snapshot behind a random token](docs/images/diagrams/sharing.png)
 
 ### Sign-in and access control
 
@@ -156,7 +153,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Grounded generation | Passages are escaped and wrapped in delimiters as data (prompt-injection defence); answers cite `[n]` | `server/rag/prompt.ts` |
 | Streaming | NDJSON events from the server; the answer appears as it is written | `lib/stream-protocol.ts` |
 | Fast paths | Helper calls skip the model's thinking phase or use a smaller model; each optional stage has a deadline; repeated questions reuse their embeddings | `server/ai`, `server/rag/query-cache.ts` |
-| LLM-as-judge | Faithfulness, answer relevance and context precision for live answers; context recall against reference answers in benchmarks | `server/evaluation` |
+| LLM-as-judge | Faithfulness, answer relevance and context precision for live answers | `server/evaluation` |
 
 ### Documents and media
 
@@ -167,7 +164,6 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Transcription | Timestamped transcripts of audio and video (Gemini, or an OpenAI-compatible Whisper server) |
 | Chunking | Recursive splitting with overlap |
 | Embeddings | `gemini-embedding-001` (3072 dimensions) or any OpenAI-compatible model; the model is stored with each passage, and a workspace can be re-embedded after switching |
-| Speech | Gemini text-to-speech (or an OpenAI-compatible server), encoded to MP3 in the app |
 
 ### Engineering
 
@@ -177,7 +173,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Access control | One role-permission table with per-notebook overrides; membership checked on every request; SQL scoped by workspace; another workspace's ids behave like missing ones |
 | Security | Server-side revocable sessions; per-request nonce Content-Security-Policy; AES-256-GCM encryption of stored credentials with key rotation; SSRF-safe fetching; rate limits stored in Postgres; signed webhooks; a production configuration check at start |
 | Background work | A job queue in Postgres (`FOR UPDATE SKIP LOCKED`), retries with backoff, idempotent and resumable jobs |
-| Testing | 349 tests with Node's test runner on PGlite (real PostgreSQL + pgvector in WebAssembly) and fake model providers; no network needed |
+| Testing | 295 tests with Node's test runner on PGlite (real PostgreSQL + pgvector in WebAssembly) and fake model providers; no network needed |
 | Quality gates | TypeScript strict mode, an ESLint policy (file size, complexity, layering, configuration access), CI on every push, Dependabot |
 
 ## Tech stack
@@ -187,9 +183,9 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, SWR, react-markdown, pdf.js |
 | Backend | Go (net/http, pgx) on Vercel Go Functions for the routes moved so far ([backend/README.md](backend/README.md)); Next.js route handlers, zod validation and NDJSON streaming for the rest |
 | Database | PostgreSQL with pgvector (Neon in production); PGlite for tests and local development |
-| AI models | Google Gemini (chat, embeddings, vision, transcription, speech, images), Gemma, OpenAI-compatible servers (Ollama, vLLM, LM Studio, Groq and others), Cohere Rerank |
-| Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript, lamejs (MP3) |
-| Integrations | Google Drive (OAuth with PKCE), Notion, GitHub, website crawler, Slack Events API |
+| AI models | Google Gemini (chat, embeddings, vision, transcription), Gemma, OpenAI-compatible servers (Ollama, vLLM, LM Studio, Groq and others), Cohere Rerank |
+| Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript |
+| Integrations | Google Drive (OAuth with PKCE) |
 | Email | Resend or SMTP (nodemailer) for sign-in codes |
 | Operations | Vercel (functions, cron), GitHub Actions, Dependabot |
 | Testing | node:test, tsx, PGlite, fake model providers |
@@ -226,8 +222,8 @@ OPENAI_COMPATIBLE_CHAT_MODEL=qwen3:8b
 OPENAI_COMPATIBLE_EMBEDDING_MODEL=nomic-embed-text
 ```
 
-OCR uses Tesseract on the server by default, with no API calls. Vision, transcription and speech can
-also use open-source servers (for example Qwen2.5-VL, faster-whisper or Kokoro); see
+OCR uses Tesseract on the server by default, with no API calls. Vision and transcription can
+also use open-source servers (for example Qwen2.5-VL or faster-whisper); see
 [server/env.ts](server/env.ts). Workspace settings → **AI models** shows what each capability uses.
 After changing the embedding model, an admin re-embeds the workspace there. Until then, older
 passages are found by keyword search only.
@@ -255,7 +251,7 @@ and schedules the job runner on Vercel Cron. The code works within Vercel's limi
 | Command | What it does |
 |---|---|
 | `npm run dev` / `build` / `start` | Development server / production build / production server |
-| `npm test` | 349 tests (unit, Postgres-in-WebAssembly integration, HTTP routes); no network needed |
+| `npm test` | 295 tests (unit, Postgres-in-WebAssembly integration, HTTP routes); no network needed |
 | `npm run typecheck` / `lint` | TypeScript, and ESLint with the code standards ([docs/CODE-STANDARDS.md](docs/CODE-STANDARDS.md)); lint fails on any warning |
 | `npm run db:migrate` | Apply pending schema migrations |
 | `npm run worker` | Process background jobs in a loop; `-- --once` empties the queue once |
@@ -273,10 +269,10 @@ app/            pages and API routes (thin: validate, authorise, call a service)
 components/     the UI (workspace shell, sidebar, chat, sources, studio, settings)
 hooks/          data hooks (SWR), chat streaming, shared UI state
 lib/            code shared by browser and server: API contracts, constants, roles
-server/         server-only code: RAG pipeline, ingestion, studio, connectors, jobs,
+server/         server-only code: RAG pipeline, ingestion, reports, connectors, jobs,
                 repositories (all SQL), security, model adapters
 scripts/        migrations, worker, re-sealing, seed, the Vercel build
-tests/          349 tests on PGlite with fake model providers
+tests/          295 tests on PGlite with fake model providers
 docs/           architecture, code standards, deployment, security
 ```
 
@@ -304,11 +300,9 @@ get 404, and missing roles get 403.
 | `/api/learn`, `/api/learn/upload`, `/api/learn/url`, `/api/learn/youtube` | POST | Add text, files (documents, images, audio, video, scans), a web page, a YouTube transcript |
 | `/api/learn/uploads`, `…/:id/parts/:n`, `…/:id/complete`, `…/:id` | POST, PUT, POST, DELETE | Upload a file larger than 4 MB in parts: start, send each part, complete, or cancel |
 | `/api/connectors` | GET | Available apps, your connections and the workspace's synced sources |
-| `/api/connectors/connections`, `…/:id`, `…/:id/browse` | POST, DELETE, GET | Connect Notion / GitHub with a token; browse or search an account |
+| `/api/connectors/connections/:id`, `…/:id/browse` | DELETE, GET | Disconnect an account; browse or search it |
 | `/api/connectors/google-drive/start`, `…/callback` | GET | Google Drive OAuth (read-only) |
-| `/api/connectors/sources`, `…/:id`, `…/:id/sync` | POST, PATCH, DELETE | Sync items or a website into a notebook; schedule; sync now; remove |
-| `/api/audio`, `/api/audio/:id`, `/api/audio/:id/file` | GET, POST, DELETE | Queue (202) and play audio overviews (MP3 with HTTP Range) |
-| `/api/mindmaps`, `/api/mindmaps/:id` | GET, POST, DELETE | Queue (202) and read mind maps (Go) |
+| `/api/connectors/sources`, `…/:id`, `…/:id/sync` | POST, PATCH, DELETE | Sync items into a notebook; schedule; sync now; remove |
 | `/api/reports`, `/api/reports/:id` | GET, POST, DELETE | Queue (202) and read synthesis reports (Go) |
 | `/api/conversations`, `/api/conversations/:id`, `/api/conversations/:id/branch` | GET, PATCH, DELETE, POST | Private history (`?q=` searches titles and message text), rename, pin, delete, fork (Go) |
 | `/api/messages/:id/feedback` | PUT | Rate an answer: up, down or cleared (Go) |
@@ -316,15 +310,13 @@ get 404, and missing roles get 403.
 | `/api/shares`, `/api/shares/:id` | GET, POST, DELETE | Read-only public links to a chat or report; revoke |
 | `/api/public/shares/:token`, page `/s/:token` | GET | The shared snapshot (no sign-in) |
 | `/api/corpus/documents/:id/file` | GET | The original PDF, for the viewer |
-| `/api/workspaces/:id/integrations`, `…/:integrationId` | GET, POST, DELETE | Slack bots (admins) |
-| `/api/integrations/slack/:id/events` | POST | Slack webhook (request signature) |
 | `/api/notifications`, `/api/notifications/read` | GET, POST | In-app notifications (Go) |
-| `/api/evaluations`, `/api/evaluations/cases`, `/api/evaluations/runs` | GET, POST, DELETE | Quality summary, benchmark questions, benchmark runs (202) |
+| `/api/evaluations` | GET | Quality summary |
 | `/api/stats`, `/api/analytics` | GET | Schema/feature status and totals; usage and latency (`?scope=workspace` for admins; analytics in Go) |
 | `/api/jobs/run` | GET, POST | Process queued jobs (Bearer `CRON_SECRET`; 404 when unset) |
 | `/api/usage` | GET | Workspace usage for admins: AI tokens by day, feature, model and member; questions; storage (`?days=1…365`, Go) |
 | `/api/monitoring` | POST | Browser error reports, forwarded to the configured Sentry project only (404 without `NEXT_PUBLIC_SENTRY_DSN`) |
-| `/api/jobs/nudge` | POST | Start a job-runner pass after the response (signed in; the browser calls it while a report or mind map queued by the Go API is being written) |
+| `/api/jobs/nudge` | POST | Start a job-runner pass after the response (signed in; the browser calls it while a report queued by the Go API is being written) |
 | `/api/health` | GET | Public liveness check (Go) |
 
 </details>
@@ -334,7 +326,7 @@ get 404, and missing roles get 403.
 Every variable is declared and validated in [server/env.ts](server/env.ts). The notable ones:
 
 - **`AUTH_SECRET`** (required, at least 32 characters; there is no default)
-  - Signs sessions and derives the key that encrypts connector and chat-app credentials.
+  - Signs sessions and derives the key that encrypts connector credentials.
   - Rotate it with `AUTH_SECRET_PREVIOUS` and `npm run secrets:reseal` ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#rotating-auth_secret)).
 - **`APP_URL`** (required in production; on Vercel the production domain is used when it is unset)
   - OAuth redirect URI for sign-in: `<APP_URL>/api/auth/oauth/callback?provider=google|github`.
@@ -346,14 +338,12 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
 - **Who can sign in:** `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`. Invitations do not bypass them.
 - **Models**
   - Gemini: `GEMINI_*_MODEL`.
-  - Open-source: set `CHAT_PROVIDER`, `EMBEDDING_PROVIDER`, `VISION_PROVIDER`, `TRANSCRIPTION_PROVIDER` or `TTS_PROVIDER` to `openai-compatible` and fill in `OPENAI_COMPATIBLE_*`.
+  - Open-source: set `CHAT_PROVIDER`, `EMBEDDING_PROVIDER`, `VISION_PROVIDER`, or `TRANSCRIPTION_PROVIDER` to `openai-compatible` and fill in `OPENAI_COMPATIBLE_*`.
   - OCR: `OCR_ENGINE` (`tesseract`, `vision` or `none`) and `OCR_LANGUAGES`.
 - **Re-ranking and jobs:** `RERANKER` (`auto`, `llm`, `cohere` or `none`) with `COHERE_API_KEY`. `CRON_SECRET` enables `/api/jobs/run` (Vercel Cron sends it).
 - **Error tracking (optional):** `NEXT_PUBLIC_SENTRY_DSN` (browser, written into the page at build time; the server and the Go API use it too) or `SENTRY_DSN` (server and Go API only). Unset = off. No cookies, headers, bodies, users or local variables are sent.
 - **Public demo:** `DEMO_WORKSPACE_ID` opens one team workspace, read-only, to visitors of `/demo` (guest accounts that last a day); `DEMO_DAILY_QUESTIONS` caps their questions per day ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#public-demo-for-recruiters-and-visitors)).
 - **Per workspace:** retrieval, guardrail and evaluation settings live in Workspace settings in the app.
-- **Chat apps**
-  - Slack: create an app with the bot scopes `app_mentions:read`, `chat:write` and `im:history`. Connect it in Workspace settings → Chat apps with its bot token and signing secret, then paste the Request URL it shows into Event Subscriptions (`app_mention`, `message.im`).
 - **Gemini free tier:** quotas are small. A daily-quota error fails jobs quickly with a readable message instead of retrying all day.
 
 ## Documentation

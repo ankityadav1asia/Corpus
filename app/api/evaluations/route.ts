@@ -9,7 +9,7 @@ const summaryQuery = z.object({ days: z.coerce.number().int().min(1).max(365).de
 
 /**
  * Answer quality for the workspace: faithfulness, answer relevance and context precision of live
- * answers, context recall from benchmark runs, and readers' thumbs up / down. Admins review
+ * answers, and readers' thumbs up / down. Admins review
  * everyone's low-scoring answers and feedback; other members see only their own.
  */
 export const GET = workspaceRoute(async ({ req, access }) => {

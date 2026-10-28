@@ -23,12 +23,11 @@ const PUBLIC_PATHS = new Set([
 ])
 
 /**
- * Prefixes whose routes authenticate without a session: the demo page's images (public/demo), shared
- * pages (a secret token in the path), and chat-app webhooks (Slack request signatures, checked in the
- * handler).
+ * Prefixes whose routes authenticate without a session: the demo page's images (public/demo) and shared
+ * pages (a secret token in the path).
  * Each segment after the prefix must be a single path component, so `/s/../api/…` never matches.
  */
-const PUBLIC_PREFIXES = [/^\/demo\/[a-z0-9-]+\.webp$/, /^\/s\/[A-Za-z0-9_-]+$/, /^\/api\/public\/shares\/[A-Za-z0-9_-]+$/, /^\/api\/integrations\/slack\/[0-9a-f-]{36}\/events$/]
+const PUBLIC_PREFIXES = [/^\/demo\/[a-z0-9-]+\.webp$/, /^\/s\/[A-Za-z0-9_-]+$/, /^\/api\/public\/shares\/[A-Za-z0-9_-]+$/]
 
 export function isPublicPath(pathname: string): boolean {
   return PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((pattern) => pattern.test(pathname))

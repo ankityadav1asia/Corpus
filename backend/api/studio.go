@@ -12,9 +12,8 @@ import (
 	"github.com/ankityadav1asia/Corpus/backend/store"
 )
 
-// Group 4b: the studio's reports and mind maps. The TypeScript originals are
-// app/api/{reports,mindmaps}, server/studio/{item-routes,selection}.ts. These routes queue the work;
-// the TypeScript job runner writes the report or the map, started by the browser through
+// Group 4b: the studio's reports. The TypeScript original is app/api/reports. These routes queue the
+// work; the TypeScript job runner writes the report, started by the browser through
 // POST /api/jobs/nudge while it polls (hooks/use-api.ts).
 
 // StudioStore is what these routes need from the database (implemented by *store.Store).
@@ -24,11 +23,6 @@ type StudioStore interface {
 	ListReports(ctx context.Context, workspaceID string, limit int) ([]store.ReportSummary, error)
 	GetReport(ctx context.Context, workspaceID, id string) (*store.ReportDetail, error)
 	DeleteReport(ctx context.Context, workspaceID, id string) (bool, error)
-	CreateMindMap(ctx context.Context, input store.NewMindMap) (*store.MindMapSummary, error)
-	ListMindMaps(ctx context.Context, workspaceID string, limit int) ([]store.MindMapSummary, error)
-	CountMindMaps(ctx context.Context, workspaceID string) (int, error)
-	GetMindMap(ctx context.Context, workspaceID, id string) (*store.MindMapDetail, error)
-	DeleteMindMap(ctx context.Context, workspaceID, id string) (bool, error)
 }
 
 // Limits from lib/constants.ts, lib/contracts/studio.ts, server/security/rate-limit.ts and
@@ -43,14 +37,6 @@ const (
 	reportsListed           = 50
 	reportsPerHour          = 10
 	reportAttempts          = 4
-	studioCollectionsMax    = 20
-	studioDocumentsMax      = 12
-	focusChars              = 500
-	mindMapsListed          = 100
-	mindMapsPerWorkspace    = 300
-	mindMapsPerHour         = 30
-	mindMapAttempts         = 3
-	selectionTitleChars     = 200
 	noSourcesMessage        = "Select at least one notebook or document"
 )
 
@@ -180,78 +166,6 @@ func (s *Server) notebook(ctx context.Context, access *auth.Access, collectionID
 		return nil, apperr.NotFound("Notebook")
 	}
 	return ref, nil
-}
-
-func distinct(list []string) []string {
-	seen := map[string]bool{}
-	out := []string{}
-	for _, value := range list {
-		if !seen[value] {
-			seen[value] = true
-			out = append(out, value)
-		}
-	}
-	return out
-}
-
-// checkSelection: every notebook must be readable by the caller, and every document picked one by
-// one must exist in the workspace, be indexed, and sit in a notebook the caller can read.
-func (s *Server) checkSelection(ctx context.Context, access *auth.Access, sel selection) error {
-	for _, id := range distinct(sel.collectionIDs) {
-		if _, err := s.notebook(ctx, access, id); err != nil {
-			return err
-		}
-	}
-	documentIDs := distinct(sel.documentIDs)
-	if len(documentIDs) == 0 {
-		return nil
-	}
-	found, err := s.studio.ReadyDocuments(ctx, access.WorkspaceID, nil, documentIDs, len(documentIDs))
-	if err != nil {
-		return err
-	}
-	if len(found) != len(documentIDs) {
-		return apperr.BadRequest("Some selected documents do not exist or are not indexed yet.")
-	}
-	notebooks := make([]string, 0, len(found))
-	for _, document := range found {
-		notebooks = append(notebooks, document.CollectionID)
-	}
-	for _, id := range distinct(notebooks) {
-		if _, err := s.notebook(ctx, access, id); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-// selectionTitle is a readable default title from the chosen notebooks ("Mind map · Research").
-func (s *Server) selectionTitle(ctx context.Context, access *auth.Access, prefix string, collectionIDs []string) (string, error) {
-	if len(collectionIDs) == 0 {
-		return prefix, nil
-	}
-	collections, err := s.store.ListCollections(ctx, access.WorkspaceID, access.UserID)
-	if err != nil {
-		return "", err
-	}
-	chosen := map[string]bool{}
-	for _, id := range collectionIDs {
-		chosen[id] = true
-	}
-	var names []string
-	for _, collection := range collections {
-		if chosen[collection.ID] {
-			names = append(names, collection.Name)
-		}
-	}
-	if len(names) == 0 {
-		return prefix, nil
-	}
-	title := prefix + " · " + strings.Join(names[:min(3, len(names))], ", ")
-	if len(names) > 3 {
-		title += "…"
-	}
-	return jsstr.Prefix(title, selectionTitleChars), nil
 }
 
 // ── /api/reports ─────────────────────────────────────────────────────────
@@ -396,110 +310,5 @@ func (s *Server) deleteReport(req *request) error {
 	}
 	return s.deleteStudioItem(req, "Report", "report", id, report.Title, report.CreatedBy, func() (bool, error) {
 		return s.studio.DeleteReport(ctx, req.access.WorkspaceID, id)
-	})
-}
-
-// ── /api/mindmaps ────────────────────────────────────────────────────────
-
-func (s *Server) listMindMaps(req *request) error {
-	maps, err := s.studio.ListMindMaps(req.r.Context(), req.access.WorkspaceID, mindMapsListed)
-	if err != nil {
-		return err
-	}
-	return req.json(200, map[string]any{"mindMaps": maps})
-}
-
-// createMindMap queues a mind map of the selected notebooks and documents (any member); 202.
-func (s *Server) createMindMap(req *request) error {
-	if err := auth.RequireWorkspacePermission(req.access, auth.MindmapsCreate); err != nil {
-		return err
-	}
-	object, err := readStudioBody(req)
-	if err != nil {
-		return err
-	}
-	var issues []apperr.Issue
-	var sel selection
-	var listIssues []apperr.Issue
-	sel.collectionIDs, listIssues = idList(object, "collectionIds", studioCollectionsMax)
-	issues = append(issues, listIssues...)
-	sel.documentIDs, listIssues = idList(object, "documentIds", studioDocumentsMax)
-	issues = append(issues, listIssues...)
-	focus, issue := optionalText(object, "focus", focusChars)
-	if issue != nil {
-		issues = append(issues, *issue)
-	}
-	if err := sel.check(issues); err != nil {
-		return err
-	}
-
-	ctx := req.r.Context()
-	if _, _, err := models(); err != nil {
-		return err
-	}
-	if err := s.rateLimit(ctx, "mindmaps:user:"+req.access.UserID, mindMapsPerHour, 3600); err != nil {
-		return err
-	}
-	if err := s.checkSelection(ctx, req.access, sel); err != nil {
-		return err
-	}
-	count, err := s.studio.CountMindMaps(ctx, req.access.WorkspaceID)
-	if err != nil {
-		return err
-	}
-	if count >= mindMapsPerWorkspace {
-		return apperr.Conflict(fmt.Sprintf("A workspace can keep at most %d mind maps. Delete some to make room.", mindMapsPerWorkspace))
-	}
-	title, err := s.selectionTitle(ctx, req.access, "Mind map", sel.collectionIDs)
-	if err != nil {
-		return err
-	}
-	if focus != nil && *focus == "" {
-		focus = nil
-	}
-	mindMap, err := s.studio.CreateMindMap(ctx, store.NewMindMap{
-		WorkspaceID: req.access.WorkspaceID, CreatedBy: req.access.UserID, Title: title, Focus: focus,
-		CollectionIDs: sel.collectionIDs, DocumentIDs: sel.documentIDs,
-	})
-	if err != nil {
-		return err
-	}
-	if err := s.asking.EnqueueJob(ctx, "generate_mindmap", map[string]any{"mindMapId": mindMap.ID}, mindMapAttempts); err != nil {
-		return err
-	}
-	s.audit(ctx, req.access, "mindmap.created", "mindmap", mindMap.ID, map[string]any{"title": mindMap.Title})
-	return req.json(202, map[string]any{"mindMap": mindMap})
-}
-
-func (s *Server) mindMapDetail(req *request) error {
-	id, err := pathID(req.r.PathValue("id"))
-	if err != nil {
-		return err
-	}
-	mindMap, err := s.studio.GetMindMap(req.r.Context(), req.access.WorkspaceID, id)
-	if err != nil {
-		return err
-	}
-	if mindMap == nil {
-		return apperr.NotFound("Mind map")
-	}
-	return req.json(200, map[string]any{"mindMap": mindMap})
-}
-
-func (s *Server) deleteMindMap(req *request) error {
-	id, err := pathID(req.r.PathValue("id"))
-	if err != nil {
-		return err
-	}
-	ctx := req.r.Context()
-	mindMap, err := s.studio.GetMindMap(ctx, req.access.WorkspaceID, id)
-	if err != nil {
-		return err
-	}
-	if mindMap == nil {
-		return apperr.NotFound("Mind map")
-	}
-	return s.deleteStudioItem(req, "Mind map", "mindmap", id, mindMap.Title, mindMap.CreatedBy, func() (bool, error) {
-		return s.studio.DeleteMindMap(ctx, req.access.WorkspaceID, id)
 	})
 }

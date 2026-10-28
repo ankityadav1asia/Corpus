@@ -66,7 +66,7 @@ const envSchema = z.object({
   OPENAI_COMPATIBLE_CHAT_MODEL: optionalString,
   OPENAI_COMPATIBLE_EMBEDDING_MODEL: optionalString,
   OPENAI_COMPATIBLE_EMBEDDING_BASE_URL: optionalString,
-  // Multimodal: reading images, transcribing audio/video, speech for audio overviews, OCR.
+  // Multimodal: reading images, transcribing audio/video, OCR.
   VISION_PROVIDER: optionalString,
   GEMINI_VISION_MODEL: optionalString,
   OPENAI_COMPATIBLE_VISION_MODEL: optionalString,
@@ -74,12 +74,6 @@ const envSchema = z.object({
   GEMINI_TRANSCRIPTION_MODEL: optionalString,
   OPENAI_COMPATIBLE_TRANSCRIPTION_MODEL: optionalString,
   OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL: optionalString,
-  TTS_PROVIDER: optionalString,
-  GEMINI_TTS_MODEL: optionalString,
-  GEMINI_TTS_VOICES: optionalString,
-  OPENAI_COMPATIBLE_TTS_MODEL: optionalString,
-  OPENAI_COMPATIBLE_TTS_BASE_URL: optionalString,
-  OPENAI_COMPATIBLE_TTS_VOICES: optionalString,
   OCR_ENGINE: optionalString,
   OCR_LANGUAGES: optionalString,
 })
@@ -88,7 +82,6 @@ type RawEnv = z.infer<typeof envSchema>
 
 const DEFAULT_CHAT_MODEL = 'gemini-3.6-flash'
 const DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-001'
-const DEFAULT_TTS_MODEL = 'gemini-2.5-flash-preview-tts'
 const MIN_SECRET_LENGTH = 32
 
 let cached: RawEnv | null = null
@@ -147,14 +140,13 @@ export function geminiApiKey(): string | null {
 /** Where a model runs. Open-source models are reached through any OpenAI-compatible server. */
 export type ModelBackend = { provider: 'gemini'; apiKey: string; model: string } | { provider: 'openai-compatible'; baseUrl: string; apiKey: string | null; model: string }
 
-type Capability = 'chat' | 'embeddings' | 'vision' | 'transcription' | 'speech'
+type Capability = 'chat' | 'embeddings' | 'vision' | 'transcription'
 
 const CAPABILITY_LABEL: Record<Capability, string> = {
   chat: 'CHAT_PROVIDER',
   embeddings: 'EMBEDDING_PROVIDER',
   vision: 'VISION_PROVIDER',
   transcription: 'TRANSCRIPTION_PROVIDER',
-  speech: 'TTS_PROVIDER',
 }
 
 function providerChoice(value: string | undefined, fallback: string): string {
@@ -257,33 +249,6 @@ export function getTranscriptionBackend(): ModelBackend | null {
     compatibleVariable: 'OPENAI_COMPATIBLE_TRANSCRIPTION_MODEL',
     compatibleBaseUrl: env.OPENAI_COMPATIBLE_TRANSCRIPTION_BASE_URL,
   })
-}
-
-function voicePair(value: string | undefined): readonly [string, string] | null {
-  const voices = (value ?? '')
-    .split(',')
-    .map((voice) => voice.trim())
-    .filter(Boolean)
-  return voices.length >= 2 ? [voices[0]!, voices[1]!] : null
-}
-
-export type SpeechBackend = ModelBackend & { voices: readonly [string, string] | null }
-
-/** Text-to-speech for audio overviews (two hosts, two voices). */
-export function getSpeechBackend(): SpeechBackend | null {
-  const env = raw()
-  const fallback = geminiApiKey() ? 'gemini' : env.OPENAI_COMPATIBLE_TTS_MODEL ? 'openai-compatible' : 'none'
-  const selected = providerChoice(env.TTS_PROVIDER, fallback)
-  if (selected === 'none') return null
-  try {
-    if (selected === 'openai-compatible') {
-      const backend = compatibleBackend(env.OPENAI_COMPATIBLE_TTS_MODEL, 'OPENAI_COMPATIBLE_TTS_MODEL', 'speech', env.OPENAI_COMPATIBLE_TTS_BASE_URL)
-      return { ...backend, voices: voicePair(env.OPENAI_COMPATIBLE_TTS_VOICES) ?? ['af_heart', 'am_michael'] }
-    }
-    return { ...geminiBackend(env.GEMINI_TTS_MODEL ?? DEFAULT_TTS_MODEL, 'speech'), voices: voicePair(env.GEMINI_TTS_VOICES) }
-  } catch {
-    return null
-  }
 }
 
 export type OcrConfig = { engine: 'tesseract'; languages: string } | { engine: 'vision' } | null
@@ -492,7 +457,6 @@ export function getFeatureFlags() {
     ocr: ocr ? ocr.engine : null,
     vision: getVisionBackend() !== null,
     transcription: getTranscriptionBackend() !== null,
-    audio: ai && getSpeechBackend() !== null,
     connectors: { googleDrive: getOAuthClient('google') !== null },
   }
 }
@@ -521,7 +485,6 @@ export function getModelSummary() {
     embeddings: describeBackend(safely(getEmbeddingBackend)),
     vision: describeBackend(getVisionBackend()),
     transcription: describeBackend(getTranscriptionBackend()),
-    speech: describeBackend(getSpeechBackend()),
     ocr: ocr ? { provider: ocr.engine, model: ocr.engine === 'tesseract' ? `tesseract (${ocr.languages})` : 'vision model' } : null,
   }
 }

@@ -18,25 +18,6 @@ export interface Transcriber {
   transcribe(input: { data: Uint8Array; mimeType: string; fileName: string; kind: MediaKind; signal?: AbortSignal }): Promise<string>
 }
 
-/** One spoken line of a two-host script. */
-export interface SpokenLine {
-  speaker: 0 | 1
-  text: string
-}
-
-export interface SynthesizedSpeech {
-  /** 16-bit mono PCM samples. */
-  pcm: Int16Array
-  sampleRate: number
-}
-
-export interface SpeechSynthesizer {
-  readonly model: string
-  /** Display names of the two voices (host A, host B). */
-  readonly voices: readonly [string, string]
-  synthesize(input: { lines: readonly SpokenLine[]; signal?: AbortSignal }): Promise<SynthesizedSpeech>
-}
-
 export const IMAGE_PROMPTS: Record<ImageReadMode, string> = {
   ocr: 'Transcribe all text in this image exactly as written, in reading order. Keep line breaks, render tables as Markdown tables, and do not add commentary. If there is no text, reply with nothing.',
   describe:

@@ -2,23 +2,18 @@ import assert from 'node:assert/strict'
 import { after, afterEach, before, describe, it } from 'node:test'
 
 import { signToken } from '@/server/auth/session'
-import { createGitHubConnector, parseRepository } from '@/server/connectors/github'
 import { createGoogleDriveConnector } from '@/server/connectors/google-drive'
 import { completeDriveAuthorization } from '@/server/connectors/google-oauth'
-import { blockToMarkdown, createNotionConnector, pageTitle } from '@/server/connectors/notion'
 import { registryOf } from '@/server/connectors/registry'
-import { MAX_SYNC_ITEMS, queueDueSyncs, syncConnectorSource } from '@/server/connectors/sync'
+import { queueDueSyncs, syncConnectorSource } from '@/server/connectors/sync'
 import { ConnectorError, type Connector, type ConnectorContext, type FetchedItem, type SyncItem } from '@/server/connectors/types'
-import { createWebsiteConnector, defaultPrefix, linksIn, parseRobots } from '@/server/connectors/website'
 import { resetEnvCache } from '@/server/env'
-import { Errors } from '@/server/http/errors'
 import { PermanentJobError } from '@/server/jobs/errors'
 import { runJobs } from '@/server/jobs/runner'
 import { createLlmReranker } from '@/server/rag/rerank'
 import { createRepositories, type Repositories } from '@/server/repositories'
 import { JOB_ATTEMPTS } from '@/server/repositories/jobs'
 import { SecretUnreadableError, openSecret, sealSecret } from '@/server/security/secrets'
-import type { FetchedPage } from '@/server/security/ssrf'
 
 import { createTestDb, type TestDb } from './helpers/db'
 import { createFakeAi } from './helpers/fake-ai'
@@ -52,112 +47,6 @@ describe('credential encryption', () => {
     await assert.rejects(openSecret(tampered, SECRET), SecretUnreadableError)
     await assert.rejects(openSecret(one, 'x'.repeat(48)), SecretUnreadableError)
     await assert.rejects(openSecret('garbage', SECRET), SecretUnreadableError)
-  })
-})
-
-describe('Notion', () => {
-  it('turns pages into Markdown', () => {
-    assert.equal(pageTitle({ object: 'page', id: '1', properties: { Name: { type: 'title', title: [{ plain_text: 'Roadmap' }] } } }), 'Roadmap')
-    assert.equal(pageTitle({ object: 'database', id: '2', title: [{ plain_text: 'Tasks' }] }), 'Tasks')
-    const rich = (text: string) => ({ rich_text: [{ plain_text: text }] })
-    assert.equal(blockToMarkdown({ id: 'a', type: 'heading_2', heading_2: rich('Goals') }, ''), '## Goals')
-    assert.equal(blockToMarkdown({ id: 'b', type: 'to_do', to_do: { ...rich('Ship it'), checked: true } }, '  '), '  - [x] Ship it')
-    assert.equal(blockToMarkdown({ id: 'c', type: 'code', code: { ...rich('npm test'), language: 'bash' } }, ''), '```bash\nnpm test\n```')
-    assert.equal(blockToMarkdown({ id: 'd', type: 'table_row', table_row: { cells: [[{ plain_text: 'a|b' }], [{ plain_text: 'c' }]] } }, ''), '| a\\|b | c |')
-    assert.equal(blockToMarkdown({ id: 'e', type: 'paragraph', paragraph: rich('') }, ''), null)
-  })
-
-  it('syncs every page of a database and reads nested blocks', async () => {
-    const { requests, fetchImpl } = mockFetch((url) => {
-      if (url.includes('/databases/db1/query')) {
-        const second = requests.filter((request) => request.url.includes('/query')).length > 1
-        return Response.json(
-          second
-            ? { results: [{ object: 'page', id: 'p2', last_edited_time: 't2', properties: { t: { type: 'title', title: [{ plain_text: 'Two' }] } } }], has_more: false }
-            : {
-                results: [{ object: 'page', id: 'p1', last_edited_time: 't1', url: 'https://notion.so/p1', properties: { t: { type: 'title', title: [{ plain_text: 'One' }] } } }],
-                has_more: true,
-                next_cursor: 'c2',
-              },
-        )
-      }
-      if (url.includes('/blocks/p1/children')) {
-        return Response.json({
-          results: [{ id: 'b1', type: 'bulleted_list_item', has_children: true, bulleted_list_item: { rich_text: [{ plain_text: 'Parent' }] } }],
-          has_more: false,
-        })
-      }
-      if (url.includes('/blocks/b1/children'))
-        return Response.json({ results: [{ id: 'b2', type: 'paragraph', paragraph: { rich_text: [{ plain_text: 'Nested detail' }] } }], has_more: false })
-      return new Response('{}', { status: 404 })
-    })
-    const notion = createNotionConnector()
-    const { context } = contextWith(fetchImpl, { token: 'ntn_x' })
-    const items = await notion.list(context, { externalId: 'db1', kind: 'database', name: 'Tasks', options: {} }, 50)
-    assert.deepEqual(
-      items.map((item) => [item.externalId, item.version, item.title]),
-      [
-        ['p1', 't1', 'One'],
-        ['p2', 't2', 'Two'],
-      ],
-    )
-    const fetched = await notion.fetchItem(context, items[0]!, { externalId: 'db1', kind: 'database', name: 'Tasks', options: {} })
-    assert.equal(fetched.type, 'text')
-    assert.equal(fetched.type === 'text' && fetched.text, '# One\n\n- Parent\n\n  Nested detail')
-    assert.equal((requests[0]!.init.headers as Record<string, string>)['Notion-Version'], '2022-06-28')
-  })
-
-  it('reports a revoked token as an access problem', async () => {
-    const notion = createNotionConnector()
-    const { context } = contextWith(mockFetch(() => new Response('{}', { status: 401 })).fetchImpl, { token: 'bad' })
-    await assert.rejects(notion.browse(context, { parentId: null, query: 'x', cursor: null }), (error: unknown) => error instanceof ConnectorError && error.auth)
-  })
-})
-
-describe('GitHub', () => {
-  it('accepts owner/name or a URL and rejects anything else', () => {
-    assert.deepEqual(parseRepository('https://github.com/vercel/next.js.git'), { owner: 'vercel', repo: 'next.js' })
-    assert.deepEqual(parseRepository(' acme/docs/ '), { owner: 'acme', repo: 'docs' })
-    assert.throws(() => parseRepository('../../etc'), ConnectorError)
-    assert.throws(() => parseRepository('https://evil.example/a/b'), ConnectorError)
-  })
-
-  it('syncs documentation files under a folder and reads them from the raw host', async () => {
-    const { requests, fetchImpl } = mockFetch((url) => {
-      if (url === 'https://api.github.com/repos/acme/handbook')
-        return Response.json({ full_name: 'acme/handbook', html_url: 'https://github.com/acme/handbook', default_branch: 'main' })
-      if (url.includes('/git/trees/main?recursive=1')) {
-        return Response.json({
-          tree: [
-            { path: 'docs/intro.md', type: 'blob', sha: 'a1', size: 100 },
-            { path: 'docs/deep/setup.rst', type: 'blob', sha: 'b2', size: 100 },
-            { path: 'docs/logo.png', type: 'blob', sha: 'c3', size: 100 },
-            { path: 'src/index.ts', type: 'blob', sha: 'd4', size: 100 },
-            { path: 'docs/huge.md', type: 'blob', sha: 'e5', size: 5_000_000 },
-            { path: 'docs', type: 'tree', sha: 'f6' },
-          ],
-        })
-      }
-      if (url.startsWith('https://raw.githubusercontent.com/acme/handbook/main/docs/intro.md')) return new Response('# Intro\n\nWelcome.')
-      return new Response('{}', { status: 404 })
-    })
-    const github = createGitHubConnector()
-    const { context } = contextWith(fetchImpl, { token: 'ghp_x' })
-    const source = { externalId: 'acme/handbook', kind: 'repository' as const, name: 'acme/handbook', options: { path: '/docs/' } }
-    const items = await github.list(context, source, 100)
-    assert.deepEqual(
-      items.map((item) => item.meta?.path),
-      ['docs/intro.md', 'docs/deep/setup.rst'],
-    )
-    assert.equal(items[0]!.url, 'https://github.com/acme/handbook/blob/main/docs/intro.md')
-    const fetched = await github.fetchItem(context, items[0]!, source)
-    assert.equal(fetched.type === 'text' && fetched.text, '# Intro\n\nWelcome.')
-    assert.equal((requests.at(-1)!.init.headers as Record<string, string>).Authorization, 'Bearer ghp_x')
-    assert.deepEqual(
-      await github.browse(contextWith(fetchImpl).context, { parentId: null, query: null, cursor: null }),
-      { items: [], nextCursor: null },
-      'without a token only named repositories can be added',
-    )
   })
 })
 
@@ -238,73 +127,6 @@ describe('Google Drive', () => {
   })
 })
 
-describe('websites', () => {
-  const html = (links: string[], body = 'Useful documentation text that is long enough to index properly.') =>
-    `<html><head><title>Docs</title></head><body><main><p>${body}</p>${links.map((link) => `<a href="${link}">x</a>`).join('')}</main></body></html>`
-
-  function site(pages: Record<string, string>, extra: Record<string, FetchedPage> = {}) {
-    const fetched: string[] = []
-    const fetchPage = async (url: string): Promise<FetchedPage> => {
-      fetched.push(url)
-      if (extra[url]) return extra[url]
-      const body = pages[url]
-      if (body === undefined) throw Errors.unprocessable('not found')
-      return { url, contentType: 'text/html', body }
-    }
-    return { fetched, connector: createWebsiteConnector({ fetchPage }) }
-  }
-
-  it('parses robots.txt rules for all agents and resolves links', () => {
-    assert.deepEqual(parseRobots('User-agent: bot\nDisallow: /all\n\nUser-agent: *\nDisallow: /private # secret\nAllow: /public\nDisallow:'), ['/private'])
-    assert.equal(defaultPrefix(new URL('https://docs.example.com/guide/start')), '/guide/')
-    assert.deepEqual(linksIn('<a href="../b#top">b</a><a href="mailto:x@y.z">m</a>', 'https://e.com/a/c'), ['https://e.com/b'])
-  })
-
-  it('crawls pages under the start path on the same site, respecting robots.txt and the page limit', async () => {
-    const { fetched, connector } = site(
-      {
-        'https://docs.example.com/guide/': html(['/guide/a', '/guide/b', '/blog/news', 'https://other.example.com/guide/x', '/guide/private/secret', '/guide/file.pdf']),
-        'https://docs.example.com/guide/a': html(['/guide/c']),
-        'https://docs.example.com/guide/b': html([]),
-        'https://docs.example.com/guide/c': html([]),
-      },
-      { 'https://docs.example.com/robots.txt': { url: 'https://docs.example.com/robots.txt', contentType: 'text/plain', body: 'User-agent: *\nDisallow: /guide/private' } },
-    )
-    const { context } = contextWith(fetch)
-    const source = { externalId: 'https://docs.example.com/guide/', kind: 'site' as const, name: 'Docs', options: { maxPages: 3 } }
-    const items = await connector.list(context, source, MAX_SYNC_ITEMS)
-    assert.deepEqual(
-      items.map((item) => item.externalId),
-      ['https://docs.example.com/guide/', 'https://docs.example.com/guide/a', 'https://docs.example.com/guide/b'],
-    )
-    const before = fetched.length
-    const page = await connector.fetchItem(context, items[1]!, source)
-    assert.equal(fetched.length, before, 'crawled pages are reused, not fetched twice')
-    assert.equal(page.type === 'text' && page.title, 'Docs')
-    const again = await connector.fetchItem(context, items[1]!, source)
-    assert.equal(page.version, again.version)
-    assert.match(page.version ?? '', /^[0-9a-f]{32}$/)
-  })
-
-  it('prefers the sitemap when there is one', async () => {
-    const { connector } = site(
-      { 'https://e.com/docs/': html([]) },
-      {
-        'https://e.com/sitemap.xml': {
-          url: 'https://e.com/sitemap.xml',
-          contentType: 'application/xml',
-          body: '<urlset><url><loc>https://e.com/docs/a</loc></url><url><loc>https://e.com/other</loc></url><url><loc>https://e.com/docs/b?x=1&amp;y=2</loc></url></urlset>',
-        },
-      },
-    )
-    const items = await connector.list(contextWith(fetch).context, { externalId: 'https://e.com/docs/', kind: 'site', name: 'E', options: {} }, 50)
-    assert.deepEqual(
-      items.map((item) => item.externalId),
-      ['https://e.com/docs/', 'https://e.com/docs/a', 'https://e.com/docs/b?x=1&y=2'],
-    )
-  })
-})
-
 describe('sync engine', () => {
   let t: TestDb
   let repos: Repositories
@@ -325,19 +147,19 @@ describe('sync engine', () => {
     const items = { ...initial }
     const fetched: string[] = []
     const connector: Connector = {
-      id: 'notion',
+      id: 'google_drive',
       async browse() {
         return { items: [], nextCursor: null }
       },
       async list() {
-        return Object.entries(items).map(([id, item]): SyncItem => ({ externalId: id, version: item.version, title: `Page ${id}`, url: `https://notion.so/${id}` }))
+        return Object.entries(items).map(([id, item]): SyncItem => ({ externalId: id, version: item.version, title: `Page ${id}`, url: `https://drive.google.com/file/d/${id}` }))
       },
       async fetchItem(_context, item): Promise<FetchedItem> {
         fetched.push(item.externalId)
         const entry = items[item.externalId]!
-        if (entry.fail === 'bad') throw new ConnectorError('This page type is not supported.')
-        if (entry.fail === 'auth') throw new ConnectorError('Notion refused access (401).', 401, false, true)
-        if (entry.fail === 'outage') throw new ConnectorError('Notion request failed (503)', 503, true)
+        if (entry.fail === 'bad') throw new ConnectorError('This file type is not supported.')
+        if (entry.fail === 'auth') throw new ConnectorError('Google Drive refused access (401).', 401, false, true)
+        if (entry.fail === 'outage') throw new ConnectorError('Google Drive request failed (503)', 503, true)
         if (entry.file) return { type: 'file', title: item.title, fileName: entry.file.name, data: entry.file.data, url: item.url, version: item.version }
         return { type: 'text', title: item.title, text: entry.text ?? `Content of ${item.externalId} version ${entry.version}.`, url: item.url, version: item.version }
       },
@@ -349,18 +171,18 @@ describe('sync engine', () => {
     const connection = await repos.connectors.saveConnection({
       workspaceId: owner.workspaceId,
       userId: owner.id,
-      provider: 'notion',
-      accountLabel: `Workspace ${name}`,
-      credentials: await sealSecret(JSON.stringify({ token: 'ntn_x' }), SECRET),
+      provider: 'google_drive',
+      accountLabel: `drive-${name}@example.com`,
+      credentials: await sealSecret(JSON.stringify({ refreshToken: 'refresh' }), SECRET),
     })
     const source = await repos.connectors.saveSource({
       workspaceId: owner.workspaceId,
       collectionId: owner.notebookId,
       connectionId: connection.id,
       createdBy: owner.id,
-      provider: 'notion',
-      kind: 'database',
-      externalId: `db-${name}`,
+      provider: 'google_drive',
+      kind: 'folder',
+      externalId: `folder-${name}`,
       name,
       url: null,
       options: {},
@@ -370,7 +192,7 @@ describe('sync engine', () => {
     return { source, connection }
   }
 
-  const deps = (connector: Connector) => ({ repos, connectors: registryOf({ notion: connector }), secret: SECRET })
+  const deps = (connector: Connector) => ({ repos, connectors: registryOf({ google_drive: connector }), secret: SECRET })
   const index = () => runJobs({ repos, ai: () => createFakeAi(), reranker: () => createLlmReranker(createFakeAi()) }, { maxJobs: 50, types: ['ingest_document', 'read_media'] })
   const documentsOf = async (sourceId: string) =>
     t.db.query<{ external_id: string; external_version: string; status: string; source_type: string }>(
@@ -391,9 +213,9 @@ describe('sync engine', () => {
     assert.deepEqual(
       documents.map((document) => [document.external_id, document.status, document.source_type]),
       [
-        ['a', 'ready', 'notion'],
-        ['b', 'ready', 'notion'],
-        ['c', 'ready', 'notion'],
+        ['a', 'ready', 'google_drive'],
+        ['b', 'ready', 'google_drive'],
+        ['c', 'ready', 'google_drive'],
       ],
     )
     const summary = await repos.connectors.getSource(owner.workspaceId, source.id)
@@ -449,7 +271,7 @@ describe('sync engine', () => {
     assert.deepEqual([lists, fetches], [1, 4], 'the second run continues the saved listing instead of listing again')
     const summary = await repos.connectors.getSource(owner.workspaceId, source.id)
     assert.equal(summary?.status, 'idle')
-    assert.match(summary?.lastError ?? '', /1 item could not be imported: Page bad: This page type is not supported/)
+    assert.match(summary?.lastError ?? '', /1 item could not be imported: Page bad: This file type is not supported/)
   })
 
   it('stops on revoked access: the connection and source show the error and the member is told', async () => {
@@ -469,18 +291,18 @@ describe('sync engine', () => {
     const connection = await repos.connectors.saveConnection({
       workspaceId: team.workspaceId,
       userId: ed.id,
-      provider: 'notion',
-      accountLabel: 'Ed Notion',
-      credentials: await sealSecret(JSON.stringify({ token: 'ntn_x' }), SECRET),
+      provider: 'google_drive',
+      accountLabel: 'ed@example.com',
+      credentials: await sealSecret(JSON.stringify({ refreshToken: 'refresh' }), SECRET),
     })
     const source = await repos.connectors.saveSource({
       workspaceId: team.workspaceId,
       collectionId: team.notebookId,
       connectionId: connection.id,
       createdBy: ed.id,
-      provider: 'notion',
-      kind: 'database',
-      externalId: 'db-team',
+      provider: 'google_drive',
+      kind: 'folder',
+      externalId: 'folder-team',
       name: 'Team wiki',
       url: null,
       options: {},
@@ -490,7 +312,7 @@ describe('sync engine', () => {
     const app = fakeApp({ a: { version: '1' } })
     assert.equal(await syncConnectorSource(deps(app.connector), source.id, Date.now() + 60_000), 'done')
 
-    // Demoted to viewer: the next scheduled sync stops instead of using Ed's Notion access.
+    // Demoted to viewer: the next scheduled sync stops instead of using Ed's Google Drive access.
     await repos.workspaces.setRole(team.workspaceId, ed.id, 'viewer')
     await assert.rejects(syncConnectorSource(deps(app.connector), source.id, Date.now() + 60_000), PermanentJobError)
     const stopped = await repos.connectors.getSource(team.workspaceId, source.id)
@@ -516,7 +338,7 @@ describe('sync engine', () => {
     const { source } = await newSource('Outage')
     await repos.jobs.enqueue('sync_connector', { sourceId: source.id }, { maxAttempts: JOB_ATTEMPTS.sync_connector })
     await runJobs(
-      { repos, ai: () => createFakeAi(), reranker: () => null, connectors: () => registryOf({ notion: app.connector }), secret: () => SECRET },
+      { repos, ai: () => createFakeAi(), reranker: () => null, connectors: () => registryOf({ google_drive: app.connector }), secret: () => SECRET },
       { types: ['sync_connector'] },
     )
     const [job] = await t.db.query<{ status: string }>(`SELECT status FROM app.jobs WHERE type = 'sync_connector'`)

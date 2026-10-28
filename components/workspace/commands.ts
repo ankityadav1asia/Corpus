@@ -3,14 +3,12 @@ import {
   Building2,
   Database,
   FileBarChart,
-  Headphones,
   Keyboard,
   LogOut,
   MessageSquare,
   MessageSquarePlus,
   Monitor,
   Moon,
-  Network,
   Pin,
   Plug,
   Settings,
@@ -25,10 +23,12 @@ import type { Collection, ConversationSummary, WorkspaceSummary } from '@/lib/co
 import { plural, workspaceName } from '@/lib/format'
 import type { ThemePreference } from '@/lib/theme'
 
-import { TABS, type WorkspaceTab } from './navigation'
+import type { TabInfo, WorkspaceTab } from './navigation'
 
 /** Everything the command palette offers (Ctrl/⌘ K): views, actions, recent chats, notebooks, workspaces. */
 export function buildCommands(deps: {
+  /** The tabs this member sees. */
+  tabs: readonly TabInfo[]
   mode: ChatMode
   conversations: readonly ConversationSummary[]
   collections: readonly Collection[]
@@ -47,24 +47,15 @@ export function buildCommands(deps: {
   signOut: () => void
 }): Command[] {
   return [
-    ...TABS.map(({ id, label, icon }, index) => ({ id: `tab:${id}`, label: `Go to ${label}`, group: 'Navigate', icon, hint: `Alt ${index + 1}`, run: () => deps.showTab(id) })),
+    ...deps.tabs.map(({ id, label, icon }, index) => ({ id: `tab:${id}`, label: `Go to ${label}`, group: 'Navigate', icon, hint: `Alt ${index + 1}`, run: () => deps.showTab(id) })),
     { id: 'new-chat', label: 'New chat', group: 'Actions', icon: MessageSquarePlus, run: deps.newChat },
     { id: 'add-sources', label: 'Add sources', group: 'Actions', icon: Database, keywords: 'upload file pdf docx url website youtube text ingest', run: () => deps.openSources() },
-    {
-      id: 'audio-overview',
-      label: 'Create an audio overview',
-      group: 'Actions',
-      icon: Headphones,
-      keywords: 'podcast listen hosts conversation notebooklm',
-      run: () => deps.showTab('audio'),
-    },
-    { id: 'mind-map', label: 'Build a mind map', group: 'Actions', icon: Network, keywords: 'topics map tree diagram overview', run: () => deps.showTab('mindmaps') },
     {
       id: 'connect-app',
       label: 'Connect an app',
       group: 'Actions',
       icon: Plug,
-      keywords: 'google drive notion github website sync connector import',
+      keywords: 'google drive sync connector import',
       run: () => deps.openSources('apps'),
     },
     { id: 'new-report', label: 'Create a report', group: 'Actions', icon: FileBarChart, keywords: 'summary comparison slides outline', run: () => deps.showTab('reports') },

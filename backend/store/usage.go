@@ -78,9 +78,7 @@ type UsageSummary struct {
 		Bytes     int64 `json:"bytes"`
 	} `json:"storage"`
 	Studio struct {
-		Reports  int `json:"reports"`
-		MindMaps int `json:"mindMaps"`
-		Audio    int `json:"audio"`
+		Reports int `json:"reports"`
 	} `json:"studio"`
 }
 
@@ -189,9 +187,7 @@ func (s *Store) UsageSummary(ctx context.Context, workspaceID string, days int, 
 		return nil, err
 	}
 	studio := &summary.Studio
-	err = s.pool.QueryRow(ctx, `SELECT (SELECT count(*)::int FROM app.reports WHERE workspace_id = $1),
-		  (SELECT count(*)::int FROM app.mind_maps WHERE workspace_id = $1),
-		  (SELECT count(*)::int FROM app.audio_overviews WHERE workspace_id = $1)`, workspaceID).Scan(&studio.Reports, &studio.MindMaps, &studio.Audio)
+	err = s.pool.QueryRow(ctx, `SELECT count(*)::int FROM app.reports WHERE workspace_id = $1`, workspaceID).Scan(&studio.Reports)
 	if err != nil {
 		return nil, err
 	}

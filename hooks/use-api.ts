@@ -6,8 +6,6 @@ import { useActiveWorkspaceId } from '@/components/workspace-provider'
 import { ApiError, apiJson, swrFetcher, workspaceFetcher } from '@/lib/api-client'
 import type {
   AnalyticsResponse,
-  AudioDetail,
-  AudioSummary,
   AuditEvent,
   ChunkDetail,
   ChunkPage,
@@ -17,10 +15,6 @@ import type {
   ConversationSummary,
   DocumentDetail,
   DocumentSummary,
-  EvalCase,
-  EvalRunSummary,
-  MindMapDetail,
-  MindMapSummary,
   ModelsStatus,
   NotificationItem,
   QualitySummary,
@@ -60,7 +54,7 @@ const isRunning = (status: string) => status === 'queued' || status === 'running
 let lastNudge = 0
 
 /**
- * Reports and mind maps are queued by the Go API, which cannot run the TypeScript job runner: while
+ * Reports are queued by the Go API, which cannot run the TypeScript job runner: while
  * one is still being written, each poll asks the runner to keep going (at most once per 2 s).
  */
 function nudgeJobs() {
@@ -161,16 +155,6 @@ export function useQuality(days: number) {
   return useWorkspaceSWR<QualitySummary>(`/api/evaluations?days=${days}`)
 }
 
-export function useEvalCases() {
-  return useWorkspaceSWR<{ cases: EvalCase[] }>('/api/evaluations/cases')
-}
-
-export function useEvalRuns() {
-  return useWorkspaceSWR<{ runs: EvalRunSummary[] }>('/api/evaluations/runs', {
-    refreshInterval: whileActive((data: { runs: EvalRunSummary[] }) => data.runs.some((run) => isRunning(run.status))),
-  })
-}
-
 export function useAudit(workspaceId: string | null) {
   return useWorkspaceSWR<{ events: AuditEvent[] }>(workspaceId ? `/api/workspaces/${workspaceId}/audit` : null)
 }
@@ -178,31 +162,6 @@ export function useAudit(workspaceId: string | null) {
 /** Across all workspaces; refreshed every 30 s and when the tab regains focus. */
 export function useNotifications() {
   return useSWR<{ items: NotificationItem[]; unread: number }>('/api/notifications', swrFetcher, { ...options, refreshInterval: 30_000 })
-}
-
-export function useAudioOverviews() {
-  return useWorkspaceSWR<{ overviews: AudioSummary[] }>('/api/audio', {
-    refreshInterval: whileActive((data: { overviews: AudioSummary[] }) => data.overviews.some((item) => isRunning(item.status)), 3000),
-  })
-}
-
-export function useAudioOverview(id: string | null) {
-  return useWorkspaceSWR<{ overview: AudioDetail }>(id ? `/api/audio/${id}` : null, {
-    refreshInterval: whileActive((data: { overview: AudioDetail }) => isRunning(data.overview.status), 2500),
-  })
-}
-
-export function useMindMaps() {
-  const active = (data: { mindMaps: MindMapSummary[] }) => data.mindMaps.some((item) => isRunning(item.status))
-  return useWorkspaceSWR<{ mindMaps: MindMapSummary[] }>('/api/mindmaps', { refreshInterval: whileActive(active, 2500), onSuccess: nudgeWhile(active) })
-}
-
-export function useMindMap(id: string | null) {
-  const active = (data: { mindMap: MindMapDetail }) => isRunning(data.mindMap.status)
-  return useWorkspaceSWR<{ mindMap: MindMapDetail }>(id ? `/api/mindmaps/${id}` : null, {
-    refreshInterval: whileActive(active, 2000),
-    onSuccess: nudgeWhile(active),
-  })
 }
 
 /** Connected apps and synced sources; polls while a sync is queued or running. */

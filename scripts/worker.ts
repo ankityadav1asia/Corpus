@@ -1,5 +1,5 @@
 /**
- * Processes background jobs (answer evaluation, benchmark runs, synthesis reports).
+ * Processes background jobs (answer evaluation, synthesis reports, indexing, connector syncs).
  * The web app already works through the queue right after each response; run this for steady
  * throughput, or on hosts where post-response work is not kept alive.
  *   npm run worker              keep polling (Ctrl+C to stop)

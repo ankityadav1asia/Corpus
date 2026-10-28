@@ -1,5 +1,5 @@
 import { EMBEDDING_DIMENSIONS } from '@/lib/constants'
-import type { SpeechSynthesizer, SpokenLine, Transcriber, VisionModel } from '@/server/ai/media'
+import type { Transcriber, VisionModel } from '@/server/ai/media'
 import { AiProviderError, type AiProvider, type ChatTurn, type CompletionInput } from '@/server/ai/provider'
 import { JUDGE_SYSTEM } from '@/server/evaluation/judge'
 import { HYDE_SYSTEM, STEP_BACK_SYSTEM } from '@/server/rag/query-transform'
@@ -81,51 +81,7 @@ export const isRerank = (input: CompletionInput) => input.system === LLM_RERANK_
 export const isJudge = (input: CompletionInput) => input.system === JUDGE_SYSTEM
 export const isMultiQuery = (input: CompletionInput) => input.system.startsWith('You generate search queries')
 
-export const isMindMap = (input: CompletionInput) => input.system.startsWith('Build a mind map')
-export const isAudioScript = (input: CompletionInput) => input.system.startsWith('You write the script of an audio overview')
-
-const documentTitles = (prompt: string) => [...prompt.matchAll(/<document id="(\d+)" title="([^"]*)">/g)].map((match) => match[2]!)
-
-/** A small topic tree with one branch per document, citing it. */
-export function fakeMindMap(prompt: string): string {
-  const titles = documentTitles(prompt)
-  return JSON.stringify({
-    title: 'Topics in the sources',
-    root: {
-      label: 'Knowledge base',
-      children: titles.map((title, index) => ({
-        label: title,
-        summary: `Key points from ${title}.`,
-        sources: [index + 1],
-        children: [
-          { label: `${title} details`, sources: [index + 1], children: [] },
-          { label: `${title} numbers`, children: [] },
-        ],
-      })),
-    },
-  })
-}
-
-/** A short two-host script that mentions every document. */
-export function fakeAudioScript(prompt: string): string {
-  const titles = documentTitles(prompt)
-  const lines = [
-    { speaker: 'A', text: 'Welcome back! Today we dig into the sources you shared.' },
-    { speaker: 'B', text: `We have ${titles.length} of them, so let us get started.` },
-    ...titles.flatMap((title) => [
-      { speaker: 'A', text: `First up is ${title}. What stood out to you?` },
-      { speaker: 'B', text: `The key points of ${title} are surprisingly concrete [1].` },
-    ]),
-    // Enough conversation for several recording segments.
-    ...Array.from({ length: 12 }, (_, index) => ({ speaker: index % 2 ? 'B' : 'A', text: `Point ${index + 1}: the sources back this up with a concrete example.` })),
-    { speaker: 'A', text: 'That is a wrap. Thanks for listening!' },
-  ]
-  return JSON.stringify({ title: 'A tour of the sources', lines })
-}
-
 function defaultCompletion(input: CompletionInput, options: FakeAiOptions): string {
-  if (isMindMap(input)) return fakeMindMap(input.prompt)
-  if (isAudioScript(input)) return fakeAudioScript(input.prompt)
   if (isMultiQuery(input)) return options.plan ?? '["alpha search", "beta search", "gamma search"]'
   if (input.system === STEP_BACK_SYSTEM) return options.stepBack ?? '{"question": "What is the general background of this topic?"}'
   if (input.system === HYDE_SYSTEM) return options.hyde ?? 'A hypothetical passage that explains the topic in several plausible sentences.'
@@ -205,24 +161,6 @@ export function createFakeTranscriber(): Transcriber & { calls: Array<{ fileName
       return '[00:00] Speaker 1: Welcome to the Orion mission briefing.\n\n[00:12] Speaker 2: The satellite launches from Sriharikota in May 2027.'
     },
   }
-}
-
-/** Speaks every line as 0.4 s of a quiet tone, so recordings have real, measurable length. */
-export function createFakeSpeech(options: { failAfter?: number } = {}): SpeechSynthesizer & { calls: number } {
-  const double = {
-    model: 'fake-tts',
-    voices: ['Alpha', 'Beta'] as const,
-    calls: 0,
-    async synthesize({ lines }: { lines: readonly SpokenLine[] }) {
-      double.calls++
-      if (options.failAfter !== undefined && double.calls > options.failAfter) throw new AiProviderError('speech failed', 503, true)
-      const sampleRate = 24_000
-      const pcm = new Int16Array(Math.round(0.4 * sampleRate * lines.length))
-      for (let i = 0; i < pcm.length; i++) pcm[i] = Math.round(Math.sin(i / 8) * 2000)
-      return { pcm, sampleRate }
-    },
-  }
-  return double
 }
 
 /** OCR double: reads the "page number" that the fake PDF renderer writes into the first byte. */

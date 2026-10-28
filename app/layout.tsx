@@ -14,7 +14,7 @@ const fontMono = Atkinson_Hyperlegible_Mono({ subsets: ['latin'], weight: ['400'
 
 export const metadata: Metadata = {
   title: 'Corpus',
-  description: 'Team knowledge workspaces: answers, reports, audio overviews and mind maps grounded in your files, pages and videos.',
+  description: 'Team knowledge workspaces: cited answers and reports grounded in your files, pages and videos.',
 }
 
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

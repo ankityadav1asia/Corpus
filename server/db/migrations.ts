@@ -1,4 +1,4 @@
-import { EMBEDDING_DIMENSIONS, LIMITS, STUDIO_LIMITS } from '@/lib/constants'
+import { EMBEDDING_DIMENSIONS, LIMITS } from '@/lib/constants'
 
 export interface Migration {
   version: number
@@ -465,7 +465,7 @@ export const MIGRATIONS: Migration[] = [
         workspace_id uuid NOT NULL REFERENCES app.workspaces(id) ON DELETE CASCADE,
         created_by uuid REFERENCES app.users(id) ON DELETE SET NULL,
         title text NOT NULL CHECK (char_length(title) BETWEEN 1 AND ${LIMITS.documentTitleChars}),
-        focus text CHECK (focus IS NULL OR char_length(focus) <= ${STUDIO_LIMITS.focusChars}),
+        focus text CHECK (focus IS NULL OR char_length(focus) <= 500),
         collection_ids uuid[] NOT NULL DEFAULT '{}',
         document_ids uuid[] NOT NULL DEFAULT '{}',
         status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed')),
@@ -489,7 +489,7 @@ export const MIGRATIONS: Migration[] = [
         format text NOT NULL CHECK (format IN ('deep_dive', 'brief', 'critique', 'debate')),
         length text NOT NULL CHECK (length IN ('short', 'default', 'long')),
         language text NOT NULL,
-        focus text CHECK (focus IS NULL OR char_length(focus) <= ${STUDIO_LIMITS.focusChars}),
+        focus text CHECK (focus IS NULL OR char_length(focus) <= 500),
         collection_ids uuid[] NOT NULL DEFAULT '{}',
         document_ids uuid[] NOT NULL DEFAULT '{}',
         status text NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'running', 'completed', 'failed')),
