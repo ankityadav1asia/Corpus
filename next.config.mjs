@@ -38,6 +38,9 @@ export const GO_API_PATHS = [
   '/api/notifications',
   '/api/notifications/read',
   '/api/analytics',
+  // Group 4a: asking a question (streamed) and follow-up suggestions.
+  '/api/chat',
+  '/api/messages/:id/followups',
 ]
 
 /** @type {import('next').NextConfig} */

@@ -6,7 +6,6 @@ import { JUDGE_SYSTEM } from '@/server/evaluation/judge'
 import { IMAGE_DIRECTOR_SYSTEM } from '@/server/images/generate'
 import { HYDE_SYSTEM, STEP_BACK_SYSTEM } from '@/server/rag/query-transform'
 import type { OcrEngine } from '@/server/media/ocr'
-import { FOLLOWUP_SYSTEM } from '@/server/rag/followups'
 import { LLM_RERANK_SYSTEM } from '@/server/rag/rerank'
 
 /** Deterministic bag-of-words embedding: texts sharing words get high cosine similarity. */
@@ -84,7 +83,6 @@ export const isRerank = (input: CompletionInput) => input.system === LLM_RERANK_
 export const isJudge = (input: CompletionInput) => input.system === JUDGE_SYSTEM
 export const isMultiQuery = (input: CompletionInput) => input.system.startsWith('You generate search queries')
 export const isImageDirector = (input: CompletionInput) => input.system === IMAGE_DIRECTOR_SYSTEM
-export const isFollowups = (input: CompletionInput) => input.system === FOLLOWUP_SYSTEM
 
 /** An image brief built from the first source, so tests can check the brief is grounded in it. */
 export function fakeImageBrief(prompt: string): string {
@@ -143,7 +141,6 @@ function defaultCompletion(input: CompletionInput, options: FakeAiOptions): stri
   if (isRerank(input)) return fakeRerankOutput(input.prompt)
   if (isJudge(input)) return fakeJudgeOutput(input.prompt)
   if (isImageDirector(input)) return fakeImageBrief(input.prompt)
-  if (isFollowups(input)) return '{"questions": ["How does it compare over time?", "Which numbers matter most?", "Who is affected?"]}'
   if (input.json) {
     return JSON.stringify({ title: 'Deck', subtitle: 'Generated', slides: [{ title: 'Overview', bullets: ['First point [1]', 'Second point'], notes: 'Say hello' }] })
   }

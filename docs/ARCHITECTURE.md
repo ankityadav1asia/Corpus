@@ -38,7 +38,8 @@ server/                     server-only code (never bundled for the browser)
   auth/                     sessions (server-side, revocable), OAuth, OTP, allowlist, permissions.ts (RBAC), access.ts
   db/                       Neon + PGlite adapters, versioned migrations, legacy importer
   repositories/             all SQL — parameterised and workspace-scoped (documents, chunks, media, jobs, sessions, …)
-  rag/                      splitter, query-transform, retrieval, rerank, guardrail, prompt, chat-service, re-embed
+  rag/                      splitter, query-transform, retrieval, rerank, guardrail, prompt, re-embed (used by the Slack bot,
+                            benchmarks and ingestion; asking itself runs in Go: backend/api/chat.go, backend/rag)
   corpus/                   chunk editor (edit / append / delete with re-embedding)
   evaluation/               LLM-as-judge metrics, live-answer and benchmark scoring
   reports/                  map-reduce synthesis (executive summary, comparison table, slide outline)
@@ -123,11 +124,14 @@ sign-in allowlist still applies).
 
 ## Question answering pipeline
 
+Asking runs in the Go API (`backend/api/chat.go` with `backend/rag` and `backend/ai`); the prompts,
+fusion, guardrail and parsers reproduce the TypeScript originals exactly (`backend/rag/testdata/golden.json`).
+
 ```mermaid
 sequenceDiagram
   participant UI as useRagChat
   participant R as POST /api/chat
-  participant C as chat-service
+  participant C as backend/rag (Go)
   participant DB as Postgres
   participant G as Model (Gemini or open-source)
   UI->>R: { message, conversationId?, collectionId?, mode } + X-Workspace-Id
@@ -265,7 +269,7 @@ owner to reconnect. Removing a source can keep or delete its documents.
 
 ## Answers: follow-ups, charts, PDFs, voice
 
-- **Follow-up questions** (`server/rag/followups.ts`, `POST /api/messages/:id/followups`): three short next questions from the question, answer and source titles (fast helper call, 10 s deadline). Generated once per answer and stored on the message (`messages.followups`), shown as chips under the latest answer; failures return an empty list.
+- **Follow-up questions** (`backend/rag/llm.go`, `POST /api/messages/:id/followups`, Go): three short next questions from the question, answer and source titles (fast helper call, 10 s deadline). Generated once per answer and stored on the message (`messages.followups`), shown as chips under the latest answer; failures return an empty list.
 - **Inline charts**: the system prompt lets the model add one ```` ```chart ```` block with `{type: bar|line|pie, title, unit, labels, series}` when it compares three or more numbers from the passages. The JSON is untrusted: `lib/chart.ts` validates and bounds it (24 labels, 6 series, numbers only), and `components/chart-block.tsx` draws SVG (no chart library, theme colours, data table toggle). Invalid charts show as code; streaming ones as a placeholder.
 - **PDF viewer**: uploaded (and connector-imported) PDFs are kept in `document_files` (2 MB parts). The source viewer opens the original with pdf.js, finds the cited passage by its letters and digits across the pages' text items (`lib/pdf-match.ts`, robust to spacing and hyphenation), jumps to that page and highlights the items. pdf.js and its worker are served from `public/` (copied from the installed package by `scripts/copy-pdf-worker.mjs`) and loaded outside webpack, whose transform of pdf.js fails at runtime.
 - **Voice chat** (`components/voice-mode.tsx`): browser speech recognition (Chrome, Edge, Safari) hears the question, it is sent like a typed one, and the answer is spoken with speech synthesis sentence by sentence while it streams (`lib/speech-text.ts` strips citations, links, Markdown and charts). Tapping interrupts. Languages include English (India) and Hindi.

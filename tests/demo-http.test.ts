@@ -5,12 +5,10 @@ import { NextRequest } from 'next/server'
 
 import * as authRoute from '@/app/api/auth/route'
 import * as demoRoute from '@/app/api/auth/demo/route'
-import * as chatRoute from '@/app/api/chat/route'
 import * as uploadsRoute from '@/app/api/learn/uploads/route'
-import * as followupsRoute from '@/app/api/messages/[id]/followups/route'
 import type { SessionUser } from '@/lib/contracts'
 import { clearSessionCacheForTests } from '@/server/auth/current-user'
-import { enforceDemoQuestionLimits, purgeGuests } from '@/server/auth/demo'
+import { purgeGuests } from '@/server/auth/demo'
 import { isGuestEmail } from '@/server/auth/guest'
 import { isPublicPath } from '@/server/auth/public-paths'
 import { SESSION_COOKIE } from '@/server/auth/session'
@@ -74,16 +72,6 @@ async function enterDemo(): Promise<{ user: SessionUser; cookie: string }> {
   const cookie = /corpus_session=([^;]+)/.exec(res.headers.get('set-cookie') ?? '')?.[1]
   assert.ok(cookie, 'a session cookie is set')
   return { user: (await data<{ user: SessionUser }>(res)).user, cookie }
-}
-
-async function ask(cookie: string, message: string, ip = '203.0.113.9') {
-  const res = await call(chatRoute.POST, '/api/chat', { method: 'POST', cookie, ip, body: { message, collectionId: team.notebookId, mode: 'standard' } })
-  if (res.status !== 200) return { status: res.status, events: [] as Array<Record<string, unknown>> }
-  const events = (await res.text())
-    .split('\n')
-    .filter(Boolean)
-    .map((line) => JSON.parse(line) as Record<string, unknown>)
-  return { status: 200, events }
 }
 
 function configure(vars: Record<string, string | undefined>) {
@@ -181,41 +169,17 @@ describe('public demo', () => {
     // Who a guest sees in the member list is the Go API's rule (backend/api: TestMembersHideDemoVisitors).
   })
 
-  it('lets guests ask questions within the demo allowance, without follow-up model calls', async () => {
-    configure({ DEMO_WORKSPACE_ID: team.workspaceId, DEMO_DAILY_QUESTIONS: '2' })
-    const { cookie } = await enterDemo()
-    const first = await ask(cookie, 'What does photosynthesis convert?')
-    assert.equal(first.status, 200)
-    const done = first.events.find((event) => event.type === 'done') as { assistantMessageId: string } | undefined
-    assert.ok(done, 'the answer streamed to the end')
+  // A guest's questions and their limits are the Go chat route's (backend/api/chat_test.go).
 
-    const calls = ai.calls.complete.length
-    const followups = await data<{ followups: string[] }>(
-      call(followupsRoute.POST, `/api/messages/${done.assistantMessageId}/followups`, { method: 'POST', cookie, params: { id: done.assistantMessageId } }),
-    )
-    assert.deepEqual(followups.followups, [])
-    assert.equal(ai.calls.complete.length, calls, 'no model call spent on suggestions')
-
-    assert.equal((await ask(cookie, 'And what does it need?')).status, 200)
-    const third = await call(chatRoute.POST, '/api/chat', { method: 'POST', cookie, ip: '203.0.113.9', body: { message: 'One more?', mode: 'standard' } })
-    const [status, code, message] = await errorOf(third)
-    assert.deepEqual([status, code], [429, 'DEMO_LIMIT'])
-    assert.match(message, /today/)
-    configure({ DEMO_DAILY_QUESTIONS: undefined })
-  })
-
-  it('limits questions and new guests per address', async () => {
-    for (let i = 0; i < 15; i++) await enforceDemoQuestionLimits(repos, '192.0.2.50')
-    await assert.rejects(enforceDemoQuestionLimits(repos, '192.0.2.50'), (error: { status?: number; code?: string }) => error.status === 429 && error.code === 'DEMO_LIMIT')
-    await enforceDemoQuestionLimits(repos, '192.0.2.51')
-
+  it('limits new guests per address', async () => {
     for (let i = 0; i < 10; i++) assert.equal((await call(demoRoute.POST, '/api/auth/demo', { method: 'POST', workspace: null, ip: '192.0.2.60' })).status, 201)
     assert.equal((await call(demoRoute.POST, '/api/auth/demo', { method: 'POST', workspace: null, ip: '192.0.2.60' })).status, 429)
   })
 
   it('removes guests after a day, with their chats and sessions', async () => {
     const { user, cookie } = await enterDemo()
-    assert.equal((await ask(cookie, 'What does photosynthesis convert?')).status, 200)
+    const chat = await repos.conversations.create({ workspaceId: team.workspaceId, ownerId: user.id, collectionId: null, title: 'Guest chat' })
+    await repos.conversations.addMessage({ conversationId: chat.id, role: 'user', content: 'What does photosynthesis convert?' })
     await t.db.query(`UPDATE app.users SET created_at = now() - interval '25 hours' WHERE id = $1`, [user.id])
     assert.ok((await purgeGuests(repos)) >= 1)
     const [row] = await t.db.query<{ n: number }>('SELECT count(*)::int AS n FROM app.conversations WHERE owner_id = $1', [user.id])

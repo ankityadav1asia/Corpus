@@ -11,7 +11,9 @@ is signed in for the Go routes too.
 |---|---|
 | `../api/go.go` | the Vercel Go Function: builds the handler once per instance and serves every Go path |
 | `cmd/dev` | the same handler on a local port, for development |
-| `api` | route wrappers (session, workspace access, CSRF origin check), handlers; `admin.go` and `settings.go` for group 2 |
+| `api` | route wrappers (session, workspace access, CSRF origin check), handlers; `admin.go`/`settings.go` (group 2), `conversations.go` (group 3), `chat.go` (group 4a) |
+| `ai` | model vendors over REST: Gemini (streaming, embeddings, thinking control, retry hints, daily quotas) and OpenAI-compatible servers; configuration from the same variables as `server/env.ts` |
+| `rag` | prompts, query planning, Reciprocal Rank Fusion, re-ranking (LLM grader or Cohere), guardrail, follow-ups and the answer judge, checked against outputs of the TypeScript code (`testdata/golden.json`, `npm run go:fixtures`) |
 | `auth` | session cookie verification (HMAC-SHA256, key rotation, revocation), the role-permission table, workspace access |
 | `store` | all SQL (pgx), parameterised and scoped by workspace |
 | `httpx`, `apperr`, `jsstr` | JSON responses and errors, byte-capped bodies, zod-compatible validation, JavaScript string lengths |
@@ -24,9 +26,10 @@ is signed in for the Go routes too.
 | 1 | `GET /api/health`, `GET·POST /api/workspaces`, `GET·POST /api/collections` | Go |
 | 2 | Workspace administration: `GET·PATCH·DELETE /api/workspaces/:id` (settings, rename, delete), `…/members`, `…/members/:userId`, `…/invites`, `…/audit`; `PATCH·DELETE /api/collections/:id`, `GET·PUT /api/collections/:id/roles` | Go |
 | 3 | `GET /api/conversations` (`?q=` search), `GET·PATCH·DELETE /api/conversations/:id`, `POST …/:id/branch`, `PUT /api/messages/:id/feedback`, `GET /api/notifications`, `POST /api/notifications/read`, `GET /api/analytics` | Go |
-| – | Still TypeScript next to group 3: `POST /api/messages/:id/followups` (calls the AI model) and `GET /api/stats` (reports the AI, OAuth, OCR and email configuration from `server/env.ts`) | with group 4 |
 | – | Still TypeScript from the workspace area: `…/integrations` (Slack credentials are sealed with the TypeScript key ring), `…/shares` (opens sealed share tokens), `…/models` and `…/reembed` (AI configuration and a background job) | later, with the parts they depend on |
-| 4 | Chat and retrieval (`POST /api/chat`), follow-ups, stats, studio, connectors, background jobs | next |
+| 4a | `POST /api/chat` (the whole pipeline: deep-mode query planning, hybrid search, RRF, re-ranking, guardrail, streamed NDJSON answer), `POST /api/messages/:id/followups`; polling a conversation runs its answer's queued evaluation | Go |
+| 4b | Studio: reports and mind maps (audio overviews are media and stay TypeScript) | next |
+| – | Staying TypeScript: media processing (uploads, OCR, transcription, audio), the connectors' sync jobs, the job runner and cron, `GET /api/stats` (reports the OCR, email and OAuth configuration of the TypeScript side) | by decision |
 
 Everything not listed as Go is still served by Next.js.
 

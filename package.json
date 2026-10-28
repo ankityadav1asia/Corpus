@@ -25,7 +25,7 @@
     "secrets:reseal": "node --conditions=react-server --import tsx scripts/reseal-secrets.ts",
     "go:dev": "go run ./backend/cmd/dev",
     "go:test": "go test ./backend/...",
-    "go:fixtures": "node --conditions=react-server --import tsx scripts/go-fixtures.ts",
+    "go:fixtures": "node --conditions=react-server --import tsx scripts/go-fixtures.ts && node --conditions=react-server --import tsx scripts/rag-fixtures.ts",
     "db:pglite-server": "node --conditions=react-server --import tsx scripts/pglite-server.ts"
   },
   "dependencies": {

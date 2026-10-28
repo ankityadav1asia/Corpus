@@ -49,8 +49,8 @@ jobs:
           node-version: 24
           cache: npm
       - run: npm ci --no-audit --no-fund
-      - name: Session-cookie fixtures are up to date with the TypeScript code
-        run: npm run go:fixtures && git diff --exit-code -- backend/auth/testdata
+      - name: Fixtures (session cookies, RAG outputs) are up to date with the TypeScript code
+        run: npm run go:fixtures && git diff --exit-code -- backend/auth/testdata backend/rag/testdata
       - name: gofmt
         run: test -z "$(gofmt -l backend api)"
       - run: go vet ./backend/... ./api/...

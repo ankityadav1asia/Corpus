@@ -3,7 +3,6 @@ import { after, before, describe, it } from 'node:test'
 
 import { NextRequest } from 'next/server'
 
-import * as chatRoute from '@/app/api/chat/route'
 import * as chunkRoute from '@/app/api/corpus/chunks/[id]/route'
 import * as chunksRoute from '@/app/api/corpus/chunks/route'
 import * as documentChunksRoute from '@/app/api/corpus/documents/[id]/chunks/route'
@@ -18,7 +17,6 @@ import * as reportRoute from '@/app/api/reports/[id]/route'
 import * as reportsRoute from '@/app/api/reports/route'
 import * as statsRoute from '@/app/api/stats/route'
 import type { ChunkPage, ReportDetail } from '@/lib/contracts'
-import type { ChatStreamEvent } from '@/lib/stream-protocol'
 import { middleware } from '@/middleware'
 import { AiProviderError, DAILY_QUOTA_MESSAGE } from '@/server/ai/provider'
 import { SESSION_COOKIE, createSessionToken } from '@/server/auth/session'
@@ -364,43 +362,6 @@ describe('chunk editor API', () => {
     assert.equal(removed.status, 200)
     const foreign = await call(chunkRoute.GET, `/api/corpus/chunks/${chunk.id}`, { as: bob, params: { id: chunk.id } })
     assert.equal(foreign.status, 404)
-  })
-})
-
-describe('chat over HTTP', () => {
-  it('streams NDJSON progress events and keeps the conversation private to its author', async () => {
-    const res = await call(chatRoute.POST, '/api/chat', { method: 'POST', as: alice, body: { message: 'What is the codename?', collectionId: alice.notebookId } })
-    assert.equal(res.status, 200)
-    assert.match(res.headers.get('content-type') ?? '', /application\/x-ndjson/)
-    const events = (await res.text())
-      .trim()
-      .split('\n')
-      .map((line) => JSON.parse(line) as ChatStreamEvent)
-    assert.deepEqual([...new Set(events.map((e) => e.type))], ['start', 'status', 'sources', 'delta', 'done'])
-    const start = events[0] as Extract<ChatStreamEvent, { type: 'start' }>
-    const sources = events.find((e) => e.type === 'sources') as Extract<ChatStreamEvent, { type: 'sources' }>
-    assert.equal(sources.citations[0]?.title, 'Secret plan')
-
-    // Reading conversations and analytics is the Go API's (backend/api); the chat route stores both.
-    assert.ok(await repos.conversations.get(alice.workspaceId, alice.id, start.conversationId))
-    assert.equal(await repos.conversations.get(alice.workspaceId, bob.id, start.conversationId), null)
-    const analytics = await repos.analytics.summary({ workspaceId: alice.workspaceId, ownerId: alice.id })
-    assert.equal(analytics.totals.queries, 1)
-  })
-
-  it('answers unknown topics with the guardrail message instead of calling the model', async () => {
-    const chatsBefore = ai.calls.chat.length
-    const res = await call(chatRoute.POST, '/api/chat', { method: 'POST', as: alice, body: { message: 'Who won the football league yesterday?' } })
-    const text = await res.text()
-    assert.match(text, /Insufficient context in knowledge base\./)
-    assert.equal(ai.calls.chat.length, chatsBefore)
-  })
-
-  it('rejects oversized questions before calling the model', async () => {
-    const chatsBefore = ai.calls.chat.length
-    const res = await call(chatRoute.POST, '/api/chat', { method: 'POST', as: alice, body: { message: 'x'.repeat(5000) } })
-    assert.equal(res.status, 400)
-    assert.equal(ai.calls.chat.length, chatsBefore)
   })
 })
 

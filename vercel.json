@@ -4,5 +4,15 @@
   "buildCommand": "npm run vercel-build",
   "regions": ["cle1"],
   "fluid": true,
-  "crons": [{ "path": "/api/jobs/run", "schedule": "0 3 * * *" }]
+  "functions": {
+    "api/go.go": {
+      "maxDuration": 300
+    }
+  },
+  "crons": [
+    {
+      "path": "/api/jobs/run",
+      "schedule": "0 3 * * *"
+    }
+  ]
 }

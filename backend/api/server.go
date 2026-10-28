@@ -34,6 +34,7 @@ type Server struct {
 	store    Store
 	admin    AdminStore
 	chats    ConversationStore
+	asking   ChatStore
 	sessions *auth.Sessions
 }
 
@@ -46,6 +47,7 @@ func New(cfg config.Config, db Store) *Server {
 		// (the in-memory test double) answers 503 there.
 		s.admin, _ = db.(AdminStore)
 		s.chats, _ = db.(ConversationStore)
+		s.asking, _ = db.(ChatStore)
 	}
 	return s
 }
@@ -83,6 +85,9 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("GET /api/notifications", s.authed(s.conversationsOnly(s.listNotifications)))
 	mux.Handle("POST /api/notifications/read", s.authed(s.conversationsOnly(s.markNotificationsRead)))
 	mux.Handle("GET /api/analytics", s.workspace(s.conversationsOnly(s.analytics)))
+	// Group 4a: asking a question and follow-up suggestions.
+	mux.Handle("POST /api/chat", s.workspace(s.chatOnly(s.chat)))
+	mux.Handle("POST /api/messages/{id}/followups", s.workspace(s.chatOnly(s.followups)))
 	return mux
 }
 

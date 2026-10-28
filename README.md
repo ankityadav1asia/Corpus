@@ -300,7 +300,7 @@ get 404, and missing roles get 403.
 | `/api/workspaces/:id/audit` | GET | Workspace activity log, admins (Go) |
 | `/api/workspaces/:id/shares` | GET | Every active public link in the workspace (admins) |
 | `/api/workspaces/:id/models`, `…/reembed` | GET, POST | Which model does what; re-embed the workspace with the active embedding model (admins) |
-| `/api/chat` | POST | Ask a question; streams NDJSON (`start`, `status`, `sources`, `delta`, `done`, `error`) |
+| `/api/chat` | POST | Ask a question; streams NDJSON (`start`, `status`, `sources`, `delta`, `done`, `error`) (Go) |
 | `/api/collections`, `/api/collections/:id`, `/api/collections/:id/roles` | GET, POST, PATCH, PUT, DELETE | Notebooks and per-notebook role overrides (Go) |
 | `/api/corpus`, `/api/corpus/documents/:id`, `…/chunks`, `…/retry` | GET, POST, DELETE | Documents (with indexing progress); append a chunk; retry a failed source |
 | `/api/corpus/chunks`, `/api/corpus/chunks/:id` | GET, PATCH, DELETE | Chunk editor (filters: notebook, document, label, text) |
@@ -316,7 +316,7 @@ get 404, and missing roles get 403.
 | `/api/images`, `/api/images/:id`, `/api/images/:id/file` | GET, POST, DELETE | Queue (202) and read knowledge-grounded images |
 | `/api/conversations`, `/api/conversations/:id`, `/api/conversations/:id/branch` | GET, PATCH, DELETE, POST | Private history (`?q=` searches titles and message text), rename, pin, delete, fork (Go) |
 | `/api/messages/:id/feedback` | PUT | Rate an answer: up, down or cleared (Go) |
-| `/api/messages/:id/followups` | POST | Suggested follow-up questions for an answer (generated once, then stored) |
+| `/api/messages/:id/followups` | POST | Suggested follow-up questions for an answer, generated once, then stored (Go) |
 | `/api/shares`, `/api/shares/:id` | GET, POST, DELETE | Read-only public links to a chat or report; revoke |
 | `/api/public/shares/:token`, page `/s/:token` | GET | The shared snapshot (no sign-in) |
 | `/api/corpus/documents/:id/file` | GET | The original PDF, for the viewer |

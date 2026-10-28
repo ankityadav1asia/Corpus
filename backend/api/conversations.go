@@ -100,9 +100,22 @@ func (s *Server) conversationDetail(req *request) error {
 	if err != nil {
 		return err
 	}
-	messages, err := s.chats.Messages(req.r.Context(), conversation.ID, req.access.UserID)
+	ctx := req.r.Context()
+	messages, err := s.chats.Messages(ctx, conversation.ID, req.access.UserID)
 	if err != nil {
 		return err
+	}
+	// The client polls this for quality scores: run the latest answer's queued evaluation now.
+	for i := len(messages) - 1; i >= 0; i-- {
+		if messages[i].Role != "assistant" {
+			continue
+		}
+		if messages[i].Evaluation == nil && s.evaluatePending(ctx, messages[i].ID) {
+			if messages, err = s.chats.Messages(ctx, conversation.ID, req.access.UserID); err != nil {
+				return err
+			}
+		}
+		break
 	}
 	return req.json(200, map[string]any{"conversation": conversation, "messages": messages})
 }
