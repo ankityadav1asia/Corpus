@@ -18,7 +18,19 @@ const securityHeaders = [
  * to the Go dev server (npm run go:dev) at GO_API_URL, http://localhost:8080 by default.
  * tests/go-backend.test.ts checks that no Next.js route is left for them.
  */
-export const GO_API_PATHS = ['/api/health', '/api/workspaces', '/api/collections']
+export const GO_API_PATHS = [
+  '/api/health',
+  '/api/workspaces',
+  '/api/collections',
+  // Group 2: workspace administration (the other /api/workspaces/:id/… routes are still Next.js).
+  '/api/workspaces/:id',
+  '/api/workspaces/:id/members',
+  '/api/workspaces/:id/members/:userId',
+  '/api/workspaces/:id/invites',
+  '/api/workspaces/:id/audit',
+  '/api/collections/:id',
+  '/api/collections/:id/roles',
+]
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {

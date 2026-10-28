@@ -17,7 +17,6 @@ import * as feedbackRoute from '@/app/api/messages/[id]/feedback/route'
 import * as notificationsReadRoute from '@/app/api/notifications/read/route'
 import * as notificationsRoute from '@/app/api/notifications/route'
 import * as statsRoute from '@/app/api/stats/route'
-import * as auditRoute from '@/app/api/workspaces/[id]/audit/route'
 import type { AuditEvent, DocumentDetail, DocumentSummary, ImageDetail, ImageSummary, NotificationItem, QualitySummary, StatsResponse, UploadResult } from '@/lib/contracts'
 import { SESSION_COOKIE } from '@/server/auth/session'
 import { resetEnvCache } from '@/server/env'
@@ -317,13 +316,11 @@ describe('feedback, notifications, audit and pins', () => {
     assert.equal((await call(notificationsReadRoute.POST, '/api/notifications/read', { method: 'POST', as: val, workspace: null, body: {} })).status, 400)
   })
 
-  it('shows the audit log to workspace admins only', async () => {
-    const path = `/api/workspaces/${team.workspaceId}/audit`
-    const { events } = await data<{ events: AuditEvent[] }>(call(auditRoute.GET, path, { as: ada, workspace: null, params: { id: team.workspaceId } }))
+  // Reading the audit log (admins only) is the Go API's; this checks what these routes record.
+  it('records content changes in the audit log', async () => {
+    const events: AuditEvent[] = await repos.audit.list(team.workspaceId, 100)
     const actions = events.map((event) => event.action)
     for (const action of ['source.added', 'image.created', 'image.deleted']) assert.ok(actions.includes(action), action)
     assert.equal(events.find((event) => event.action === 'image.deleted')?.actorEmail, 'ada@example.com')
-    assert.equal((await call(auditRoute.GET, path, { as: ed, workspace: null, params: { id: team.workspaceId } })).status, 403)
-    assert.equal((await call(auditRoute.GET, path, { as: out, workspace: null, params: { id: team.workspaceId } })).status, 404)
   })
 })

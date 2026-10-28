@@ -11,7 +11,7 @@ is signed in for the Go routes too.
 |---|---|
 | `../api/go.go` | the Vercel Go Function: builds the handler once per instance and serves every Go path |
 | `cmd/dev` | the same handler on a local port, for development |
-| `api` | route wrappers (session, workspace access, CSRF origin check), handlers |
+| `api` | route wrappers (session, workspace access, CSRF origin check), handlers; `admin.go` and `settings.go` for group 2 |
 | `auth` | session cookie verification (HMAC-SHA256, key rotation, revocation), the role-permission table, workspace access |
 | `store` | all SQL (pgx), parameterised and scoped by workspace |
 | `httpx`, `apperr`, `jsstr` | JSON responses and errors, byte-capped bodies, zod-compatible validation, JavaScript string lengths |
@@ -22,8 +22,9 @@ is signed in for the Go routes too.
 | Group | Routes | Status |
 |---|---|---|
 | 1 | `GET /api/health`, `GET·POST /api/workspaces`, `GET·POST /api/collections` | Go |
-| 2 | Workspace administration: `/api/workspaces/:id` (settings, members, invitations, audit), `/api/collections/:id` (rename, delete, roles) | next |
-| 3 | Conversations, messages, feedback, notifications, shares, stats and analytics | planned |
+| 2 | Workspace administration: `GET·PATCH·DELETE /api/workspaces/:id` (settings, rename, delete), `…/members`, `…/members/:userId`, `…/invites`, `…/audit`; `PATCH·DELETE /api/collections/:id`, `GET·PUT /api/collections/:id/roles` | Go |
+| 3 | Conversations, messages, feedback, notifications, stats and analytics | next |
+| – | Still TypeScript from the workspace area: `…/integrations` (Slack credentials are sealed with the TypeScript key ring), `…/shares` (opens sealed share tokens), `…/models` and `…/reembed` (AI configuration and a background job) | later, with the parts they depend on |
 | 4 | Chat and retrieval (`POST /api/chat`), studio, connectors, background jobs | planned |
 
 Everything not listed as Go is still served by Next.js.

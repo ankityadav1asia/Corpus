@@ -295,13 +295,13 @@ get 404, and missing roles get 403.
 | Route | Methods | Purpose |
 |---|---|---|
 | `/api/auth`, `/api/auth/otp/*`, `/api/auth/oauth/*` | GET, POST, DELETE | Session, email code, Google / GitHub sign-in; `DELETE /api/auth?scope=all` signs out of every device |
-| `/api/workspaces`, `/api/workspaces/:id` | GET, POST, PATCH, DELETE | List/create workspaces (Go); rename, retrieval & guardrail settings, delete |
-| `/api/workspaces/:id/members`, `…/members/:userId`, `…/invites` | GET, POST, PATCH, DELETE | Members, invitations, roles, leave |
-| `/api/workspaces/:id/audit` | GET | Workspace activity log (admins) |
+| `/api/workspaces`, `/api/workspaces/:id` | GET, POST, PATCH, DELETE | List/create workspaces; rename, retrieval & guardrail settings, delete (Go) |
+| `/api/workspaces/:id/members`, `…/members/:userId`, `…/invites` | GET, POST, PATCH, DELETE | Members, invitations, roles, leave (Go) |
+| `/api/workspaces/:id/audit` | GET | Workspace activity log, admins (Go) |
 | `/api/workspaces/:id/shares` | GET | Every active public link in the workspace (admins) |
 | `/api/workspaces/:id/models`, `…/reembed` | GET, POST | Which model does what; re-embed the workspace with the active embedding model (admins) |
 | `/api/chat` | POST | Ask a question; streams NDJSON (`start`, `status`, `sources`, `delta`, `done`, `error`) |
-| `/api/collections`, `/api/collections/:id`, `/api/collections/:id/roles` | GET, POST, PATCH, PUT, DELETE | Notebooks (list/create in Go) and per-notebook role overrides |
+| `/api/collections`, `/api/collections/:id`, `/api/collections/:id/roles` | GET, POST, PATCH, PUT, DELETE | Notebooks and per-notebook role overrides (Go) |
 | `/api/corpus`, `/api/corpus/documents/:id`, `…/chunks`, `…/retry` | GET, POST, DELETE | Documents (with indexing progress); append a chunk; retry a failed source |
 | `/api/corpus/chunks`, `/api/corpus/chunks/:id` | GET, PATCH, DELETE | Chunk editor (filters: notebook, document, label, text) |
 | `/api/learn`, `/api/learn/upload`, `/api/learn/url`, `/api/learn/youtube` | POST | Add text, files (documents, images, audio, video, scans), a web page, a YouTube transcript |

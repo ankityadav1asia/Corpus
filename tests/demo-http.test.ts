@@ -8,8 +8,7 @@ import * as demoRoute from '@/app/api/auth/demo/route'
 import * as chatRoute from '@/app/api/chat/route'
 import * as uploadsRoute from '@/app/api/learn/uploads/route'
 import * as followupsRoute from '@/app/api/messages/[id]/followups/route'
-import * as membersRoute from '@/app/api/workspaces/[id]/members/route'
-import type { SessionUser, WorkspaceMember } from '@/lib/contracts'
+import type { SessionUser } from '@/lib/contracts'
 import { clearSessionCacheForTests } from '@/server/auth/current-user'
 import { enforceDemoQuestionLimits, purgeGuests } from '@/server/auth/demo'
 import { isGuestEmail } from '@/server/auth/guest'
@@ -179,20 +178,7 @@ describe('public demo', () => {
       call(uploadsRoute.POST, '/api/learn/uploads', { method: 'POST', cookie, body: { collectionId: team.notebookId, fileName: 'notes.txt', byteSize: 10 } }),
     )
     assert.deepEqual(upload.slice(0, 2), [403, 'FORBIDDEN'])
-
-    const own = await data<{ members: WorkspaceMember[] }>(call(membersRoute.GET, `/api/workspaces/${team.workspaceId}/members`, { cookie, params: { id: team.workspaceId } }))
-    assert.deepEqual(
-      own.members.map((member) => member.userId),
-      [user.id],
-      'guests see only themselves',
-    )
-    const admins = await data<{ members: WorkspaceMember[] }>(
-      call(membersRoute.GET, `/api/workspaces/${team.workspaceId}/members`, { cookie: ada.cookie, params: { id: team.workspaceId } }),
-    )
-    assert.ok(
-      admins.members.every((member) => !isGuestEmail(member.email)),
-      'demo visitors do not crowd the member list',
-    )
+    // Who a guest sees in the member list is the Go API's rule (backend/api: TestMembersHideDemoVisitors).
   })
 
   it('lets guests ask questions within the demo allowance, without follow-up model calls', async () => {

@@ -23,12 +23,24 @@ describe('Go backend routing', () => {
 
   it('the Go router registers every Go path', () => {
     const server = readFileSync(path.join(process.cwd(), 'backend', 'api', 'server.go'), 'utf8')
-    for (const apiPath of GO_API_PATHS) assert.match(server, new RegExp(`mux\\.Handle\\("(GET|POST) ${apiPath}"`), apiPath)
+    for (const apiPath of GO_API_PATHS) {
+      // next.config.mjs writes parameters as :id, Go's ServeMux as {id}.
+      const pattern = apiPath.replace(/:(\w+)/g, '{$1}')
+      assert.match(server, new RegExp(`mux\\.Handle\\("(GET|POST|PUT|PATCH|DELETE) ${pattern.replace(/[{}]/g, '\\$&')}"`), apiPath)
+    }
   })
 
   it('no Next.js route file is left for a path the Go API serves', () => {
     for (const apiPath of GO_API_PATHS) {
-      const file = path.join(process.cwd(), 'app', ...apiPath.split('/').filter(Boolean), 'route.ts')
+      const file = path.join(
+        process.cwd(),
+        'app',
+        ...apiPath
+          .replace(/:(\w+)/g, '[$1]')
+          .split('/')
+          .filter(Boolean),
+        'route.ts',
+      )
       assert.equal(existsSync(file), false, `${path.relative(process.cwd(), file)} would shadow the Go API`)
     }
   })

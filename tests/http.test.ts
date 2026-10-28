@@ -5,8 +5,6 @@ import { NextRequest } from 'next/server'
 
 import * as analyticsRoute from '@/app/api/analytics/route'
 import * as chatRoute from '@/app/api/chat/route'
-import * as collectionRolesRoute from '@/app/api/collections/[id]/roles/route'
-import * as collectionRoute from '@/app/api/collections/[id]/route'
 import * as conversationRoute from '@/app/api/conversations/[id]/route'
 import * as chunkRoute from '@/app/api/corpus/chunks/[id]/route'
 import * as chunksRoute from '@/app/api/corpus/chunks/route'
@@ -21,10 +19,7 @@ import * as learnUrlRoute from '@/app/api/learn/url/route'
 import * as reportRoute from '@/app/api/reports/[id]/route'
 import * as reportsRoute from '@/app/api/reports/route'
 import * as statsRoute from '@/app/api/stats/route'
-import * as memberRoute from '@/app/api/workspaces/[id]/members/[userId]/route'
-import * as membersRoute from '@/app/api/workspaces/[id]/members/route'
-import * as workspaceRoute from '@/app/api/workspaces/[id]/route'
-import type { ChunkPage, ReportDetail, WorkspaceDetail, WorkspaceSummary } from '@/lib/contracts'
+import type { ChunkPage, ReportDetail } from '@/lib/contracts'
 import type { ChatStreamEvent } from '@/lib/stream-protocol'
 import { middleware } from '@/middleware'
 import { AiProviderError, DAILY_QUOTA_MESSAGE } from '@/server/ai/provider'
@@ -175,24 +170,27 @@ describe('authentication', () => {
 
 describe('request hardening', () => {
   // The Go API (backend/) has the same checks for the routes it serves (backend/api).
+  async function aliceConversation() {
+    const conversation = await repos.conversations.create({ workspaceId: alice.workspaceId, ownerId: alice.id, collectionId: null, title: 'Hardening' })
+    return { path: `/api/conversations/${conversation.id}`, base: { method: 'PATCH', as: alice, params: { id: conversation.id } } }
+  }
+
   it('blocks cross-site writes (CSRF) but allows same-origin ones', async () => {
-    const rename = { method: 'PATCH', as: alice, params: { id: alice.notebookId } }
-    const evil = await call(collectionRoute.PATCH, `/api/collections/${alice.notebookId}`, { ...rename, origin: 'https://evil.example', body: { name: 'x' } })
+    const { path, base } = await aliceConversation()
+    const evil = await call(conversationRoute.PATCH, path, { ...base, origin: 'https://evil.example', body: { title: 'x' } })
     assert.equal(evil.status, 403)
-    const ok = await call(collectionRoute.PATCH, `/api/collections/${alice.notebookId}`, { ...rename, body: { name: 'Work' } })
+    const ok = await call(conversationRoute.PATCH, path, { ...base, body: { title: 'Work' } })
     assert.equal(ok.status, 200)
-    await call(collectionRoute.PATCH, `/api/collections/${alice.notebookId}`, { ...rename, body: { name: 'General' } })
   })
 
   it('validates content type, JSON syntax, schema and body size', async () => {
-    const path = `/api/collections/${alice.notebookId}`
-    const base = { method: 'PATCH', as: alice, params: { id: alice.notebookId } }
-    assert.equal((await call(collectionRoute.PATCH, path, { ...base, body: 'name=x', contentType: 'text/plain' })).status, 415)
-    assert.equal((await call(collectionRoute.PATCH, path, { ...base, body: '{"name":' })).status, 400)
-    const invalid = await call(collectionRoute.PATCH, path, { ...base, body: { name: '' } })
+    const { path, base } = await aliceConversation()
+    assert.equal((await call(conversationRoute.PATCH, path, { ...base, body: 'title=x', contentType: 'text/plain' })).status, 415)
+    assert.equal((await call(conversationRoute.PATCH, path, { ...base, body: '{"title":' })).status, 400)
+    const invalid = await call(conversationRoute.PATCH, path, { ...base, body: { title: '' } })
     assert.equal(invalid.status, 400)
     assert.equal((await data<{ error: { code: string } }>(invalid)).error.code, 'VALIDATION_FAILED')
-    assert.equal((await call(collectionRoute.PATCH, path, { ...base, body: { name: 'x'.repeat(70_000) } })).status, 413)
+    assert.equal((await call(conversationRoute.PATCH, path, { ...base, body: { title: 'x'.repeat(70_000) } })).status, 413)
   })
 
   it('never returns internal error details to the client', async () => {
@@ -257,10 +255,8 @@ describe('workspace authorization middleware', () => {
 
   it('applies the role matrix: viewers read, editors write content, admins manage', async () => {
     const asMember = (who: Actor) => ({ as: who, workspace: team.workspaceId })
-    // Viewer (listing and creating notebooks is the Go API's: backend/api)
+    // Viewer (notebook administration is the Go API's: backend/api)
     assert.equal((await call(chunksRoute.GET, '/api/corpus/chunks', asMember(vera))).status, 200)
-    const viewerRename = { ...asMember(vera), method: 'PATCH', params: { id: team.notebookId }, body: { name: 'Nope' } }
-    assert.equal((await call(collectionRoute.PATCH, `/api/collections/${team.notebookId}`, viewerRename)).status, 403)
     const viewerIngest = await call(learnRoute.POST, '/api/learn', { ...asMember(vera), method: 'POST', body: { collectionId: team.notebookId, text: 'viewer text' } })
     assert.equal(viewerIngest.status, 403)
     assert.equal(ai.calls.embedDocuments.length, 0, 'denied before any AI spend')
@@ -273,8 +269,6 @@ describe('workspace authorization middleware', () => {
     assert.equal(editorIngest.status, 202)
     assert.equal((await data<{ document: { status: string } }>(editorIngest)).document.status, 'processing')
     await indexQueued()
-    const editorDelete = await call(collectionRoute.DELETE, `/api/collections/${team.notebookId}`, { ...asMember(eddie), method: 'DELETE', params: { id: team.notebookId } })
-    assert.equal(editorDelete.status, 403)
     const editorClear = await call(corpusRoute.DELETE, `/api/corpus?collectionId=${team.notebookId}`, { ...asMember(eddie), method: 'DELETE' })
     assert.equal(editorClear.status, 403)
     // Everyone in the workspace sees the shared knowledge base.
@@ -286,14 +280,9 @@ describe('workspace authorization middleware', () => {
     assert.equal(ownSpace.total, 0)
   })
 
-  it('notebook role overrides are managed by admins and change what a member may do', async () => {
-    const asAdmin = { as: alice, workspace: team.workspaceId, params: { id: team.notebookId } }
-    const promote = await call(collectionRolesRoute.PUT, `/api/collections/${team.notebookId}/roles`, { ...asAdmin, method: 'PUT', body: { userId: vera.id, role: 'editor' } })
-    assert.equal(promote.status, 200)
-    const roles = await data<{ roles: Array<{ userId: string; effectiveRole: string; override: string | null }> }>(
-      call(collectionRolesRoute.GET, `/api/collections/${team.notebookId}/roles`, asAdmin),
-    )
-    assert.equal(roles.roles.find((r) => r.userId === vera.id)?.effectiveRole, 'editor')
+  // Setting overrides is the Go API's (backend/api); this checks the TypeScript routes honour them.
+  it('notebook role overrides change what a member may do', async () => {
+    await repos.collections.setRoleOverride(team.notebookId, vera.id, 'editor')
     const veraIngest = await call(learnRoute.POST, '/api/learn', {
       as: vera,
       workspace: team.workspaceId,
@@ -302,29 +291,20 @@ describe('workspace authorization middleware', () => {
     })
     assert.equal(veraIngest.status, 202)
     await indexQueued()
-    const adminOverride = await call(collectionRolesRoute.PUT, `/api/collections/${team.notebookId}/roles`, {
-      ...asAdmin,
-      method: 'PUT',
-      body: { userId: alice.id, role: 'viewer' },
-    })
-    assert.equal(adminOverride.status, 400)
-    const byEditor = await call(collectionRolesRoute.PUT, `/api/collections/${team.notebookId}/roles`, {
-      as: eddie,
+    await repos.collections.setRoleOverride(team.notebookId, vera.id, null)
+    const veraAgain = await call(learnRoute.POST, '/api/learn', {
+      as: vera,
       workspace: team.workspaceId,
-      params: { id: team.notebookId },
-      method: 'PUT',
-      body: { userId: vera.id, role: 'admin' },
+      method: 'POST',
+      body: { collectionId: team.notebookId, text: 'no longer' },
     })
-    assert.equal(byEditor.status, 403)
-    await call(collectionRolesRoute.PUT, `/api/collections/${team.notebookId}/roles`, { ...asAdmin, method: 'PUT', body: { userId: vera.id, role: null } })
+    assert.equal(veraAgain.status, 403, 'without the override she is a viewer again')
   })
 })
 
 describe('data isolation (IDOR)', () => {
-  it('another user cannot delete, clear or read a notebook outside their workspaces', async () => {
+  it('another user cannot clear or read a notebook outside their workspaces', async () => {
     for (const workspace of [bob.workspaceId, alice.workspaceId]) {
-      const bobDelete = await call(collectionRoute.DELETE, `/api/collections/${alice.notebookId}`, { method: 'DELETE', as: bob, workspace, params: { id: alice.notebookId } })
-      assert.equal(bobDelete.status, 404)
       const bobClear = await call(corpusRoute.DELETE, `/api/corpus?collectionId=${alice.notebookId}`, { method: 'DELETE', as: bob, workspace })
       assert.equal(bobClear.status, 404)
     }
@@ -432,87 +412,6 @@ describe('chat over HTTP', () => {
   it('workspace-wide analytics are for admins only', async () => {
     assert.equal((await call(analyticsRoute.GET, '/api/analytics?scope=workspace', { as: vera, workspace: team.workspaceId })).status, 403)
     assert.equal((await call(analyticsRoute.GET, '/api/analytics?scope=workspace', { as: alice, workspace: team.workspaceId })).status, 200)
-  })
-})
-
-describe('workspaces and members API', () => {
-  let created: WorkspaceSummary
-
-  // Creating and listing workspaces is the Go API's (backend/api); this sets one up the same way.
-  it('starts from a team workspace with its creator as admin', async () => {
-    created = await repos.workspaces.create('Bob’s team', bob.id)
-    await repos.collections.ensureDefault(created.id, bob.id)
-    assert.equal(created.role, 'admin')
-    assert.equal((await repos.collections.list(created.id, bob.id)).length, 1)
-  })
-
-  it('adds existing users, invites unknown addresses, and only admins may do either', async () => {
-    const path = `/api/workspaces/${created.id}/members`
-    const params = { id: created.id }
-    const added = await call(membersRoute.POST, path, { as: bob, method: 'POST', params, body: { email: 'Vera@Example.com', role: 'viewer' } })
-    assert.equal(added.status, 201)
-    assert.deepEqual(await data(added), { status: 'added' })
-    assert.equal((await call(membersRoute.POST, path, { as: bob, method: 'POST', params, body: { email: 'vera@example.com', role: 'editor' } })).status, 409)
-    const invited = await call(membersRoute.POST, path, { as: bob, method: 'POST', params, body: { email: 'future@example.com', role: 'editor' } })
-    assert.deepEqual(await data(invited), { status: 'invited' })
-    assert.equal((await call(membersRoute.POST, path, { as: vera, method: 'POST', params, body: { email: 'x@example.com', role: 'admin' } })).status, 403)
-    const personal = await call(membersRoute.POST, `/api/workspaces/${bob.workspaceId}/members`, {
-      as: bob,
-      method: 'POST',
-      params: { id: bob.workspaceId },
-      body: { email: 'vera@example.com', role: 'viewer' },
-    })
-    assert.equal(personal.status, 400, 'personal workspaces cannot be shared')
-
-    const asAdmin = await data<{ members: unknown[]; invites: unknown[] }>(call(membersRoute.GET, path, { as: bob, params }))
-    const asViewer = await data<{ members: unknown[]; invites: unknown[] }>(call(membersRoute.GET, path, { as: vera, params }))
-    assert.equal(asAdmin.members.length, 2)
-    assert.equal(asAdmin.invites.length, 1)
-    assert.equal(asViewer.invites.length, 0, 'pending invitations are visible to admins only')
-    assert.equal((await call(membersRoute.GET, path, { as: eddie, params })).status, 404)
-  })
-
-  it('changes roles, protects the last admin and lets members leave', async () => {
-    const memberPath = (userId: string) => `/api/workspaces/${created.id}/members/${userId}`
-    const params = (userId: string) => ({ id: created.id, userId })
-    const demoteSelf = await call(memberRoute.PATCH, memberPath(bob.id), { as: bob, method: 'PATCH', params: params(bob.id), body: { role: 'viewer' } })
-    assert.equal(demoteSelf.status, 409)
-    assert.equal((await call(memberRoute.PATCH, memberPath(vera.id), { as: vera, method: 'PATCH', params: params(vera.id), body: { role: 'admin' } })).status, 403)
-    assert.equal((await call(memberRoute.PATCH, memberPath(vera.id), { as: bob, method: 'PATCH', params: params(vera.id), body: { role: 'editor' } })).status, 200)
-    assert.equal((await call(memberRoute.DELETE, memberPath(bob.id), { as: bob, method: 'DELETE', params: params(bob.id) })).status, 409)
-    assert.equal((await call(memberRoute.DELETE, memberPath(vera.id), { as: vera, method: 'DELETE', params: params(vera.id) })).status, 200, 'members can leave')
-    assert.equal((await call(chunksRoute.GET, '/api/corpus/chunks', { as: vera, workspace: created.id })).status, 404)
-  })
-
-  it('admins change settings; others cannot; personal workspaces cannot be deleted', async () => {
-    const patch = await call(workspaceRoute.PATCH, `/api/workspaces/${created.id}`, {
-      as: bob,
-      method: 'PATCH',
-      params: { id: created.id },
-      body: { name: 'Renamed', settings: { guardrail: { minRelevance: 0.5 }, retrieval: { topK: 3 } } },
-    })
-    assert.equal(patch.status, 200)
-    const detail = (await data<{ workspace: WorkspaceDetail }>(patch)).workspace
-    assert.equal(detail.name, 'Renamed')
-    assert.equal(detail.settings.guardrail.minRelevance, 0.5)
-    assert.equal(detail.settings.guardrail.minSimilarity, 0.45, 'untouched settings keep their values')
-    assert.equal(detail.settings.retrieval.topK, 3)
-    const invalid = await call(workspaceRoute.PATCH, `/api/workspaces/${created.id}`, {
-      as: bob,
-      method: 'PATCH',
-      params: { id: created.id },
-      body: { settings: { retrieval: { topK: 50 } } },
-    })
-    assert.equal(invalid.status, 400)
-    const byEditor = await call(workspaceRoute.PATCH, `/api/workspaces/${team.workspaceId}`, {
-      as: eddie,
-      method: 'PATCH',
-      params: { id: team.workspaceId },
-      body: { name: 'Mine now' },
-    })
-    assert.equal(byEditor.status, 403)
-    assert.equal((await call(workspaceRoute.DELETE, `/api/workspaces/${bob.workspaceId}`, { as: bob, method: 'DELETE', params: { id: bob.workspaceId } })).status, 400)
-    assert.equal((await call(workspaceRoute.DELETE, `/api/workspaces/${created.id}`, { as: bob, method: 'DELETE', params: { id: created.id } })).status, 200)
   })
 })
 
