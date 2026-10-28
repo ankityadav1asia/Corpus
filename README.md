@@ -314,17 +314,17 @@ get 404, and missing roles get 403.
 | `/api/mindmaps`, `/api/mindmaps/:id` | GET, POST, DELETE | Queue (202) and read mind maps |
 | `/api/reports`, `/api/reports/:id` | GET, POST, DELETE | Queue (202) and read synthesis reports |
 | `/api/images`, `/api/images/:id`, `/api/images/:id/file` | GET, POST, DELETE | Queue (202) and read knowledge-grounded images |
-| `/api/conversations`, `/api/conversations/:id`, `/api/conversations/:id/branch` | GET, PATCH, DELETE, POST | Private history (`?q=` searches titles and message text), rename, pin, delete, fork |
-| `/api/messages/:id/feedback` | PUT | Rate an answer (up, down or cleared) |
+| `/api/conversations`, `/api/conversations/:id`, `/api/conversations/:id/branch` | GET, PATCH, DELETE, POST | Private history (`?q=` searches titles and message text), rename, pin, delete, fork (Go) |
+| `/api/messages/:id/feedback` | PUT | Rate an answer: up, down or cleared (Go) |
 | `/api/messages/:id/followups` | POST | Suggested follow-up questions for an answer (generated once, then stored) |
 | `/api/shares`, `/api/shares/:id` | GET, POST, DELETE | Read-only public links to a chat or report; revoke |
 | `/api/public/shares/:token`, page `/s/:token` | GET | The shared snapshot (no sign-in) |
 | `/api/corpus/documents/:id/file` | GET | The original PDF, for the viewer |
 | `/api/workspaces/:id/integrations`, `…/:integrationId` | GET, POST, DELETE | Slack / Teams bots (admins) |
 | `/api/integrations/slack/:id/events`, `/api/integrations/teams/:id/messages` | POST | Webhooks (Slack signature / Bot Framework JWT) |
-| `/api/notifications`, `/api/notifications/read` | GET, POST | In-app notifications |
+| `/api/notifications`, `/api/notifications/read` | GET, POST | In-app notifications (Go) |
 | `/api/evaluations`, `/api/evaluations/cases`, `/api/evaluations/runs` | GET, POST, DELETE | Quality summary, benchmark questions, benchmark runs (202) |
-| `/api/stats`, `/api/analytics` | GET | Schema/feature status and totals; usage and latency (`?scope=workspace` for admins) |
+| `/api/stats`, `/api/analytics` | GET | Schema/feature status and totals; usage and latency (`?scope=workspace` for admins; analytics in Go) |
 | `/api/jobs/run` | GET, POST | Process queued jobs (Bearer `CRON_SECRET`; 404 when unset) |
 | `/api/health` | GET | Public liveness check (Go) |
 

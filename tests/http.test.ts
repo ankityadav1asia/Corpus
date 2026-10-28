@@ -3,9 +3,7 @@ import { after, before, describe, it } from 'node:test'
 
 import { NextRequest } from 'next/server'
 
-import * as analyticsRoute from '@/app/api/analytics/route'
 import * as chatRoute from '@/app/api/chat/route'
-import * as conversationRoute from '@/app/api/conversations/[id]/route'
 import * as chunkRoute from '@/app/api/corpus/chunks/[id]/route'
 import * as chunksRoute from '@/app/api/corpus/chunks/route'
 import * as documentChunksRoute from '@/app/api/corpus/documents/[id]/chunks/route'
@@ -170,27 +168,25 @@ describe('authentication', () => {
 
 describe('request hardening', () => {
   // The Go API (backend/) has the same checks for the routes it serves (backend/api).
-  async function aliceConversation() {
-    const conversation = await repos.conversations.create({ workspaceId: alice.workspaceId, ownerId: alice.id, collectionId: null, title: 'Hardening' })
-    return { path: `/api/conversations/${conversation.id}`, base: { method: 'PATCH', as: alice, params: { id: conversation.id } } }
-  }
+  // Checked on a TypeScript route with a JSON body: adding a benchmark question (32 KB limit).
+  const path = '/api/evaluations/cases'
+  const base = () => ({ method: 'POST', as: alice })
 
   it('blocks cross-site writes (CSRF) but allows same-origin ones', async () => {
-    const { path, base } = await aliceConversation()
-    const evil = await call(conversationRoute.PATCH, path, { ...base, origin: 'https://evil.example', body: { title: 'x' } })
+    const question = { question: 'What is RRF?', referenceAnswer: 'Reciprocal Rank Fusion.' }
+    const evil = await call(evalCasesRoute.POST, path, { ...base(), origin: 'https://evil.example', body: question })
     assert.equal(evil.status, 403)
-    const ok = await call(conversationRoute.PATCH, path, { ...base, body: { title: 'Work' } })
-    assert.equal(ok.status, 200)
+    const ok = await call(evalCasesRoute.POST, path, { ...base(), body: question })
+    assert.equal(ok.status, 201)
   })
 
   it('validates content type, JSON syntax, schema and body size', async () => {
-    const { path, base } = await aliceConversation()
-    assert.equal((await call(conversationRoute.PATCH, path, { ...base, body: 'title=x', contentType: 'text/plain' })).status, 415)
-    assert.equal((await call(conversationRoute.PATCH, path, { ...base, body: '{"title":' })).status, 400)
-    const invalid = await call(conversationRoute.PATCH, path, { ...base, body: { title: '' } })
+    assert.equal((await call(evalCasesRoute.POST, path, { ...base(), body: 'question=x', contentType: 'text/plain' })).status, 415)
+    assert.equal((await call(evalCasesRoute.POST, path, { ...base(), body: '{"question":' })).status, 400)
+    const invalid = await call(evalCasesRoute.POST, path, { ...base(), body: { question: '', referenceAnswer: 'x' } })
     assert.equal(invalid.status, 400)
     assert.equal((await data<{ error: { code: string } }>(invalid)).error.code, 'VALIDATION_FAILED')
-    assert.equal((await call(conversationRoute.PATCH, path, { ...base, body: { title: 'x'.repeat(70_000) } })).status, 413)
+    assert.equal((await call(evalCasesRoute.POST, path, { ...base(), body: { question: 'x'.repeat(70_000), referenceAnswer: 'x' } })).status, 413)
   })
 
   it('never returns internal error details to the client', async () => {
@@ -385,12 +381,10 @@ describe('chat over HTTP', () => {
     const sources = events.find((e) => e.type === 'sources') as Extract<ChatStreamEvent, { type: 'sources' }>
     assert.equal(sources.citations[0]?.title, 'Secret plan')
 
-    const own = await call(conversationRoute.GET, `/api/conversations/${start.conversationId}`, { as: alice, params: { id: start.conversationId } })
-    assert.equal(own.status, 200)
-    const foreign = await call(conversationRoute.GET, `/api/conversations/${start.conversationId}`, { as: bob, params: { id: start.conversationId } })
-    assert.equal(foreign.status, 404)
-
-    const analytics = await data<{ totals: { queries: number } }>(call(analyticsRoute.GET, '/api/analytics', { as: alice }))
+    // Reading conversations and analytics is the Go API's (backend/api); the chat route stores both.
+    assert.ok(await repos.conversations.get(alice.workspaceId, alice.id, start.conversationId))
+    assert.equal(await repos.conversations.get(alice.workspaceId, bob.id, start.conversationId), null)
+    const analytics = await repos.analytics.summary({ workspaceId: alice.workspaceId, ownerId: alice.id })
     assert.equal(analytics.totals.queries, 1)
   })
 
@@ -407,11 +401,6 @@ describe('chat over HTTP', () => {
     const res = await call(chatRoute.POST, '/api/chat', { method: 'POST', as: alice, body: { message: 'x'.repeat(5000) } })
     assert.equal(res.status, 400)
     assert.equal(ai.calls.chat.length, chatsBefore)
-  })
-
-  it('workspace-wide analytics are for admins only', async () => {
-    assert.equal((await call(analyticsRoute.GET, '/api/analytics?scope=workspace', { as: vera, workspace: team.workspaceId })).status, 403)
-    assert.equal((await call(analyticsRoute.GET, '/api/analytics?scope=workspace', { as: alice, workspace: team.workspaceId })).status, 200)
   })
 })
 

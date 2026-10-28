@@ -33,6 +33,7 @@ type Server struct {
 	cfg      config.Config
 	store    Store
 	admin    AdminStore
+	chats    ConversationStore
 	sessions *auth.Sessions
 }
 
@@ -44,6 +45,7 @@ func New(cfg config.Config, db Store) *Server {
 		// The workspace administration routes need more of the database; a store without it
 		// (the in-memory test double) answers 503 there.
 		s.admin, _ = db.(AdminStore)
+		s.chats, _ = db.(ConversationStore)
 	}
 	return s
 }
@@ -71,6 +73,16 @@ func (s *Server) Handler() http.Handler {
 	mux.Handle("DELETE /api/collections/{id}", s.workspace(s.adminOnly(s.deleteCollection)))
 	mux.Handle("GET /api/collections/{id}/roles", s.workspace(s.adminOnly(s.collectionRoles)))
 	mux.Handle("PUT /api/collections/{id}/roles", s.workspace(s.adminOnly(s.setCollectionRole)))
+	// Group 3: conversations, answer feedback, notifications, analytics.
+	mux.Handle("GET /api/conversations", s.workspace(s.conversationsOnly(s.listConversations)))
+	mux.Handle("GET /api/conversations/{id}", s.workspace(s.conversationsOnly(s.conversationDetail)))
+	mux.Handle("PATCH /api/conversations/{id}", s.workspace(s.conversationsOnly(s.updateConversation)))
+	mux.Handle("DELETE /api/conversations/{id}", s.workspace(s.conversationsOnly(s.deleteConversation)))
+	mux.Handle("POST /api/conversations/{id}/branch", s.workspace(s.conversationsOnly(s.branchConversation)))
+	mux.Handle("PUT /api/messages/{id}/feedback", s.workspace(s.conversationsOnly(s.rateAnswer)))
+	mux.Handle("GET /api/notifications", s.authed(s.conversationsOnly(s.listNotifications)))
+	mux.Handle("POST /api/notifications/read", s.authed(s.conversationsOnly(s.markNotificationsRead)))
+	mux.Handle("GET /api/analytics", s.workspace(s.conversationsOnly(s.analytics)))
 	return mux
 }
 

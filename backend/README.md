@@ -23,9 +23,10 @@ is signed in for the Go routes too.
 |---|---|---|
 | 1 | `GET /api/health`, `GET·POST /api/workspaces`, `GET·POST /api/collections` | Go |
 | 2 | Workspace administration: `GET·PATCH·DELETE /api/workspaces/:id` (settings, rename, delete), `…/members`, `…/members/:userId`, `…/invites`, `…/audit`; `PATCH·DELETE /api/collections/:id`, `GET·PUT /api/collections/:id/roles` | Go |
-| 3 | Conversations, messages, feedback, notifications, stats and analytics | next |
+| 3 | `GET /api/conversations` (`?q=` search), `GET·PATCH·DELETE /api/conversations/:id`, `POST …/:id/branch`, `PUT /api/messages/:id/feedback`, `GET /api/notifications`, `POST /api/notifications/read`, `GET /api/analytics` | Go |
+| – | Still TypeScript next to group 3: `POST /api/messages/:id/followups` (calls the AI model) and `GET /api/stats` (reports the AI, OAuth, OCR and email configuration from `server/env.ts`) | with group 4 |
 | – | Still TypeScript from the workspace area: `…/integrations` (Slack credentials are sealed with the TypeScript key ring), `…/shares` (opens sealed share tokens), `…/models` and `…/reembed` (AI configuration and a background job) | later, with the parts they depend on |
-| 4 | Chat and retrieval (`POST /api/chat`), studio, connectors, background jobs | planned |
+| 4 | Chat and retrieval (`POST /api/chat`), follow-ups, stats, studio, connectors, background jobs | next |
 
 Everything not listed as Go is still served by Next.js.
 
