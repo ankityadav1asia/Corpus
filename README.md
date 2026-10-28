@@ -186,7 +186,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 | Layer | Technology |
 |---|---|
 | Frontend | Next.js 15 (App Router), React 19, TypeScript, Tailwind CSS, SWR, react-markdown, pdf.js |
-| Backend | Next.js route handlers, zod validation, NDJSON streaming |
+| Backend | Go (net/http, pgx) on Vercel Go Functions for the routes moved so far ([backend/README.md](backend/README.md)); Next.js route handlers, zod validation and NDJSON streaming for the rest |
 | Database | PostgreSQL with pgvector (Neon in production); PGlite for tests and local development |
 | AI models | Google Gemini (chat, embeddings, vision, transcription, speech, images), Gemma, OpenAI-compatible servers (Ollama, vLLM, LM Studio, Groq and others), Cohere Rerank |
 | Media | Tesseract.js, pdf-parse, cheerio, youtube-transcript, lamejs (MP3) |
@@ -295,13 +295,13 @@ get 404, and missing roles get 403.
 | Route | Methods | Purpose |
 |---|---|---|
 | `/api/auth`, `/api/auth/otp/*`, `/api/auth/oauth/*` | GET, POST, DELETE | Session, email code, Google / GitHub sign-in; `DELETE /api/auth?scope=all` signs out of every device |
-| `/api/workspaces`, `/api/workspaces/:id` | GET, POST, PATCH, DELETE | List/create workspaces; rename, retrieval & guardrail settings, delete |
+| `/api/workspaces`, `/api/workspaces/:id` | GET, POST, PATCH, DELETE | List/create workspaces (Go); rename, retrieval & guardrail settings, delete |
 | `/api/workspaces/:id/members`, `…/members/:userId`, `…/invites` | GET, POST, PATCH, DELETE | Members, invitations, roles, leave |
 | `/api/workspaces/:id/audit` | GET | Workspace activity log (admins) |
 | `/api/workspaces/:id/shares` | GET | Every active public link in the workspace (admins) |
 | `/api/workspaces/:id/models`, `…/reembed` | GET, POST | Which model does what; re-embed the workspace with the active embedding model (admins) |
 | `/api/chat` | POST | Ask a question; streams NDJSON (`start`, `status`, `sources`, `delta`, `done`, `error`) |
-| `/api/collections`, `/api/collections/:id`, `/api/collections/:id/roles` | GET, POST, PATCH, PUT, DELETE | Notebooks and per-notebook role overrides |
+| `/api/collections`, `/api/collections/:id`, `/api/collections/:id/roles` | GET, POST, PATCH, PUT, DELETE | Notebooks (list/create in Go) and per-notebook role overrides |
 | `/api/corpus`, `/api/corpus/documents/:id`, `…/chunks`, `…/retry` | GET, POST, DELETE | Documents (with indexing progress); append a chunk; retry a failed source |
 | `/api/corpus/chunks`, `/api/corpus/chunks/:id` | GET, PATCH, DELETE | Chunk editor (filters: notebook, document, label, text) |
 | `/api/learn`, `/api/learn/upload`, `/api/learn/url`, `/api/learn/youtube` | POST | Add text, files (documents, images, audio, video, scans), a web page, a YouTube transcript |
@@ -326,7 +326,7 @@ get 404, and missing roles get 403.
 | `/api/evaluations`, `/api/evaluations/cases`, `/api/evaluations/runs` | GET, POST, DELETE | Quality summary, benchmark questions, benchmark runs (202) |
 | `/api/stats`, `/api/analytics` | GET | Schema/feature status and totals; usage and latency (`?scope=workspace` for admins) |
 | `/api/jobs/run` | GET, POST | Process queued jobs (Bearer `CRON_SECRET`; 404 when unset) |
-| `/api/health` | GET | Public liveness check |
+| `/api/health` | GET | Public liveness check (Go) |
 
 </details>
 

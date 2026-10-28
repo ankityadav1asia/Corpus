@@ -26,6 +26,8 @@ Tesseract.
 app/                        Next.js routes (thin: validate → authorise → call a service)
   page.tsx                  server component: checks the session, renders <Workspace/>
   api/**/route.ts           route handlers, all wrapped by server/http/route.ts
+api/go.go                   Vercel Go Function for the API paths moved to Go (GO_API_PATHS in next.config.mjs)
+backend/                    Go API: handlers, session and role checks, SQL (pgx) — backend/README.md
 middleware.ts               edge: public allowlist, session signature check, per-request CSP nonce
 instrumentation.ts          refuses to start a production server with missing or unsafe configuration
 server/                     server-only code (never bundled for the browser)
@@ -61,7 +63,7 @@ scripts/                    init-db (migrate), worker, reseal-secrets, import-le
                             vercel-build (migrations on production builds, then next build)
 tests/                      node:test suites (unit, PGlite integration, HTTP route tests)
 vercel.json                 Vercel: region cle1 (next to Neon), Fluid compute, build command, daily cron — docs/DEPLOYMENT.md
-.github/                    CI (typecheck, lint, tests, build, audit) and Dependabot
+.github/                    CI (typecheck, lint, tests, build, audit; Go: gofmt, vet, tests against PostgreSQL) and Dependabot
 ```
 
 ## Layers

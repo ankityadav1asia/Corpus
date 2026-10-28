@@ -7,7 +7,6 @@ import * as analyticsRoute from '@/app/api/analytics/route'
 import * as chatRoute from '@/app/api/chat/route'
 import * as collectionRolesRoute from '@/app/api/collections/[id]/roles/route'
 import * as collectionRoute from '@/app/api/collections/[id]/route'
-import * as collectionsRoute from '@/app/api/collections/route'
 import * as conversationRoute from '@/app/api/conversations/[id]/route'
 import * as chunkRoute from '@/app/api/corpus/chunks/[id]/route'
 import * as chunksRoute from '@/app/api/corpus/chunks/route'
@@ -16,7 +15,6 @@ import * as corpusRoute from '@/app/api/corpus/route'
 import * as evalCasesRoute from '@/app/api/evaluations/cases/route'
 import * as evaluationsRoute from '@/app/api/evaluations/route'
 import * as evalRunsRoute from '@/app/api/evaluations/runs/route'
-import * as healthRoute from '@/app/api/health/route'
 import * as jobsRunRoute from '@/app/api/jobs/run/route'
 import * as learnRoute from '@/app/api/learn/route'
 import * as learnUrlRoute from '@/app/api/learn/url/route'
@@ -26,8 +24,7 @@ import * as statsRoute from '@/app/api/stats/route'
 import * as memberRoute from '@/app/api/workspaces/[id]/members/[userId]/route'
 import * as membersRoute from '@/app/api/workspaces/[id]/members/route'
 import * as workspaceRoute from '@/app/api/workspaces/[id]/route'
-import * as workspacesRoute from '@/app/api/workspaces/route'
-import type { ChunkPage, Collection, ReportDetail, WorkspaceDetail, WorkspaceSummary } from '@/lib/contracts'
+import type { ChunkPage, ReportDetail, WorkspaceDetail, WorkspaceSummary } from '@/lib/contracts'
 import type { ChatStreamEvent } from '@/lib/stream-protocol'
 import { middleware } from '@/middleware'
 import { AiProviderError, DAILY_QUOTA_MESSAGE } from '@/server/ai/provider'
@@ -154,9 +151,9 @@ describe('authentication', () => {
   it('rejects anonymous and forged sessions on every protected route handler', async () => {
     const forged = await createSessionToken({ id: 'session-x', user: { id: 'x', email: 'x@x.x', name: null } }, 'a-key-the-server-does-not-know-0123456789')
     for (const cookie of [undefined, forged, 'garbage']) {
-      assert.equal((await call(collectionsRoute.GET, '/api/collections', { cookie, workspace: alice.workspaceId })).status, 401)
+      assert.equal((await call(chunksRoute.GET, '/api/corpus/chunks', { cookie, workspace: alice.workspaceId })).status, 401)
       assert.equal((await call(corpusRoute.DELETE, `/api/corpus?collectionId=${alice.notebookId}`, { method: 'DELETE', cookie, workspace: alice.workspaceId })).status, 401)
-      assert.equal((await call(workspacesRoute.GET, '/api/workspaces', { cookie })).status, 401)
+      assert.equal((await call(statsRoute.GET, '/api/stats', { cookie })).status, 401)
     }
   })
 
@@ -177,22 +174,25 @@ describe('authentication', () => {
 })
 
 describe('request hardening', () => {
+  // The Go API (backend/) has the same checks for the routes it serves (backend/api).
   it('blocks cross-site writes (CSRF) but allows same-origin ones', async () => {
-    const evil = await call(collectionsRoute.POST, '/api/collections', { method: 'POST', as: alice, origin: 'https://evil.example', body: { name: 'x' } })
+    const rename = { method: 'PATCH', as: alice, params: { id: alice.notebookId } }
+    const evil = await call(collectionRoute.PATCH, `/api/collections/${alice.notebookId}`, { ...rename, origin: 'https://evil.example', body: { name: 'x' } })
     assert.equal(evil.status, 403)
-    const ok = await call(collectionsRoute.POST, '/api/collections', { method: 'POST', as: alice, body: { name: 'Work' } })
-    assert.equal(ok.status, 201)
-    assert.equal((await data<{ collection: Collection }>(ok)).collection.myRole, 'admin')
+    const ok = await call(collectionRoute.PATCH, `/api/collections/${alice.notebookId}`, { ...rename, body: { name: 'Work' } })
+    assert.equal(ok.status, 200)
+    await call(collectionRoute.PATCH, `/api/collections/${alice.notebookId}`, { ...rename, body: { name: 'General' } })
   })
 
   it('validates content type, JSON syntax, schema and body size', async () => {
-    const base = { method: 'POST', as: alice }
-    assert.equal((await call(collectionsRoute.POST, '/api/collections', { ...base, body: 'name=x', contentType: 'text/plain' })).status, 415)
-    assert.equal((await call(collectionsRoute.POST, '/api/collections', { ...base, body: '{"name":' })).status, 400)
-    const invalid = await call(collectionsRoute.POST, '/api/collections', { ...base, body: { name: '' } })
+    const path = `/api/collections/${alice.notebookId}`
+    const base = { method: 'PATCH', as: alice, params: { id: alice.notebookId } }
+    assert.equal((await call(collectionRoute.PATCH, path, { ...base, body: 'name=x', contentType: 'text/plain' })).status, 415)
+    assert.equal((await call(collectionRoute.PATCH, path, { ...base, body: '{"name":' })).status, 400)
+    const invalid = await call(collectionRoute.PATCH, path, { ...base, body: { name: '' } })
     assert.equal(invalid.status, 400)
     assert.equal((await data<{ error: { code: string } }>(invalid)).error.code, 'VALIDATION_FAILED')
-    assert.equal((await call(collectionsRoute.POST, '/api/collections', { ...base, body: { name: 'x'.repeat(70_000) } })).status, 413)
+    assert.equal((await call(collectionRoute.PATCH, path, { ...base, body: { name: 'x'.repeat(70_000) } })).status, 413)
   })
 
   it('never returns internal error details to the client', async () => {
@@ -200,8 +200,8 @@ describe('request hardening', () => {
       ...services,
       repos: {
         ...services.repos,
-        collections: {
-          ...services.repos.collections,
+        documents: {
+          ...services.repos.documents,
           list: async () => {
             throw new Error('connection string postgres://admin:hunter2@db')
           },
@@ -210,7 +210,7 @@ describe('request hardening', () => {
     }
     setServicesForTests(broken)
     try {
-      const res = await call(collectionsRoute.GET, '/api/collections', { as: alice })
+      const res = await call(corpusRoute.GET, '/api/corpus', { as: alice })
       assert.equal(res.status, 500)
       const text = await res.text()
       assert.ok(!text.includes('hunter2') && !text.includes('postgres://'))
@@ -234,7 +234,7 @@ describe('request hardening', () => {
     const empty = await createTestDb({ migrate: false })
     setServicesForTests({ ...services, db: empty.db, repos: createRepositories(empty.db) })
     try {
-      const res = await call(collectionsRoute.GET, '/api/collections', { as: alice })
+      const res = await call(corpusRoute.GET, '/api/corpus', { as: alice })
       assert.equal(res.status, 503)
       assert.equal((await data<{ error: { code: string } }>(res)).error.code, 'SCHEMA_MISSING')
       const stats = await data<{ schema: { ready: boolean; version: number } }>(call(statsRoute.GET, '/api/stats', { as: alice }))
@@ -248,20 +248,19 @@ describe('request hardening', () => {
 
 describe('workspace authorization middleware', () => {
   it('requires a valid workspace header and hides workspaces from non-members (404, not 403)', async () => {
-    assert.equal((await call(collectionsRoute.GET, '/api/collections', { cookie: alice.cookie })).status, 400)
-    assert.equal((await call(collectionsRoute.GET, '/api/collections', { cookie: alice.cookie, workspace: 'not-a-uuid' })).status, 400)
-    const foreign = await call(collectionsRoute.GET, '/api/collections', { cookie: bob.cookie, workspace: alice.workspaceId })
+    assert.equal((await call(chunksRoute.GET, '/api/corpus/chunks', { cookie: alice.cookie })).status, 400)
+    assert.equal((await call(chunksRoute.GET, '/api/corpus/chunks', { cookie: alice.cookie, workspace: 'not-a-uuid' })).status, 400)
+    const foreign = await call(chunksRoute.GET, '/api/corpus/chunks', { cookie: bob.cookie, workspace: alice.workspaceId })
     assert.equal(foreign.status, 404)
-    assert.equal((await call(collectionsRoute.GET, '/api/collections', { cookie: bob.cookie, workspace: team.workspaceId })).status, 404)
+    assert.equal((await call(chunksRoute.GET, '/api/corpus/chunks', { cookie: bob.cookie, workspace: team.workspaceId })).status, 404)
   })
 
   it('applies the role matrix: viewers read, editors write content, admins manage', async () => {
     const asMember = (who: Actor) => ({ as: who, workspace: team.workspaceId })
-    // Viewer
-    assert.equal((await call(collectionsRoute.GET, '/api/collections', asMember(vera))).status, 200)
-    const viewerCollections = await data<{ collections: Collection[] }>(call(collectionsRoute.GET, '/api/collections', asMember(vera)))
-    assert.equal(viewerCollections.collections[0]?.myRole, 'viewer')
-    assert.equal((await call(collectionsRoute.POST, '/api/collections', { ...asMember(vera), method: 'POST', body: { name: 'Nope' } })).status, 403)
+    // Viewer (listing and creating notebooks is the Go API's: backend/api)
+    assert.equal((await call(chunksRoute.GET, '/api/corpus/chunks', asMember(vera))).status, 200)
+    const viewerRename = { ...asMember(vera), method: 'PATCH', params: { id: team.notebookId }, body: { name: 'Nope' } }
+    assert.equal((await call(collectionRoute.PATCH, `/api/collections/${team.notebookId}`, viewerRename)).status, 403)
     const viewerIngest = await call(learnRoute.POST, '/api/learn', { ...asMember(vera), method: 'POST', body: { collectionId: team.notebookId, text: 'viewer text' } })
     assert.equal(viewerIngest.status, 403)
     assert.equal(ai.calls.embedDocuments.length, 0, 'denied before any AI spend')
@@ -274,7 +273,6 @@ describe('workspace authorization middleware', () => {
     assert.equal(editorIngest.status, 202)
     assert.equal((await data<{ document: { status: string } }>(editorIngest)).document.status, 'processing')
     await indexQueued()
-    assert.equal((await call(collectionsRoute.POST, '/api/collections', { ...asMember(eddie), method: 'POST', body: { name: 'Specs' } })).status, 201)
     const editorDelete = await call(collectionRoute.DELETE, `/api/collections/${team.notebookId}`, { ...asMember(eddie), method: 'DELETE', params: { id: team.notebookId } })
     assert.equal(editorDelete.status, 403)
     const editorClear = await call(corpusRoute.DELETE, `/api/corpus?collectionId=${team.notebookId}`, { ...asMember(eddie), method: 'DELETE' })
@@ -440,21 +438,12 @@ describe('chat over HTTP', () => {
 describe('workspaces and members API', () => {
   let created: WorkspaceSummary
 
-  it('creates team workspaces with a default notebook and lists memberships', async () => {
-    const res = await call(workspacesRoute.POST, '/api/workspaces', { method: 'POST', as: bob, body: { name: 'Bob’s team' } })
-    assert.equal(res.status, 201)
-    created = (await data<{ workspace: WorkspaceSummary }>(res)).workspace
+  // Creating and listing workspaces is the Go API's (backend/api); this sets one up the same way.
+  it('starts from a team workspace with its creator as admin', async () => {
+    created = await repos.workspaces.create('Bob’s team', bob.id)
+    await repos.collections.ensureDefault(created.id, bob.id)
     assert.equal(created.role, 'admin')
-    const list = await data<{ workspaces: WorkspaceSummary[] }>(call(workspacesRoute.GET, '/api/workspaces', { as: bob }))
-    assert.deepEqual(
-      list.workspaces.map((w) => [w.isPersonal, w.role]),
-      [
-        [true, 'admin'],
-        [false, 'admin'],
-      ],
-    )
-    const collections = await data<{ collections: Collection[] }>(call(collectionsRoute.GET, '/api/collections', { as: bob, workspace: created.id }))
-    assert.equal(collections.collections.length, 1)
+    assert.equal((await repos.collections.list(created.id, bob.id)).length, 1)
   })
 
   it('adds existing users, invites unknown addresses, and only admins may do either', async () => {
@@ -492,7 +481,7 @@ describe('workspaces and members API', () => {
     assert.equal((await call(memberRoute.PATCH, memberPath(vera.id), { as: bob, method: 'PATCH', params: params(vera.id), body: { role: 'editor' } })).status, 200)
     assert.equal((await call(memberRoute.DELETE, memberPath(bob.id), { as: bob, method: 'DELETE', params: params(bob.id) })).status, 409)
     assert.equal((await call(memberRoute.DELETE, memberPath(vera.id), { as: vera, method: 'DELETE', params: params(vera.id) })).status, 200, 'members can leave')
-    assert.equal((await call(collectionsRoute.GET, '/api/collections', { as: vera, workspace: created.id })).status, 404)
+    assert.equal((await call(chunksRoute.GET, '/api/corpus/chunks', { as: vera, workspace: created.id })).status, 404)
   })
 
   it('admins change settings; others cannot; personal workspaces cannot be deleted', async () => {
@@ -598,13 +587,7 @@ describe('URL ingestion (SSRF)', () => {
   })
 })
 
-describe('health and stats', () => {
-  it('health is public and reveals nothing but status', async () => {
-    const res = await call(healthRoute.GET, '/api/health')
-    assert.equal(res.status, 200)
-    assert.deepEqual(await res.json(), { ok: true, database: 'up' })
-  })
-
+describe('stats', () => {
   it('stats report totals only for workspaces the caller belongs to', async () => {
     const mine = await data<{ totals: { documents: number } }>(call(statsRoute.GET, '/api/stats', { as: alice, workspace: team.workspaceId }))
     assert.ok(mine.totals.documents >= 1)

@@ -33,3 +33,36 @@ jobs:
       - run: npm run build
       - name: Audit production dependencies
         run: npm audit --omit=dev --audit-level=high
+
+  go:
+    name: Go API (format, vet, tests against PostgreSQL)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache-dependency-path: go.sum
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --no-audit --no-fund
+      - name: Session-cookie fixtures are up to date with the TypeScript code
+        run: npm run go:fixtures && git diff --exit-code -- backend/auth/testdata
+      - name: gofmt
+        run: test -z "$(gofmt -l backend api)"
+      - run: go vet ./backend/... ./api/...
+      # A migrated PostgreSQL (PGlite + pgvector) on a local port for the database tests.
+      - name: Start the test database
+        run: |
+          npm run db:pglite-server > pglite.log 2>&1 &
+          for i in $(seq 1 60); do grep -q READY pglite.log && break; sleep 1; done
+          grep READY pglite.log
+      - name: go test
+        env:
+          CORPUS_TEST_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:54329/postgres?sslmode=disable
+        run: go test -count=1 ./backend/...
+      - name: Build the Vercel Function and the dev server
+        run: go build ./api/... ./backend/cmd/...

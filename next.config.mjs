@@ -12,6 +12,14 @@ const securityHeaders = [
   { key: 'Cross-Origin-Resource-Policy', value: 'same-origin' },
 ]
 
+/**
+ * API paths served by the Go backend (backend/) instead of Next.js route handlers. On Vercel they are
+ * rewritten to the Go Function api/go.go, which routes on the original path. In development they go
+ * to the Go dev server (npm run go:dev) at GO_API_URL, http://localhost:8080 by default.
+ * tests/go-backend.test.ts checks that no Next.js route is left for them.
+ */
+export const GO_API_PATHS = ['/api/health', '/api/workspaces', '/api/collections']
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   // A second local instance (a demo on another port, screenshots) can build into its own folder.
@@ -53,6 +61,10 @@ const nextConfig = {
   },
   async headers() {
     return [{ source: '/:path*', headers: securityHeaders }]
+  },
+  async rewrites() {
+    const goApi = process.env.NODE_ENV === 'development' ? (process.env.GO_API_URL || 'http://localhost:8080').replace(/\/+$/, '') : null
+    return GO_API_PATHS.map((source) => ({ source, destination: goApi ? `${goApi}${source}` : '/api/go' }))
   },
 }
 
