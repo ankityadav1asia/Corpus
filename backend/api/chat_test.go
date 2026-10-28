@@ -181,6 +181,18 @@ func types(list []map[string]any) []string {
 	return out
 }
 
+// eventOf returns the first event of a type; status events come in a variable number.
+func eventOf(t *testing.T, list []map[string]any, kind string) map[string]any {
+	t.Helper()
+	for _, event := range list {
+		if event["type"] == kind {
+			return event
+		}
+	}
+	t.Fatalf("no %s event in %v", kind, list)
+	return nil
+}
+
 func notebookOf(e *env, who actor) string {
 	id, err := e.db.QueryString(context.Background(), `SELECT id::text FROM app.collections WHERE workspace_id = $1 LIMIT 1`, who.workspaceID)
 	if err != nil {
@@ -205,7 +217,7 @@ func TestChatStreamsAnAnswerWithSourcesAndScoresIt(t *testing.T) {
 	if got := strings.Join(types(list), ","); got != "start,status,sources,delta,done" {
 		t.Fatalf("event types = %s\n%s", got, w.Body.String())
 	}
-	start, sources, done := list[0], list[2], list[len(list)-1]
+	start, sources, done := list[0], eventOf(t, list, "sources"), list[len(list)-1]
 	if start["createdConversation"] != true || start["conversationTitle"] != "What is the codename?" {
 		t.Fatalf("start = %v", start)
 	}
@@ -355,7 +367,7 @@ func TestDeepModeExpandsTheQuestionAndStandardModeSkipsThinking(t *testing.T) {
 		t.Fatalf("deep mode: %v, fast %v, planned %d", list[1], fake.lastFast.Load(), fake.planned.Load())
 	}
 	labels := []string{}
-	for _, step := range list[2]["steps"].([]any) {
+	for _, step := range eventOf(t, list, "sources")["steps"].([]any) {
 		labels = append(labels, step.(map[string]any)["label"].(string))
 	}
 	if strings.Join(labels, ",") != "Query expansion,Step-back question,Hypothetical answer (HyDE),Retrieved,Re-ranked,Relevance check" {
@@ -373,10 +385,7 @@ func TestChatFallsBackToSimilarityWhenTheRerankerFails(t *testing.T) {
 	w, _ := e.do(&alice, call{method: "POST", path: "/api/chat", body: `{"message":"What is the codename of the project?"}`})
 	e.expect(w, 200)
 	list := events(t, w.Body.String())
-	sources := list[3]
-	if sources["type"] != "sources" {
-		sources = list[2]
-	}
+	sources := eventOf(t, list, "sources")
 	steps := sources["steps"].([]any)
 	if detail := steps[1].(map[string]any)["detail"].(string); !strings.Contains(detail, "unavailable") {
 		t.Fatalf("re-rank step = %v", steps)
