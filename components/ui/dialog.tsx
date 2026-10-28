@@ -57,7 +57,7 @@ export function Dialog({ open, onClose, title, description, size = 'md', bare, c
   if (!mounted || !open) return null
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-start justify-center overflow-y-auto p-4 pt-[8vh] sm:p-6 sm:pt-[10vh]">
-      <div aria-hidden onClick={onClose} className="fixed inset-0 animate-fade-in bg-background/70 backdrop-blur-md" />
+      <div aria-hidden onClick={onClose} className="fixed inset-0 animate-fade-in bg-scrim/60" />
       <div
         ref={panelRef}
         role="dialog"
@@ -69,7 +69,7 @@ export function Dialog({ open, onClose, title, description, size = 'md', bare, c
         {!bare && (title || description) && (
           <header className="flex items-start justify-between gap-4 border-b border-border/60 px-5 py-4">
             <div className="min-w-0">
-              {title && <h2 className="font-display text-base font-semibold tracking-tight">{title}</h2>}
+              {title && <h2 className="font-display text-base font-medium tracking-tight">{title}</h2>}
               {description && <div className="mt-0.5 text-xs text-muted-foreground">{description}</div>}
             </div>
             <button

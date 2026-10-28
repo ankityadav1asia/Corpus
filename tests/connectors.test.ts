@@ -371,8 +371,7 @@ describe('sync engine', () => {
   }
 
   const deps = (connector: Connector) => ({ repos, connectors: registryOf({ notion: connector }), secret: SECRET })
-  const index = () =>
-    runJobs({ repos, ai: () => createFakeAi(), reranker: () => createLlmReranker(createFakeAi()), images: () => null }, { maxJobs: 50, types: ['ingest_document', 'read_media'] })
+  const index = () => runJobs({ repos, ai: () => createFakeAi(), reranker: () => createLlmReranker(createFakeAi()) }, { maxJobs: 50, types: ['ingest_document', 'read_media'] })
   const documentsOf = async (sourceId: string) =>
     t.db.query<{ external_id: string; external_version: string; status: string; source_type: string }>(
       `SELECT external_id, external_version, status, source_type FROM app.documents WHERE connector_source_id = $1 ORDER BY external_id, created_at`,
@@ -517,7 +516,7 @@ describe('sync engine', () => {
     const { source } = await newSource('Outage')
     await repos.jobs.enqueue('sync_connector', { sourceId: source.id }, { maxAttempts: JOB_ATTEMPTS.sync_connector })
     await runJobs(
-      { repos, ai: () => createFakeAi(), reranker: () => null, images: () => null, connectors: () => registryOf({ notion: app.connector }), secret: () => SECRET },
+      { repos, ai: () => createFakeAi(), reranker: () => null, connectors: () => registryOf({ notion: app.connector }), secret: () => SECRET },
       { types: ['sync_connector'] },
     )
     const [job] = await t.db.query<{ status: string }>(`SELECT status FROM app.jobs WHERE type = 'sync_connector'`)

@@ -9,7 +9,7 @@ import { runJobs } from '@/server/jobs/runner'
 import { createRepositories, type Repositories } from '@/server/repositories'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { createFakeAi, createFakeImages } from './helpers/fake-ai'
+import { createFakeAi } from './helpers/fake-ai'
 import { addDocument, createUser, type TestUser } from './helpers/fixtures'
 
 let recorded: UsageEntry[] = []
@@ -123,7 +123,7 @@ describe('usage of background jobs', () => {
         return fake.complete(input)
       },
     }
-    assert.deepEqual(await runJobs({ repos, ai: () => ai, reranker: () => null, images: () => createFakeImages() }, { types: ['generate_report'] }), { processed: 1, failed: 0 })
+    assert.deepEqual(await runJobs({ repos, ai: () => ai, reranker: () => null }, { types: ['generate_report'] }), { processed: 1, failed: 0 })
 
     const rows = await t.db.query(`SELECT workspace_id, user_id, feature, count(*)::int AS calls FROM app.ai_usage GROUP BY 1, 2, 3`)
     assert.deepEqual(

@@ -8,7 +8,6 @@ const JOB_OWNER_SQL: Record<string, { key: string; sql: string }> = {
   generate_report: { key: 'reportId', sql: `SELECT workspace_id, created_by FROM app.reports WHERE id = $1` },
   generate_mindmap: { key: 'mindMapId', sql: `SELECT workspace_id, created_by FROM app.mind_maps WHERE id = $1` },
   generate_audio: { key: 'audioId', sql: `SELECT workspace_id, created_by FROM app.audio_overviews WHERE id = $1` },
-  generate_image: { key: 'imageId', sql: `SELECT workspace_id, created_by FROM app.images WHERE id = $1` },
   run_benchmark: { key: 'runId', sql: `SELECT workspace_id, created_by FROM app.eval_runs WHERE id = $1` },
   sync_connector: { key: 'sourceId', sql: `SELECT workspace_id, created_by FROM app.connector_sources WHERE id = $1` },
   answer_bot_message: { key: 'integrationId', sql: `SELECT workspace_id, NULL AS created_by FROM app.integrations WHERE id = $1` },

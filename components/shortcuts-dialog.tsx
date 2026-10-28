@@ -10,7 +10,7 @@ export function ShortcutsDialog({ open, onClose }: { open: boolean; onClose: () 
     ['Command palette', [mod, 'K']],
     ['Focus the question box', [mod, '/']],
     ['Show or hide the chat history', [mod, 'B']],
-    ['Go to Chat · Reports · Audio · Mind maps · Images · Chunks · Analytics', ['Alt', '1 – 7']],
+    ['Go to Chat, Reports, Audio, Mind maps, Chunks, Analytics', ['Alt', '1 to 6']],
     ['Send the question', ['Enter']],
     ['New line in the question', ['Shift', 'Enter']],
     ['Close a panel or dialog', ['Esc']],

@@ -24,7 +24,6 @@ const envSchema = z.object({
   GEMINI_FAST_MODEL: optionalString,
   OPENAI_COMPATIBLE_FAST_MODEL: optionalString,
   GEMINI_EMBEDDING_MODEL: optionalString,
-  GEMINI_IMAGE_MODEL: optionalString,
   GOOGLE_CLIENT_ID: optionalString,
   GOOGLE_CLIENT_SECRET: optionalString,
   GITHUB_CLIENT_ID: optionalString,
@@ -89,7 +88,6 @@ type RawEnv = z.infer<typeof envSchema>
 
 const DEFAULT_CHAT_MODEL = 'gemini-3.6-flash'
 const DEFAULT_EMBEDDING_MODEL = 'gemini-embedding-001'
-const DEFAULT_IMAGE_MODEL = 'gemini-3.1-flash-image'
 const DEFAULT_TTS_MODEL = 'gemini-2.5-flash-preview-tts'
 const MIN_SECRET_LENGTH = 32
 
@@ -303,15 +301,6 @@ export function getOcrConfig(): OcrConfig {
   return { engine: 'tesseract', languages }
 }
 
-/** Image generation needs the Gemini key; GEMINI_IMAGE_MODEL=none turns it off. */
-export function getImageConfig(): { apiKey: string; model: string } | null {
-  const apiKey = geminiApiKey()
-  if (!apiKey || !isAiConfigured()) return null
-  const model = raw().GEMINI_IMAGE_MODEL ?? DEFAULT_IMAGE_MODEL
-  if (model.toLowerCase() === 'none') return null
-  return { apiKey, model }
-}
-
 /** Chat and embeddings both resolve (the minimum for search and answers). */
 export function isAiConfigured() {
   try {
@@ -500,7 +489,6 @@ export function getFeatureFlags() {
     google: getOAuthClient('google') !== null,
     github: getOAuthClient('github') !== null,
     reranker,
-    images: getImageConfig() !== null,
     ocr: ocr ? ocr.engine : null,
     vision: getVisionBackend() !== null,
     transcription: getTranscriptionBackend() !== null,
@@ -524,7 +512,6 @@ function safely<T>(read: () => T): T | null {
 /** Which model does what (provider + model names only; never keys or URLs). */
 export function getModelSummary() {
   const ocr = getOcrConfig()
-  const image = getImageConfig()
   return {
     chat: describeBackend(safely(getChatBackend)),
     fast: (() => {
@@ -536,6 +523,5 @@ export function getModelSummary() {
     transcription: describeBackend(getTranscriptionBackend()),
     speech: describeBackend(getSpeechBackend()),
     ocr: ocr ? { provider: ocr.engine, model: ocr.engine === 'tesseract' ? `tesseract (${ocr.languages})` : 'vision model' } : null,
-    image: image ? { provider: 'gemini', model: image.model } : null,
   }
 }

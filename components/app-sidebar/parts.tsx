@@ -70,12 +70,12 @@ export function RailButton({ icon: Icon, label, active, onClick }: { icon: Lucid
       aria-current={active ? 'page' : undefined}
       title={label}
       className={cn(
-        'relative flex w-full shrink-0 flex-col items-center gap-1 rounded-xl px-1 py-1.5 text-[10px] font-medium leading-none transition-colors',
-        active ? 'bg-primary/10 text-foreground' : 'text-muted-foreground hover:bg-secondary/70 hover:text-foreground',
+        'relative flex w-full shrink-0 flex-col items-center gap-1 rounded-md px-1 py-1.5 text-[11px] font-medium leading-none transition-colors duration-micro',
+        active ? 'bg-paper-2 text-foreground' : 'text-muted-foreground hover:bg-paper-2/60 hover:text-foreground',
       )}
     >
-      {active && <span aria-hidden className="absolute inset-y-2 -left-1.5 w-1 rounded-full bg-brand-gradient" />}
-      <Icon className={cn('size-[18px]', active && 'text-primary')} />
+      {active && <span aria-hidden className="absolute inset-y-2 -left-1.5 w-0.5 rounded-sm bg-signal" />}
+      <Icon className={cn('size-[18px]', active && 'text-signal')} />
       <span className="max-w-full truncate">{label}</span>
     </button>
   )
@@ -98,5 +98,5 @@ export function RailIconButton({ icon: Icon, label, onClick }: { icon: LucideIco
 }
 
 export function HistoryHeading({ children }: { children: ReactNode }) {
-  return <p className="sticky top-0 z-10 bg-card px-2.5 pb-1 pt-3 text-[11px] font-semibold text-muted-foreground">{children}</p>
+  return <p className="sticky top-0 z-10 bg-card px-2.5 pb-1 pt-3 text-[11px] font-medium text-muted-foreground">{children}</p>
 }

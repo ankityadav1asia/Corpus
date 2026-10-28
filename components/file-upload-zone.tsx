@@ -47,7 +47,7 @@ export function FileUploadZone({ disabled, onFiles, onReject }: FileUploadZonePr
   return (
     <div
       className={cn(
-        'group relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-6 text-center transition-all',
+        'group relative flex flex-col items-center justify-center overflow-hidden rounded-2xl border border-dashed p-6 text-center transition-colors',
         dragging ? 'scale-[1.01] border-primary bg-primary/10' : 'border-border/80 hover:border-primary/50 hover:bg-accent/40',
         disabled && 'pointer-events-none opacity-50',
       )}
@@ -66,17 +66,22 @@ export function FileUploadZone({ disabled, onFiles, onReject }: FileUploadZonePr
       }}
     >
       <input ref={inputRef} type="file" multiple accept={ACCEPTED_FILE_TYPES} className="sr-only" tabIndex={-1} onChange={(event) => add(event.target.files)} />
-      <div className={cn('mb-2 flex size-11 items-center justify-center rounded-xl bg-brand-soft transition-transform', dragging ? 'scale-110' : 'group-hover:-translate-y-0.5')}>
-        <UploadCloud className="size-5 text-primary" />
+      <div
+        className={cn(
+          'mb-2 flex size-10 items-center justify-center rounded-md border transition-colors duration-micro',
+          dragging ? 'border-signal bg-signal-soft' : 'border-rule-2 bg-paper-3',
+        )}
+      >
+        <UploadCloud className="size-5 text-ink-2" />
       </div>
       <p className="text-xs">
         Drop files here or{' '}
-        <button type="button" onClick={() => inputRef.current?.click()} className="font-semibold text-primary underline-offset-2 hover:underline">
+        <button type="button" onClick={() => inputRef.current?.click()} className="font-medium text-primary underline-offset-2 hover:underline">
           browse
         </button>
       </p>
       <p className="mt-1 text-[11px] text-muted-foreground">
-        Documents (PDF incl. scans, TXT, MD, CSV, JSON, HTML), images, audio and video · up to {formatBytes(LIMITS.fileBytes)} per file
+        Documents (PDF incl. scans, TXT, MD, CSV, JSON, HTML), images, audio and video, up to {formatBytes(LIMITS.fileBytes)} per file
       </p>
     </div>
   )
@@ -103,7 +108,7 @@ export function UploadList({ items, onDismiss }: { items: UploadItem[]; onDismis
               {item.name}
             </span>
             <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-              {item.status === 'uploading' ? `${Math.round(item.progress * 100)}% · ` : ''}
+              {item.status === 'uploading' ? `${Math.round(item.progress * 100)}%, ` : ''}
               {formatBytes(item.size)}
             </span>
             {(item.status === 'queued' || item.status === 'error') && (
@@ -114,7 +119,7 @@ export function UploadList({ items, onDismiss }: { items: UploadItem[]; onDismis
           </div>
           {item.status === 'uploading' && <Progress value={item.progress} className="mt-2" label={`Uploading ${item.name}`} />}
           {item.status === 'waiting' && <p className="mt-1 text-[11px] text-muted-foreground">Waiting…</p>}
-          {item.status === 'queued' && <p className="mt-1 text-[11px] text-muted-foreground">Uploaded — indexing continues in the background.</p>}
+          {item.status === 'queued' && <p className="mt-1 text-[11px] text-muted-foreground">Uploaded. Indexing continues in the background.</p>}
           {item.status === 'error' && <p className="mt-1 text-[11px] text-destructive">{item.error}</p>}
         </li>
       ))}

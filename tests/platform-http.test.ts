@@ -7,12 +7,8 @@ import * as documentRetryRoute from '@/app/api/corpus/documents/[id]/retry/route
 import * as documentRoute from '@/app/api/corpus/documents/[id]/route'
 import * as corpusRoute from '@/app/api/corpus/route'
 import * as evaluationsRoute from '@/app/api/evaluations/route'
-import * as imageFileRoute from '@/app/api/images/[id]/file/route'
-import * as imageRoute from '@/app/api/images/[id]/route'
-import * as imagesRoute from '@/app/api/images/route'
 import * as uploadRoute from '@/app/api/learn/upload/route'
-import * as statsRoute from '@/app/api/stats/route'
-import type { AuditEvent, DocumentDetail, DocumentSummary, ImageDetail, ImageSummary, QualitySummary, StatsResponse, UploadResult } from '@/lib/contracts'
+import type { AuditEvent, DocumentDetail, DocumentSummary, QualitySummary, UploadResult } from '@/lib/contracts'
 import { SESSION_COOKIE } from '@/server/auth/session'
 import { resetEnvCache } from '@/server/env'
 import { runJobs } from '@/server/jobs/runner'
@@ -23,7 +19,7 @@ import { createRepositories, type Repositories } from '@/server/repositories'
 import { setServicesForTests, type Services } from '@/server/services'
 
 import { createTestDb, type TestDb } from './helpers/db'
-import { TINY_PNG, createFakeAi, createFakeImages, type FakeAi, type FakeImages } from './helpers/fake-ai'
+import { createFakeAi, type FakeAi } from './helpers/fake-ai'
 import { createTeam, createUser, type TestUser } from './helpers/fixtures'
 import { sessionToken } from './helpers/session'
 
@@ -32,7 +28,6 @@ const ORIGIN = 'http://localhost:3000'
 let t: TestDb
 let repos: Repositories
 let ai: FakeAi
-let images: FakeImages
 let services: Services
 
 interface Actor extends TestUser {
@@ -70,7 +65,7 @@ async function data<T>(res: Response | Promise<Response>): Promise<T> {
   return (await (await res).json()) as T
 }
 
-const jobs = () => runJobs({ repos, ai: () => ai, reranker: () => createLlmReranker(ai), images: () => images }, { maxJobs: 20 })
+const jobs = () => runJobs({ repos, ai: () => ai, reranker: () => createLlmReranker(ai) }, { maxJobs: 20 })
 
 async function actor(email: string): Promise<Actor> {
   const user = await createUser(repos, email)
@@ -85,13 +80,11 @@ before(async () => {
   t = await createTestDb()
   repos = createRepositories(t.db)
   ai = createFakeAi()
-  images = createFakeImages()
   services = {
     db: t.db,
     repos,
     ai: () => ai,
     reranker: () => createLlmReranker(ai),
-    images: () => images,
     vision: () => null,
     transcriber: () => null,
     speech: () => null,
@@ -175,71 +168,6 @@ describe('file upload and background indexing', () => {
   })
 })
 
-describe('images API', () => {
-  let imageId: string
-
-  it('any member can queue an image grounded in the knowledge base (202)', async () => {
-    const res = await call(imagesRoute.POST, '/api/images', {
-      method: 'POST',
-      as: val,
-      body: { prompt: 'The observatory opens at dusk and closes at dawn', style: 'diagram', aspectRatio: '4:3', collectionId: team.notebookId },
-    })
-    assert.equal(res.status, 202)
-    const { image } = await data<{ image: ImageSummary }>(res)
-    assert.equal(image.status, 'queued')
-    assert.equal(image.style, 'diagram')
-    imageId = image.id
-
-    await jobs()
-    const { image: detail } = await data<{ image: ImageDetail }>(call(imageRoute.GET, `/api/images/${imageId}`, { as: ed, params: { id: imageId } }))
-    assert.equal(detail.status, 'completed')
-    assert.equal(detail.aspectRatio, '4:3')
-    assert.ok(detail.sources.some((source) => source.title === 'observatory.txt'))
-    assert.match(detail.finalPrompt!, /observatory opens at dusk/)
-    const { images: listed } = await data<{ images: ImageSummary[] }>(call(imagesRoute.GET, '/api/images', { as: ed }))
-    assert.equal(listed[0]?.id, imageId)
-  })
-
-  it('serves the bytes to members only (404 for everyone else), inline or as a download', async () => {
-    const res = await call(imageFileRoute.GET, `/api/images/${imageId}/file`, { as: val, workspace: null, params: { id: imageId } })
-    assert.equal(res.status, 200)
-    assert.equal(res.headers.get('content-type'), 'image/png')
-    assert.equal(res.headers.get('x-content-type-options'), 'nosniff')
-    assert.match(res.headers.get('content-disposition') ?? '', /^inline; filename="grounded-picture\.png"$/)
-    assert.deepEqual(Buffer.from(await res.arrayBuffer()), TINY_PNG)
-
-    const download = await call(imageFileRoute.GET, `/api/images/${imageId}/file?download=1`, { as: ed, workspace: null, params: { id: imageId } })
-    assert.match(download.headers.get('content-disposition') ?? '', /^attachment;/)
-    assert.equal((await call(imageFileRoute.GET, `/api/images/${imageId}/file`, { as: out, workspace: null, params: { id: imageId } })).status, 404)
-    assert.equal((await call(imageFileRoute.GET, `/api/images/${imageId}/file`, { workspace: null, params: { id: imageId } })).status, 401)
-  })
-
-  it('validates requests and reports when image generation is not configured', async () => {
-    const invalid = await call(imagesRoute.POST, '/api/images', { method: 'POST', as: val, body: { prompt: 'x', style: 'oil-painting' } })
-    assert.equal(invalid.status, 400)
-    const foreignDocuments = await call(imagesRoute.POST, '/api/images', {
-      method: 'POST',
-      as: val,
-      body: { prompt: 'Draw it', documentIds: ['00000000-0000-4000-8000-000000000000'] },
-    })
-    assert.equal(foreignDocuments.status, 400)
-    setServicesForTests({ ...services, images: () => null })
-    try {
-      assert.equal((await call(imagesRoute.POST, '/api/images', { method: 'POST', as: val, body: { prompt: 'Draw it' } })).status, 503)
-      const stats = await data<StatsResponse>(call(statsRoute.GET, '/api/stats', { as: val }))
-      assert.equal(typeof stats.features.images, 'boolean')
-    } finally {
-      setServicesForTests(services)
-    }
-  })
-
-  it('only the author or an admin can delete an image', async () => {
-    assert.equal((await call(imageRoute.DELETE, `/api/images/${imageId}`, { method: 'DELETE', as: ed, params: { id: imageId } })).status, 403)
-    assert.equal((await call(imageRoute.DELETE, `/api/images/${imageId}`, { method: 'DELETE', as: ada, params: { id: imageId } })).status, 200)
-    assert.equal((await call(imageRoute.GET, `/api/images/${imageId}`, { as: ada, params: { id: imageId } })).status, 404)
-  })
-})
-
 describe('feedback, notifications, audit and pins', () => {
   let answerId: string
   let questionId: string
@@ -269,7 +197,7 @@ describe('feedback, notifications, audit and pins', () => {
   it('records content changes in the audit log', async () => {
     const events: AuditEvent[] = await repos.audit.list(team.workspaceId, 100)
     const actions = events.map((event) => event.action)
-    for (const action of ['source.added', 'image.created', 'image.deleted']) assert.ok(actions.includes(action), action)
-    assert.equal(events.find((event) => event.action === 'image.deleted')?.actorEmail, 'ada@example.com')
+    assert.ok(actions.includes('source.added'))
+    assert.equal(events.find((event) => event.action === 'source.added')?.actorEmail, 'ed@example.com')
   })
 })

@@ -22,7 +22,6 @@ const FEATURE_LABELS: Record<string, string> = {
   generate_report: 'Reports',
   generate_mindmap: 'Mind maps',
   generate_audio: 'Audio overviews',
-  generate_image: 'Images',
   answer_bot_message: 'Slack answers',
   corpus: 'Chunk editor',
   learn: 'Adding sources',

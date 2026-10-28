@@ -55,7 +55,7 @@ export function NotificationsMenu({ activeWorkspaceId, onNavigate }: Notificatio
           {unread > 0 && (
             <span
               key={unread}
-              className="absolute -right-1 -top-1 flex h-4 min-w-4 animate-pop items-center justify-center rounded-full bg-brand-gradient px-1 text-[9px] font-bold text-white shadow"
+              className="measured absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-sm bg-signal px-1 text-[10px] font-medium text-signal-ink"
             >
               {unread > 9 ? '9+' : unread}
             </span>
@@ -66,7 +66,7 @@ export function NotificationsMenu({ activeWorkspaceId, onNavigate }: Notificatio
       {(close) => (
         <div>
           <div className="flex items-center justify-between px-2.5 py-2">
-            <p className="text-xs font-semibold">Notifications</p>
+            <p className="text-xs font-medium">Notifications</p>
             {unread > 0 && (
               <button type="button" onClick={() => void markRead({ all: true })} className="flex items-center gap-1 text-[11px] text-primary hover:underline">
                 <CheckCheck className="size-3.5" /> Mark all read
@@ -102,7 +102,7 @@ export function NotificationsMenu({ activeWorkspaceId, onNavigate }: Notificatio
                           {item.body && <span className="mt-0.5 line-clamp-2 block text-[11px] text-muted-foreground">{item.body}</span>}
                           <span className="mt-1 block text-[10px] text-muted-foreground">
                             {timeAgo(item.createdAt)}
-                            {item.workspaceName && item.workspaceId !== activeWorkspaceId ? ` · ${item.workspaceName}` : ''}
+                            {item.workspaceName && item.workspaceId !== activeWorkspaceId ? `, ${item.workspaceName}` : ''}
                           </span>
                         </span>
                       </button>

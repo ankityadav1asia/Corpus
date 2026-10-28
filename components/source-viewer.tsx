@@ -78,7 +78,7 @@ export function SourceViewer({ documentId, chunkId, onClose }: SourceViewerProps
           <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
             <span>
               {plural(document.chunkCount, 'passage')}
-              {document.byteSize ? ` · ${formatBytes(document.byteSize)}` : ''} · added {timeAgo(document.createdAt)}
+              {document.byteSize ? `, ${formatBytes(document.byteSize)}` : ''}, added {timeAgo(document.createdAt)}
             </span>
             {link && (
               <a href={link} target="_blank" rel="noopener noreferrer nofollow" className="inline-flex items-center gap-1 text-primary hover:underline">

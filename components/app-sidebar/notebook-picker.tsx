@@ -52,7 +52,7 @@ export function NotebookPicker({ collections, selected, onSelect, onCreate, onRe
           <option value="all">All notebooks</option>
           {collections.map((collection) => (
             <option key={collection.id} value={collection.id}>
-              {collection.name} · {plural(collection.documentCount, 'source')}
+              {collection.name}, {plural(collection.documentCount, 'source')}
             </option>
           ))}
         </Select>

@@ -85,7 +85,7 @@ export function ConnectorsPanel({ collectionId, canEdit, onChanged }: Connectors
                 <div className="flex items-start gap-2.5">
                   <ProviderIcon provider={provider} />
                   <div className="min-w-0">
-                    <p className="text-xs font-semibold">{info.label}</p>
+                    <p className="text-xs font-medium">{info.label}</p>
                     <p className="text-[10px] leading-snug text-muted-foreground">{availability?.available ? info.description : availability?.reason}</p>
                   </div>
                 </div>
@@ -95,7 +95,7 @@ export function ConnectorsPanel({ collectionId, canEdit, onChanged }: Connectors
                     <span className="min-w-0 flex-1 truncate text-[11px]" title={connection.error ?? connection.accountLabel}>
                       {connection.accountLabel}
                     </span>
-                    <button type="button" onClick={() => setPickerFor(connection)} className="rounded px-1.5 py-0.5 text-[10px] font-semibold text-primary hover:bg-primary/10">
+                    <button type="button" onClick={() => setPickerFor(connection)} className="rounded px-1.5 py-0.5 text-[10px] font-medium text-primary hover:bg-primary/10">
                       Add
                     </button>
                     <button
@@ -137,12 +137,12 @@ export function ConnectorsPanel({ collectionId, canEdit, onChanged }: Connectors
       )}
 
       <div>
-        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Synced into this notebook</p>
+        <p className="mb-2 text-[10px] font-medium text-muted-foreground">Synced into this notebook</p>
         {sources.length === 0 ? (
           <EmptyState
             icon={RefreshCw}
             title="Nothing synced yet"
-            description="Connect an app and add files, pages, repositories or a website — they stay up to date automatically."
+            description="Connect an app and add files, pages, repositories or a website. They stay up to date automatically."
             className="py-6"
           />
         ) : (

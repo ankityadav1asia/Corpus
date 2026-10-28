@@ -81,7 +81,7 @@ export interface WorkspaceHeaderProps {
 /** Top bar: navigation toggle, title, search, the chat's actions, notifications and sources. */
 export function WorkspaceHeader(props: WorkspaceHeaderProps) {
   return (
-    <header className="z-20 border-b border-border/60 bg-background/70 backdrop-blur-xl">
+    <header className="z-20 border-b border-border/60 bg-background/70">
       <div className="flex h-16 items-center justify-between gap-3 px-3 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <button type="button" aria-label="Open navigation" title={`Navigation (${props.modKey}+B)`} onClick={props.onOpenNavigation} className={`${HEADER_BUTTON} lg:hidden`}>
@@ -99,7 +99,7 @@ export function WorkspaceHeader(props: WorkspaceHeaderProps) {
             </button>
           )}
           <div className="min-w-0">
-            <h1 className="truncate font-display text-base font-bold tracking-tight sm:text-lg" title={props.title}>
+            <h1 className="truncate font-display text-base font-medium tracking-tight sm:text-lg" title={props.title}>
               {props.title}
             </h1>
             <p className="truncate text-[11px] text-muted-foreground">{props.subtitle}</p>
@@ -127,7 +127,7 @@ export function WorkspaceHeader(props: WorkspaceHeaderProps) {
             className="flex items-center gap-1.5 whitespace-nowrap rounded-xl border border-border/70 bg-card/60 px-3 py-2 text-xs font-medium text-muted-foreground transition-colors hover:border-primary/40 hover:text-foreground disabled:opacity-40"
           >
             <Database className="size-3.5" />
-            <span className="hidden sm:inline">Sources · </span>
+            <span className="hidden sm:inline">Sources, </span>
             {plural(props.passageCount, 'passage')}
           </button>
         </div>

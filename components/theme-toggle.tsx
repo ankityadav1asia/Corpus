@@ -26,8 +26,8 @@ export function ThemeToggle({ className }: { className?: string }) {
           title={label}
           onClick={() => setTheme(value)}
           className={cn(
-            'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium transition-all',
-            preference === value ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground',
+            'flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-1 text-[11px] font-medium transition-colors',
+            preference === value ? 'bg-card text-foreground' : 'text-muted-foreground hover:text-foreground',
           )}
         >
           <Icon className="size-3.5" />

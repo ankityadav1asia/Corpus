@@ -96,7 +96,7 @@ export function useConversationActions(deps: {
         json: { rating, comment: comment || undefined },
       })
       chat.setFeedback(messageId, feedback)
-      if (rating !== 0 && comment) toast({ description: 'Thanks — your feedback helps improve the answers.' })
+      if (rating !== 0 && comment) toast({ description: 'Thanks. Your feedback helps improve the answers.' })
     } catch (error) {
       fail(error)
     }

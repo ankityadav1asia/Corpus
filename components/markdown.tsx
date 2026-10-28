@@ -27,9 +27,9 @@ function CodeBlock({ language, children }: { language: string; children: ReactNo
   return (
     <div className="my-4 overflow-hidden rounded-xl border border-border/70 bg-secondary/30 font-mono text-[13px]">
       <div className="flex items-center justify-between border-b border-border/40 bg-muted/40 px-3.5 py-1.5 text-[11px] text-muted-foreground">
-        <span className="uppercase">{language || 'code'}</span>
+        <span>{language || 'code'}</span>
         <button type="button" onClick={copy} className="flex items-center gap-1 rounded px-1.5 py-0.5 transition-colors hover:bg-secondary hover:text-foreground">
-          {copied ? <Check className="size-3 text-emerald-400" /> : <Copy className="size-3" />}
+          {copied ? <Check className="size-3 text-ok" /> : <Copy className="size-3" />}
           {copied ? 'Copied' : 'Copy'}
         </button>
       </div>

@@ -23,14 +23,6 @@ const PROVIDERS: Record<IntegrationProvider, { label: string; steps: string[] }>
       'After connecting here, paste the endpoint below as the Event Subscriptions Request URL and subscribe to app_mention and message.im.',
     ],
   },
-  teams: {
-    label: 'Microsoft Teams',
-    steps: [
-      'Create an Azure Bot resource (single tenant is the default) and a client secret for its Microsoft App ID.',
-      'After connecting here, set the endpoint below as the bot’s Messaging endpoint and enable the Microsoft Teams channel.',
-      'Add the bot to Teams (Developer Portal app package), then @mention it in a channel or chat with it directly.',
-    ],
-  },
 }
 
 function CopyEndpoint({ value }: { value: string }) {
@@ -58,20 +50,20 @@ function CopyEndpoint({ value }: { value: string }) {
         }}
         className="flex size-7 shrink-0 items-center justify-center rounded-md border border-border/60 text-muted-foreground hover:text-foreground"
       >
-        {copied ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+        {copied ? <Check className="size-3.5 text-ok" /> : <Copy className="size-3.5" />}
       </button>
     </div>
   )
 }
 
-/** Slack and Microsoft Teams bots that answer questions from this workspace (admins). */
+/** Slack bots that answer questions from this workspace (admins). */
 export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
   const { toast } = useToast()
   const collections = useCollections()
   const list = useSWR(`/api/workspaces/${workspaceId}/integrations`, (path: string) => apiJson<{ integrations: IntegrationSummary[] }>(path, { workspaceId: null }))
   const [adding, setAdding] = useState<IntegrationProvider | null>(null)
   const [busy, setBusy] = useState(false)
-  const [form, setForm] = useState({ name: '', collectionId: '', botToken: '', signingSecret: '', appId: '', appPassword: '', tenantId: '' })
+  const [form, setForm] = useState({ name: '', collectionId: '', botToken: '', signingSecret: '' })
   const set = (key: keyof typeof form) => (event: { target: { value: string } }) => setForm((current) => ({ ...current, [key]: event.target.value }))
 
   async function submit(event: FormEvent) {
@@ -79,15 +71,12 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
     if (!adding) return
     setBusy(true)
     const common = { provider: adding, name: form.name.trim() || PROVIDERS[adding].label, collectionId: form.collectionId || null }
-    const body =
-      adding === 'slack'
-        ? { ...common, botToken: form.botToken.trim(), signingSecret: form.signingSecret.trim() }
-        : { ...common, appId: form.appId.trim(), appPassword: form.appPassword.trim(), tenantId: form.tenantId.trim() || null }
+    const body = { ...common, botToken: form.botToken.trim(), signingSecret: form.signingSecret.trim() }
     try {
       await apiJson<{ integration: IntegrationSummary }>(`/api/workspaces/${workspaceId}/integrations`, { method: 'POST', json: body, workspaceId: null })
       toast({ title: `${PROVIDERS[adding].label} connected`, description: 'Now paste the endpoint into the app settings (shown below).' })
       setAdding(null)
-      setForm({ name: '', collectionId: '', botToken: '', signingSecret: '', appId: '', appPassword: '', tenantId: '' })
+      setForm({ name: '', collectionId: '', botToken: '', signingSecret: '' })
       await list.mutate()
     } catch (error) {
       toast({ variant: 'destructive', description: errorMessage(error) })
@@ -117,13 +106,13 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
           <div key={integration.id} className="space-y-2 rounded-xl border border-border/60 bg-secondary/20 p-3">
             <div className="flex items-start justify-between gap-2">
               <div className="min-w-0">
-                <p className="text-xs font-semibold">
-                  {integration.name} <span className="font-normal text-muted-foreground">· {PROVIDERS[integration.provider].label}</span>
+                <p className="text-xs font-medium">
+                  {integration.name} <span className="font-normal text-muted-foreground">({PROVIDERS[integration.provider].label})</span>
                 </p>
                 <p className="truncate text-[11px] text-muted-foreground">
-                  {integration.account ?? 'Unknown account'} · answers from{' '}
+                  {integration.account ?? 'Unknown account'}, answers from{' '}
                   {integration.allNotebooks ? 'all notebooks' : (notebooks.find((notebook) => notebook.id === integration.collectionId)?.name ?? 'a deleted notebook')}
-                  {integration.lastUsedAt ? ` · last answered ${timeAgo(integration.lastUsedAt)}` : ' · not used yet'}
+                  {integration.lastUsedAt ? `, last answered ${timeAgo(integration.lastUsedAt)}` : ', not used yet'}
                 </p>
               </div>
               <button
@@ -141,9 +130,7 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
               </p>
             )}
             <div>
-              <p className="mb-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-                {integration.provider === 'slack' ? 'Request URL (Event Subscriptions)' : 'Messaging endpoint'}
-              </p>
+              <p className="mb-1 text-[10px] font-medium text-muted-foreground">Request URL (Event Subscriptions)</p>
               <CopyEndpoint value={integration.endpoint} />
             </div>
           </div>
@@ -152,7 +139,7 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
 
       {adding ? (
         <form onSubmit={submit} className="space-y-2.5 rounded-xl border border-primary/30 bg-primary/5 p-3">
-          <p className="text-xs font-semibold">Connect {PROVIDERS[adding].label}</p>
+          <p className="text-xs font-medium">Connect {PROVIDERS[adding].label}</p>
           <ol className="list-decimal space-y-1 pl-4 text-[11px] text-muted-foreground">
             {PROVIDERS[adding].steps.map((step) => (
               <li key={step}>{step}</li>
@@ -174,33 +161,14 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
                 ))}
               </Select>
             </div>
-            {adding === 'slack' ? (
-              <>
-                <div className="space-y-1">
-                  <Label htmlFor="slack-token">Bot token</Label>
-                  <Input id="slack-token" type="password" autoComplete="off" value={form.botToken} onChange={set('botToken')} placeholder="xoxb-…" required />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="slack-secret">Signing secret</Label>
-                  <Input id="slack-secret" type="password" autoComplete="off" value={form.signingSecret} onChange={set('signingSecret')} required />
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="space-y-1">
-                  <Label htmlFor="teams-app">Microsoft App ID</Label>
-                  <Input id="teams-app" value={form.appId} onChange={set('appId')} placeholder="00000000-0000-…" required />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="teams-secret">Client secret</Label>
-                  <Input id="teams-secret" type="password" autoComplete="off" value={form.appPassword} onChange={set('appPassword')} required />
-                </div>
-                <div className="space-y-1 sm:col-span-2">
-                  <Label htmlFor="teams-tenant">Tenant ID (single-tenant bots)</Label>
-                  <Input id="teams-tenant" value={form.tenantId} onChange={set('tenantId')} placeholder="Leave empty for a multi-tenant bot" />
-                </div>
-              </>
-            )}
+            <div className="space-y-1">
+              <Label htmlFor="slack-token">Bot token</Label>
+              <Input id="slack-token" type="password" autoComplete="off" value={form.botToken} onChange={set('botToken')} placeholder="xoxb-…" required />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="slack-secret">Signing secret</Label>
+              <Input id="slack-secret" type="password" autoComplete="off" value={form.signingSecret} onChange={set('signingSecret')} required />
+            </div>
           </div>
           <p className="text-[11px] text-muted-foreground">Anyone who can message the bot gets answers from the chosen notebooks. Secrets are encrypted and never shown again.</p>
           <div className="flex justify-end gap-2">
@@ -223,7 +191,7 @@ export function IntegrationsPanel({ workspaceId }: { workspaceId: string }) {
           ))}
           {integrations.length === 0 && (
             <p className="flex w-full items-center gap-1.5 text-[11px] text-muted-foreground">
-              <MessageSquareShare className="size-3.5" /> Let your team ask questions from Slack or Teams.
+              <MessageSquareShare className="size-3.5" /> Let your team ask questions from Slack.
             </p>
           )}
         </div>

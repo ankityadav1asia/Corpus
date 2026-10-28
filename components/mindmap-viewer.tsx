@@ -304,7 +304,7 @@ export function MindMapViewer({ map, onAsk, onOpenSource }: MindMapViewerProps) 
   return (
     <div className="grid h-full min-h-[480px] gap-3 lg:grid-cols-[minmax(0,1fr)_260px]">
       <div className="relative min-h-[420px] overflow-hidden rounded-2xl border border-border/60" style={{ background: palette.canvas }}>
-        <div className="absolute left-3 top-3 z-10 flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 p-1 shadow-sm backdrop-blur">
+        <div className="absolute left-3 top-3 z-10 flex items-center gap-1 rounded-xl border border-border/60 bg-card/90 p-1">
           <ToolButton label="Zoom in" onClick={() => zoom(1.2)}>
             <Plus className="size-3.5" />
           </ToolButton>
@@ -464,12 +464,12 @@ export function MindMapViewer({ map, onAsk, onOpenSource }: MindMapViewerProps) 
             </g>
           </svg>
         </div>
-        <p className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-muted-foreground">Drag to move · scroll to zoom · click a topic to open it</p>
+        <p className="pointer-events-none absolute bottom-2 right-3 text-[10px] text-muted-foreground">Drag to move, scroll to zoom, click a topic to open it</p>
       </div>
 
       <aside className="panel flex min-h-0 flex-col gap-3 overflow-y-auto p-4">
-        <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">{selected.path.slice(0, -1).join(' › ') || 'Main topic'}</p>
-        <h4 className="font-display text-base font-semibold leading-snug">{selected.node.label}</h4>
+        <p className="text-[10px] font-medium text-muted-foreground">{selected.path.slice(0, -1).join(' › ') || 'Main topic'}</p>
+        <h4 className="font-display text-base font-medium leading-snug">{selected.node.label}</h4>
         {selected.node.summary ? (
           <p className="text-xs leading-relaxed text-foreground/85">{selected.node.summary}</p>
         ) : (
@@ -477,7 +477,7 @@ export function MindMapViewer({ map, onAsk, onOpenSource }: MindMapViewerProps) 
         )}
         {selectedSources.length > 0 && (
           <div className="space-y-1">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">From</p>
+            <p className="text-[10px] font-medium text-muted-foreground">From</p>
             {selectedSources.map((source) => (
               <button
                 key={source!.documentId}
@@ -494,7 +494,7 @@ export function MindMapViewer({ map, onAsk, onOpenSource }: MindMapViewerProps) 
         <button
           type="button"
           onClick={() => onAsk(`Explain "${selected.path.join(' › ')}" in detail using my sources.`)}
-          className="mt-auto flex items-center justify-center gap-2 rounded-xl bg-brand-gradient px-3 py-2 text-xs font-semibold text-white shadow-md transition-transform hover:scale-[1.02] active:scale-95"
+          className="mt-auto flex h-9 items-center justify-center gap-2 rounded-md border border-primary bg-primary px-3 text-[13px] font-medium text-primary-foreground transition-colors duration-micro hover:bg-primary/90"
         >
           <MessageSquareText className="size-3.5" /> Ask about this in chat
         </button>

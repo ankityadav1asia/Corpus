@@ -87,7 +87,7 @@ function CartesianChart({ chart }: { chart: ChartSpec }) {
                   fill={COLORS[s % COLORS.length]}
                   className="transition-opacity hover:opacity-80"
                 >
-                  <title>{`${series.name ? `${series.name} · ` : ''}${chart.labels[index]}: ${formatChartValue(value, chart.unit)}`}</title>
+                  <title>{`${series.name ? `${series.name}, ` : ''}${chart.labels[index]}: ${formatChartValue(value, chart.unit)}`}</title>
                 </rect>
               )
             })
@@ -108,7 +108,7 @@ function CartesianChart({ chart }: { chart: ChartSpec }) {
                 {points.map((point, index) =>
                   point ? (
                     <circle key={index} cx={point[0]} cy={point[1]} r={3.5} fill={color}>
-                      <title>{`${series.name ? `${series.name} · ` : ''}${chart.labels[index]}: ${formatChartValue(series.data[index]!, chart.unit)}`}</title>
+                      <title>{`${series.name ? `${series.name}, ` : ''}${chart.labels[index]}: ${formatChartValue(series.data[index]!, chart.unit)}`}</title>
                     </circle>
                   ) : null,
                 )}

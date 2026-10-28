@@ -6,7 +6,6 @@ export const JOB_TYPES = [
   'run_benchmark',
   'generate_report',
   'ingest_document',
-  'generate_image',
   'read_media',
   'reembed_workspace',
   'generate_audio',
@@ -26,7 +25,6 @@ export const JOB_ATTEMPTS: Record<JobType, number> = {
   generate_report: 4,
   // Indexing resumes where it stopped, so extra attempts only cost time, never duplicate work.
   ingest_document: 6,
-  generate_image: 3,
   // OCR and speech steps are stored as they finish, so retries resume too.
   read_media: 5,
   reembed_workspace: 6,

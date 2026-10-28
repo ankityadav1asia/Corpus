@@ -49,7 +49,7 @@ export function PublicLinksPanel({ workspaceId }: { workspaceId: string }) {
               </p>
             )}
             <p className="flex items-center gap-1 truncate text-[10px] text-muted-foreground">
-              <Eye className="size-3" /> {plural(link.viewCount, 'view')} · {link.createdByEmail ?? 'former member'} · {timeAgo(link.createdAt)}
+              <Eye className="size-3" /> {plural(link.viewCount, 'view')}, {link.createdByEmail ?? 'former member'}, {timeAgo(link.createdAt)}
             </p>
           </div>
           <button

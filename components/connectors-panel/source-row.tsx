@@ -44,7 +44,7 @@ export function SourceRow({ source, onChanged }: { source: ConnectorSourceSummar
               ? (source.progress ?? 'Waiting to sync')
               : source.status === 'error'
                 ? 'Sync failed'
-                : `${plural(source.itemCount, 'item')} · ${source.lastSyncedAt ? `synced ${timeAgo(source.lastSyncedAt)}` : 'not synced yet'}${source.autoSync ? ` · ${INTERVALS.find((option) => option.hours === source.syncIntervalHours)?.label.toLowerCase() ?? `every ${source.syncIntervalHours} h`}` : ' · manual'}`}
+                : `${plural(source.itemCount, 'item')}, ${source.lastSyncedAt ? `synced ${timeAgo(source.lastSyncedAt)}` : 'not synced yet'}${source.autoSync ? `, ${INTERVALS.find((option) => option.hours === source.syncIntervalHours)?.label.toLowerCase() ?? `every ${source.syncIntervalHours} h`}` : ', manual'}`}
           </p>
         </div>
         {busy ? (
