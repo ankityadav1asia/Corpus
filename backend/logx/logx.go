@@ -50,8 +50,14 @@ func emit(level, message string, fields Fields) {
 func Info(message string, fields Fields) { emit("info", message, fields) }
 func Warn(message string, fields Fields) { emit("warn", message, fields) }
 
+// Report also receives logged errors (Sentry, set by backend/monitoring when it is configured).
+var Report func(err error, message string, fields Fields)
+
 // Error logs an error under "error" with its message (no stack, no secrets).
 func Error(message string, err error, fields Fields) {
+	if Report != nil && err != nil {
+		Report(err, message, fields)
+	}
 	merged := Fields{}
 	for key, value := range fields {
 		merged[key] = value

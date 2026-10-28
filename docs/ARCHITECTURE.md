@@ -528,6 +528,18 @@ Production runs on Vercel (docs/DEPLOYMENT.md): production builds apply the migr
 responses, and Vercel Cron calls `GET /api/jobs/run` with `Authorization: Bearer $CRON_SECRET` so queued
 work also progresses when nobody is using the app. Rotating `AUTH_SECRET`: docs/DEPLOYMENT.md.
 
+**AI usage.** Every model call records its tokens in `app.ai_usage` (model, generate or embed, tokens in
+and out), billed to the workspace, member and feature it served: request handlers set the scope
+(`withUsageScope` in `server/http/route.ts`, `ai.WithScope` in the Go chat routes) and the job runner
+bills a job to the owner of its item (`server/repositories/usage.ts`). Gemini embeddings and some
+open-model servers do not count tokens; those calls are estimated at four characters per token and
+marked. Admins see it under Analytics (`GET /api/usage`). Rows older than 400 days are purged by the cron.
+
+**Errors.** With a Sentry DSN, errors logged with `log.error` / `logx.Error`, Next.js request errors and
+Go panics are reported (`instrumentation.ts`, `backend/monitoring`); the browser SDK loads only then and
+reports through `/api/monitoring`, so the CSP keeps `connect-src 'self'`. Collection of users, cookies,
+headers, bodies, query strings, stack-frame variables and model inputs is switched off (`lib/sentry.ts`).
+
 **Local development without a database server:** `POSTGRES_URL=pglite:./.data/pglite` runs Postgres +
 pgvector in-process (the engine the tests use). Run `npm run db:migrate` with the same value first.
 One process at a time can open the directory; not for production.

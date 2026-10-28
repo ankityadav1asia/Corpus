@@ -52,8 +52,9 @@ module.exports = {
       rules: { complexity: ['error', 30] },
     },
     {
-      // Edge middleware cannot import server/env.ts; scripts and tests set up their own environment.
-      files: ['middleware.ts', 'next.config.mjs', 'server/env.ts', 'scripts/**', 'tests/**'],
+      // Edge middleware cannot import server/env.ts; scripts and tests set up their own environment;
+      // browser code reads NEXT_PUBLIC_ values that the build writes into the page.
+      files: ['middleware.ts', 'next.config.mjs', 'server/env.ts', 'scripts/**', 'tests/**', 'instrumentation-client.ts'],
       rules: { 'no-restricted-syntax': 'off' },
     },
     {

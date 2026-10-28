@@ -41,6 +41,10 @@ const envSchema = z.object({
   COHERE_API_KEY: optionalString,
   COHERE_RERANK_MODEL: optionalString,
   CRON_SECRET: optionalString,
+  /** Sentry error tracking: the server's DSN, and the browser's (built into the page; also used by the server when SENTRY_DSN is unset). */
+  SENTRY_DSN: optionalString,
+  NEXT_PUBLIC_SENTRY_DSN: optionalString,
+  VERCEL_GIT_COMMIT_SHA: optionalString,
   /** A team workspace that demo visitors can look around in (read-only); unset = no demo. */
   DEMO_WORKSPACE_ID: optionalString,
   /** Questions all demo visitors together may ask per day (protects the model quota). */
@@ -467,6 +471,14 @@ export function getDemoConfig(): DemoConfig | null {
 }
 
 /** Shared secret for the /api/jobs/run endpoint (e.g. a scheduled cron). Disabled when unset. */
+/** Error tracking, or null when no Sentry DSN is set. browserDsn is the one reports from pages may name. */
+export function getSentryConfig(): { dsn: string; browserDsn: string | null; environment: string; release: string | null } | null {
+  const env = raw()
+  const dsn = env.SENTRY_DSN ?? env.NEXT_PUBLIC_SENTRY_DSN
+  if (!dsn) return null
+  return { dsn, browserDsn: env.NEXT_PUBLIC_SENTRY_DSN ?? null, environment: env.VERCEL_ENV ?? env.NODE_ENV ?? 'development', release: env.VERCEL_GIT_COMMIT_SHA ?? null }
+}
+
 export function getCronSecret(): string | null {
   const secret = raw().CRON_SECRET
   return secret && secret.length >= 16 ? secret : null

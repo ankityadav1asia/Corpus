@@ -14,6 +14,7 @@ import (
 	"github.com/ankityadav1asia/Corpus/backend/config"
 	"github.com/ankityadav1asia/Corpus/backend/httpx"
 	"github.com/ankityadav1asia/Corpus/backend/logx"
+	"github.com/ankityadav1asia/Corpus/backend/monitoring"
 	"github.com/ankityadav1asia/Corpus/backend/store"
 )
 
@@ -25,6 +26,7 @@ var (
 
 // build runs once per function instance; the connection pool is reused by later requests.
 func build() {
+	monitoring.FromEnv()
 	cfg := config.Load()
 	if problems := cfg.StartupProblems(); len(problems) > 0 {
 		logx.Warn("Go API configuration is incomplete", logx.Fields{"problems": strings.Join(problems, " ")})
@@ -41,7 +43,7 @@ func build() {
 		}
 		db = opened
 	}
-	handler = api.New(cfg, db).Handler()
+	handler = monitoring.Recover(api.New(cfg, db).Handler())
 }
 
 // Handler is the function's entry point.

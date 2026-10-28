@@ -326,6 +326,8 @@ get 404, and missing roles get 403.
 | `/api/evaluations`, `/api/evaluations/cases`, `/api/evaluations/runs` | GET, POST, DELETE | Quality summary, benchmark questions, benchmark runs (202) |
 | `/api/stats`, `/api/analytics` | GET | Schema/feature status and totals; usage and latency (`?scope=workspace` for admins; analytics in Go) |
 | `/api/jobs/run` | GET, POST | Process queued jobs (Bearer `CRON_SECRET`; 404 when unset) |
+| `/api/usage` | GET | Workspace usage for admins: AI tokens by day, feature, model and member; questions; storage (`?days=1…365`, Go) |
+| `/api/monitoring` | POST | Browser error reports, forwarded to the configured Sentry project only (404 without `NEXT_PUBLIC_SENTRY_DSN`) |
 | `/api/jobs/nudge` | POST | Start a job-runner pass after the response (signed in; the browser calls it while a report or mind map queued by the Go API is being written) |
 | `/api/health` | GET | Public liveness check (Go) |
 
@@ -351,6 +353,7 @@ Every variable is declared and validated in [server/env.ts](server/env.ts). The 
   - Open-source: set `CHAT_PROVIDER`, `EMBEDDING_PROVIDER`, `VISION_PROVIDER`, `TRANSCRIPTION_PROVIDER` or `TTS_PROVIDER` to `openai-compatible` and fill in `OPENAI_COMPATIBLE_*`.
   - OCR: `OCR_ENGINE` (`tesseract`, `vision` or `none`) and `OCR_LANGUAGES`.
 - **Re-ranking and jobs:** `RERANKER` (`auto`, `llm`, `cohere` or `none`) with `COHERE_API_KEY`. `CRON_SECRET` enables `/api/jobs/run` (Vercel Cron sends it).
+- **Error tracking (optional):** `NEXT_PUBLIC_SENTRY_DSN` (browser, written into the page at build time; the server and the Go API use it too) or `SENTRY_DSN` (server and Go API only). Unset = off. No cookies, headers, bodies, users or local variables are sent.
 - **Public demo:** `DEMO_WORKSPACE_ID` opens one team workspace, read-only, to visitors of `/demo` (guest accounts that last a day); `DEMO_DAILY_QUESTIONS` caps their questions per day ([docs/DEPLOYMENT.md](docs/DEPLOYMENT.md#public-demo-for-recruiters-and-visitors)).
 - **Per workspace:** retrieval, guardrail and evaluation settings live in Workspace settings in the app.
 - **Chat apps**
