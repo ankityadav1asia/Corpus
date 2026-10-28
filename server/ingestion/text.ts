@@ -80,7 +80,11 @@ export function parseDelimited(text: string, delimiter: string): string[][] {
 
 /** Tables become one "column: value" line per row so each chunk is self-describing. */
 export function delimitedToText(text: string, delimiter: string): string {
-  const rows = parseDelimited(text.replace(/^﻿/, ''), delimiter)
+  return rowsToText(parseDelimited(text.replace(/^﻿/, ''), delimiter))
+}
+
+/** A table as text for retrieval: the first row names the columns, each row lists "column: value" pairs. */
+export function rowsToText(rows: string[][]): string {
   const [header, ...body] = rows
   if (!header) return ''
   const columns = header.map((name, index) => name.trim() || `column_${index + 1}`)

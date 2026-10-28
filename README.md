@@ -163,7 +163,7 @@ More detail: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 
 | Technique | Details |
 |---|---|
-| Text extraction | PDF text layer (pdf-parse), HTML (cheerio), Markdown, CSV, JSON; files identified by their bytes, not their names |
+| Text extraction | PDF text layer (pdf-parse), Word / PowerPoint / Excel (DOCX, PPTX, XLSX: read with Node's zlib, no extra library; size-capped against ZIP bombs), HTML (cheerio), Markdown, CSV, JSON; files identified by their bytes, not their names |
 | OCR | Tesseract.js (WebAssembly, English data bundled) page by page, or a vision model for handwriting and complex layouts |
 | Transcription | Timestamped transcripts of audio and video (Gemini, or an OpenAI-compatible Whisper server) |
 | Chunking | Recursive splitting with overlap |

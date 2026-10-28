@@ -49,7 +49,7 @@ export const LIMITS = {
   ocrPages: 300,
 } as const
 
-export const TEXT_FILE_EXTENSIONS = ['.txt', '.md', '.markdown', '.csv', '.tsv', '.json', '.html', '.htm', '.xml', '.yaml', '.yml', '.log', '.pdf'] as const
+export const TEXT_FILE_EXTENSIONS = ['.txt', '.md', '.markdown', '.csv', '.tsv', '.json', '.html', '.htm', '.xml', '.yaml', '.yml', '.log', '.pdf', '.docx', '.pptx', '.xlsx'] as const
 /** Read with OCR + a vision model. */
 export const IMAGE_FILE_EXTENSIONS = ['.png', '.jpg', '.jpeg', '.webp'] as const
 /** Transcribed. */
